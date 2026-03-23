@@ -201,8 +201,8 @@
       <div class="card-body">
         <h2 class="h5 mb-3">Metadata</h2>
         <dl class="row mb-0">
-          <dt class="col-sm-4">Created</dt><dd class="col-sm-8">{{ format_time(ticket.created_at) }}</dd>
-          <dt class="col-sm-4">Updated</dt><dd class="col-sm-8">{{ format_time(ticket.updated_at, relative=True) }}</dd>
+          <dt class="col-sm-4">Created</dt><dd class="col-sm-8">{{ format_time(ticket.created_at) | safe }}</dd>
+          <dt class="col-sm-4">Updated</dt><dd class="col-sm-8">{{ format_time(ticket.updated_at, relative=True) | safe }}</dd>
         </dl>
       </div>
     </div>
