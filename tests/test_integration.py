@@ -216,6 +216,31 @@ class TestCliIntegration:
             assert new_result.returncode == 0
             assert "EMH-1" in new_result.stdout
 
+    @mock.patch("nira_app.cli.subprocess.run")
+    def test_cli_start_command(self, mock_run, temp_root):
+        mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
+
+        assert run_cli(["init", "--project-key", "EMH"], cwd=temp_root).returncode == 0
+        assert run_cli(["new", "Fix the awful login bug", "--type", "bug"], cwd=temp_root).returncode == 0
+        
+        # Test full start with mocked git checkout
+        start_result = run_cli(["start", "EMH-1"], cwd=temp_root)
+        assert start_result.returncode == 0
+        assert "in_progress" in start_result.stdout
+        assert "bugfix/EMH-1-fix-the-awful-login-bug" in start_result.stdout
+
+        show_result = run_cli(["show", "EMH-1"], cwd=temp_root)
+        assert "in_progress" in show_result.stdout
+        
+        # Call start again to hit the "already in progress" branch
+        start_again_result = run_cli(["start", "EMH-1"], cwd=temp_root)
+        assert "already" in start_again_result.stdout
+        
+        # Test custom prefix
+        assert run_cli(["new", "Some feature", "--type", "task"], cwd=temp_root).returncode == 0
+        custom_result = run_cli(["start", "EMH-2", "--type", "custom"], cwd=temp_root)
+        assert "custom/EMH-2-some-feature" in custom_result.stdout
+
     def test_cli_update_link_close_and_reopen(self, temp_root):
         assert run_cli(["init", "--project-key", "EMH"], cwd=temp_root).returncode == 0
         assert run_cli(["new", "First ticket", "--source", "user"], cwd=temp_root).returncode == 0
