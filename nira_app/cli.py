@@ -34,7 +34,6 @@ console = Console(force_terminal=False if _is_test else None, no_color=True if _
 stderr_console = Console(stderr=True, force_terminal=False if _is_test else None, no_color=True if _is_test else None)
 
 
-
 def resolve_store(root_arg: Optional[Path], *, create: bool) -> NiraStore:
     if root_arg:
         root: Path | None = root_arg.resolve()
