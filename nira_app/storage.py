@@ -4,7 +4,10 @@ import re
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Final, Iterable, Iterator, Any
+from typing import Any, Final, Iterable, Iterator
+
+from alembic import command
+from alembic.config import Config
 from sqlalchemy import (
     CheckConstraint,
     ForeignKey,
@@ -16,6 +19,7 @@ from sqlalchemy import (
     create_engine,
     delete,
     func,
+    pool,
     select,
     text,
     update,
@@ -36,8 +40,11 @@ LIST_SORT_VALUES = {"updated", "ticket_id", "priority", "status"}
 LIST_DIRECTION_VALUES = {"asc", "desc"}
 PROJECT_WORD_RE = re.compile(r"[A-Z]+(?=[A-Z][a-z]|\d|$)|[A-Z]?[a-z]+|\d+")
 TICKET_ID_RE = re.compile(r"^([A-Za-z][A-Za-z0-9_-]*)-(\d+)$")
+SOURCE_ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = 2
 DEFAULT_PROJECT_SETTING = "default_project"
+
+_MIGRATIONS_RUN = False
 
 
 class _UnsetType:
@@ -187,33 +194,61 @@ class NiraStore:
         self.root = root.resolve()
         self.state_dir = self.root / ".nira"
         self.db_path = self.state_dir / "nira.db"
-        self.engine = create_engine(f"sqlite:///{self.db_path}")
+        self.engine = create_engine(
+            f"sqlite:///{self.db_path}",
+            connect_args={"timeout": 30},
+            poolclass=pool.StaticPool,
+        )
         self.Session = sessionmaker(bind=self.engine)
+        self.alembic_cfg = Config(str(SOURCE_ROOT / "alembic.ini"))
+        self.alembic_cfg.set_main_option("script_location", str(SOURCE_ROOT / "nira_app" / "migrations" / "alembic"))
 
     def initialize(self, default_project: str | None = None) -> None:
         self.state_dir.mkdir(parents=True, exist_ok=True)
         self.ensure_schema(default_project=default_project)
 
     def ensure_schema(self, default_project: str | None = None) -> None:
+        global _MIGRATIONS_RUN
         default_key = (
             normalize_project(default_project) if default_project else derive_default_project_key(self.root.name)
         )
+        
         with self.connect() as connection:
-            if not self.table_exists(connection, "settings"):
-                self.create_schema(connection)
-            elif self.needs_legacy_migration(connection):
+            if self.needs_legacy_migration(connection):
                 self.migrate_legacy_schema(connection)
-            else:
-                self.create_schema(connection)
+                self.run_migrations(stamp_only=True)
+            elif not self.table_exists(connection, "settings"):
+                # Use SQLAlchemy to create initial schema
+                Base.metadata.create_all(self.engine)
+                self.run_migrations(stamp_only=True)
 
+        # Run alembic migrations (outside of connect context to avoid locking)
+        if not _MIGRATIONS_RUN:
+            self.run_migrations()
+            _MIGRATIONS_RUN = True
+
+        with self.connect() as connection:
             self.ensure_default_project(
                 connection,
                 default_key,
                 force=default_project is not None,
             )
-            if self.table_exists(connection, "projects"):
-                connection.execute("DROP TABLE projects")
+            # Ensure FTS is up to date
+            if not self.table_exists(connection, "tickets_search"):
+                self.create_fts_schema(connection)
+                self.populate_fts_index(connection)
+
             connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+
+    def run_migrations(self, *, stamp_only: bool = False) -> None:
+        # Alembic needs a SQLAlchemy connection
+        with self.engine.begin() as sa_conn:
+            self.alembic_cfg.attributes["connection"] = sa_conn
+            if stamp_only:
+                command.stamp(self.alembic_cfg, "head")
+            else:
+                command.upgrade(self.alembic_cfg, "head")
+        self.engine.dispose()
 
     @contextmanager
     def connect(self) -> Iterator[sqlite3.Connection]:
@@ -266,52 +301,6 @@ class NiraStore:
             return True
         link_columns = self.column_names(connection, "links")
         return "ticket_a" in link_columns or "ticket_b" in link_columns
-
-    def create_schema(self, connection: sqlite3.Connection) -> None:
-        connection.executescript(
-            """
-            CREATE TABLE IF NOT EXISTS settings (
-                key TEXT PRIMARY KEY,
-                value TEXT NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS tickets (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                number INTEGER NOT NULL UNIQUE,
-                title TEXT NOT NULL,
-                status TEXT NOT NULL,
-                type TEXT NOT NULL,
-                priority TEXT NOT NULL,
-                source TEXT NOT NULL,
-                resolution_reason TEXT NOT NULL DEFAULT '',
-                body_md TEXT NOT NULL DEFAULT '',
-                resolution_md TEXT NOT NULL DEFAULT '',
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS comments (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                ticket_id INTEGER NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
-                body_md TEXT NOT NULL,
-                created_at TEXT NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS links (
-                ticket_a_id INTEGER NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
-                ticket_b_id INTEGER NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
-                created_at TEXT NOT NULL,
-                PRIMARY KEY(ticket_a_id, ticket_b_id),
-                CHECK(ticket_a_id < ticket_b_id)
-            );
-
-            CREATE INDEX IF NOT EXISTS comments_ticket_id_idx ON comments(ticket_id);
-            CREATE INDEX IF NOT EXISTS links_ticket_b_idx ON links(ticket_b_id);
-            """
-        )
-        if not self.table_exists(connection, "tickets_search"):
-            self.create_fts_schema(connection)
-            self.populate_fts_index(connection)
 
     def create_fts_schema(self, connection: sqlite3.Connection) -> None:
         connection.executescript(
