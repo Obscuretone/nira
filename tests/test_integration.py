@@ -600,8 +600,8 @@ class TestHttpIntegration:
         assert "Nira" in body
         assert 'href="/assets/nira.png"' in body
         assert ">NIRA</span>" in body
-        assert 'href="/">Ticket List</a>' in body
-        assert 'href="/tickets/new">Create Ticket</a>' in body
+        assert 'href="/" title=' in body
+        assert 'href="/tickets/new" title=' in body
         assert 'href="/settings">Settings</a>' in body
         assert 'name="project"' not in body
         assert "not closed" in body
@@ -651,7 +651,7 @@ class TestHttpIntegration:
         assert status == 200
         assert "First HTTP ticket" in detail
         assert 'href="/"' in detail
-        assert 'href="/tickets/new">Create Ticket</a>' in detail
+        assert 'href="/tickets/new" title=' in detail
         assert 'href="/settings">Settings</a>' in detail
         assert "Created through the browser." in detail
         assert "badge" in detail

@@ -1,8 +1,8 @@
-{% macro rich_editor(field_name, value="", height_px=380) %}
+{% macro rich_editor(field_name, value="", height_px=380, field_id=None) %}
 <div class="rich-editor-shell" data-editor-height="{{ height_px }}px" data-rich-editor="{{ field_name }}">
   <textarea
     class="rich-editor-source form-control font-monospace"
-    id="{{ field_name }}"
+    id="{{ field_id or field_name }}"
     name="{{ field_name }}"
   >{{ value }}</textarea>
   <div class="rich-editor-target d-none"></div>
