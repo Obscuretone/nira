@@ -247,10 +247,10 @@ source .venv/bin/activate
 pip install -e .[dev]
 ```
 
-Run the full integration suite:
+Run the full test suite:
 
 ```bash
-python3 -m unittest discover -s tests -v
+pytest
 ```
 
 This runs both the focused unit tests in `tests/test_unit.py` and the end-to-end integration coverage in `tests/test_integration.py`.
