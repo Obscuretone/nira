@@ -208,7 +208,12 @@ class NiraWebApp:
 
     def render(self, template_name: str, **context: Any) -> str:
         template = self.jinja_env.get_template(template_name)
-        return template.render(**context)
+        settings = self.store.get_settings()
+        full_context = {
+            "current_theme": settings.get("theme", "auto"),
+            **context,
+        }
+        return template.render(**full_context)
 
     def _register_routes(self):
         # Asset delivery
@@ -355,6 +360,7 @@ class NiraWebApp:
             "settings_page.html",
             saved=query.get("saved") == "1",
             default_project=settings["default_project"],
+            theme=settings["theme"],
             ticket_count=settings["ticket_count"],
         )
         return Response("200 OK", body)
@@ -382,7 +388,19 @@ class NiraWebApp:
         return self.redirect(f"/tickets/{ticket['id']}")
 
     def save_settings_action(self, query: dict[str, str], form: dict[str, str]) -> Response:
-        self.store.rename_default_project(form.get("default_project", ""))
+        updates = {}
+        if "default_project" in form:
+            updates["default_project"] = form["default_project"]
+        if "theme" in form:
+            updates["theme"] = form["theme"]
+
+        if updates:
+            self.store.update_settings(updates)
+
+        # If it's an HTMX request from the theme toggle, we don't need a full redirect
+        if "HX-Request" in query or "theme" in form and len(form) == 1:
+            return Response("204 No Content", "")
+
         return self.redirect("/settings?saved=1")
 
     def preview_markdown_action(self, query: dict[str, str], form: dict[str, str]) -> Response:

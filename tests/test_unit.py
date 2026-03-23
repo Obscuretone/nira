@@ -132,3 +132,25 @@ def test_store_links(temp_root):
 def test_entrypoint_exists() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     assert (repo_root / "pyproject.toml").exists()
+
+
+def test_store_settings(temp_root: Path) -> None:
+    store = NiraStore(temp_root)
+    store.initialize(default_project="NIRA")
+
+    settings = store.get_settings()
+    assert settings["default_project"] == "NIRA"
+    assert settings["theme"] == "auto"
+
+    store.update_settings({"theme": "dark"})
+    settings = store.get_settings()
+    assert settings["theme"] == "dark"
+
+    store.update_settings({"default_project": "PROJ", "theme": "light"})
+    settings = store.get_settings()
+    assert settings["default_project"] == "PROJ"
+    assert settings["theme"] == "light"
+
+    # Test invalid theme fallback
+    store.update_settings({"theme": "invalid"})
+    assert store.get_settings()["theme"] == "auto"

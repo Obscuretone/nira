@@ -44,6 +44,7 @@ TICKET_ID_RE = re.compile(r"^([A-Za-z][A-Za-z0-9_-]*)-(\d+)$")
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = 2
 DEFAULT_PROJECT_SETTING = "default_project"
+THEME_SETTING = "theme"
 
 _MIGRATIONS_RUN = False
 
@@ -636,11 +637,35 @@ class NiraStore:
     def get_settings(self) -> dict[str, object]:
         with self.session() as session:
             current_project = self.current_project(session)
+            theme_row = session.get(Setting, THEME_SETTING)
+            theme = theme_row.value if theme_row else "auto"
             ticket_count = session.query(func.count(Ticket.id)).scalar() or 0
         return {
             "default_project": current_project,
+            "theme": theme,
             "ticket_count": ticket_count,
         }
+
+    def update_settings(self, settings: dict[str, str]) -> None:
+        with self.session() as session:
+            if "default_project" in settings:
+                new_project = normalize_project(settings["default_project"])
+                stmt = update(Setting).where(Setting.key == DEFAULT_PROJECT_SETTING).values(value=new_project)
+                session.execute(stmt)
+
+            if "theme" in settings:
+                theme = settings["theme"]
+                if theme not in ("auto", "light", "dark"):
+                    theme = "auto"
+
+                # Check if it exists first since we use session.get
+                theme_row = session.get(Setting, THEME_SETTING)
+                if theme_row:
+                    theme_row.value = theme
+                else:
+                    session.add(Setting(key=THEME_SETTING, value=theme))
+
+            session.commit()
 
     def rename_default_project(self, new_project: str) -> dict[str, object]:
         new_key = normalize_project(new_project)

@@ -37,6 +37,20 @@
               required
             >
           </div>
+
+          <h2 class="h5 mb-3 mt-4">Appearance</h2>
+          <p class="text-body-secondary">
+            Choose your preferred color theme for the Nira interface.
+          </p>
+          <div class="mb-3">
+            <label class="form-label" for="theme">Color Theme</label>
+            <select class="form-select" id="theme" name="theme">
+              <option value="auto" {% if theme == 'auto' %}selected{% endif %}>Auto (Follow System)</option>
+              <option value="light" {% if theme == 'light' %}selected{% endif %}>Light</option>
+              <option value="dark" {% if theme == 'dark' %}selected{% endif %}>Dark</option>
+            </select>
+          </div>
+
           <button class="btn btn-primary" type="submit">Save Settings</button>
         </form>
       </div>

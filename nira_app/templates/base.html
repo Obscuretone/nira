@@ -106,13 +106,12 @@
       }
     </style>
     <script>
-      // Load theme early to prevent flash of wrong theme
-      const storedTheme = localStorage.getItem('theme');
-      if (storedTheme) {
-        document.documentElement.setAttribute('data-bs-theme', storedTheme);
-      } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        document.documentElement.setAttribute('data-bs-theme', 'dark');
-      }
+      // Load theme early from server-side preference
+      (function() {
+        const theme = "{{ current_theme }}";
+        const isDark = (theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches) || theme === 'dark';
+        document.documentElement.setAttribute('data-bs-theme', isDark ? 'dark' : 'light');
+      })();
     </script>
   </head>
   <body>
@@ -150,17 +149,17 @@
             </button>
             <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="bd-theme-text">
               <li>
-                <button type="button" class="dropdown-item d-flex align-items-center" data-bs-theme-value="light" aria-pressed="false">
+                <button type="button" class="dropdown-item d-flex align-items-center" data-bs-theme-value="light" aria-pressed="false" hx-post="/settings" hx-vals='{"theme": "light"}' hx-swap="none">
                   Light
                 </button>
               </li>
               <li>
-                <button type="button" class="dropdown-item d-flex align-items-center" data-bs-theme-value="dark" aria-pressed="false">
+                <button type="button" class="dropdown-item d-flex align-items-center" data-bs-theme-value="dark" aria-pressed="false" hx-post="/settings" hx-vals='{"theme": "dark"}' hx-swap="none">
                   Dark
                 </button>
               </li>
               <li>
-                <button type="button" class="dropdown-item d-flex align-items-center active" data-bs-theme-value="auto" aria-pressed="true">
+                <button type="button" class="dropdown-item d-flex align-items-center" data-bs-theme-value="auto" aria-pressed="true" hx-post="/settings" hx-vals='{"theme": "auto"}' hx-swap="none">
                   Auto
                 </button>
               </li>
@@ -202,14 +201,6 @@
         document.querySelectorAll(".rich-editor-shell").forEach((shell) => {
            if (shell._editorInstance && typeof shell._editorInstance.changeTheme === 'function') {
                shell._editorInstance.changeTheme(isDark ? 'dark' : 'light');
-           } else if (shell._editorInstance) {
-               // Fallback if changeTheme isn't fully supported without re-init
-               const target = shell.querySelector('.rich-editor-target');
-               if (isDark) {
-                   target.querySelector('.toastui-editor-defaultUI')?.classList.add('toastui-editor-dark');
-               } else {
-                   target.querySelector('.toastui-editor-defaultUI')?.classList.remove('toastui-editor-dark');
-               }
            }
         });
       }
@@ -222,31 +213,34 @@
           element.classList.remove('active')
           element.setAttribute('aria-pressed', 'false')
         })
-        btnToActive.classList.add('active')
-        btnToActive.setAttribute('aria-pressed', 'true')
+        if (btnToActive) {
+          btnToActive.classList.add('active')
+          btnToActive.setAttribute('aria-pressed', 'true')
+        }
         if (focus) {
           themeSwitcher.focus()
         }
       }
 
       window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-        const storedTheme = getStoredTheme()
-        if (storedTheme !== 'light' && storedTheme !== 'dark') {
-          setTheme(getPreferredTheme())
+        const currentTheme = document.querySelector('[data-bs-theme-value].active')?.dataset.bsThemeValue || 'auto';
+        if (currentTheme === 'auto') {
+          setTheme('auto')
         }
       })
 
       document.querySelectorAll('[data-bs-theme-value]').forEach(toggle => {
         toggle.addEventListener('click', () => {
           const theme = toggle.getAttribute('data-bs-theme-value')
-          setStoredTheme(theme)
           setTheme(theme)
           showActiveTheme(theme, true)
         })
       })
 
-      setTheme(getPreferredTheme())
-      showActiveTheme(getStoredTheme() || 'auto')
+      // Use the theme provided by the server
+      const initialTheme = "{{ current_theme }}";
+      setTheme(initialTheme)
+      showActiveTheme(initialTheme)
 
       document.querySelectorAll(".rich-editor-shell").forEach((shell) => {
         const source = shell.querySelector(".rich-editor-source");
