@@ -6,6 +6,35 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Final, Iterable, Iterator, Optional, TypedDict, cast
 
+from alembic import command
+from alembic.config import Config
+from sqlalchemy import (
+    CheckConstraint,
+    ForeignKey,
+    Index,
+    Integer,
+    MetaData,
+    String,
+    Text,
+    case,
+    create_engine,
+    delete,
+    func,
+    pool,
+    select,
+    text,
+    update,
+)
+from sqlalchemy.orm import (
+    DeclarativeBase,
+    Mapped,
+    Session,
+    mapped_column,
+    relationship,
+    sessionmaker,
+)
+
+
 class TicketData(TypedDict):
     id: str
     db_id: int
@@ -27,11 +56,13 @@ class TicketData(TypedDict):
     created_at: str
     updated_at: str
 
+
 class CommentData(TypedDict):
     id: int
     ticket_id: int
     body_md: str
     created_at: str
+
 
 class HistoryData(TypedDict):
     ticket_id: str
@@ -40,12 +71,14 @@ class HistoryData(TypedDict):
     new_value: Optional[str]
     created_at: str
 
+
 class DashboardStats(TypedDict):
     status_counts: dict[str, int]
     status_points: dict[str, int]
     total_tickets: int
     total_points: int
     recent_history: list[HistoryData]
+
 
 class TicketDetails(TypedDict):
     ticket: TicketData
@@ -54,35 +87,6 @@ class TicketDetails(TypedDict):
     sub_tasks: list[TicketData]
     comments: list[CommentData]
     history: list[HistoryData]
-
-from alembic import command
-from alembic.config import Config
-from sqlalchemy import (
-    CheckConstraint,
-    ForeignKey,
-    Index,
-    Integer,
-    MetaData,
-    String,
-    Text,
-    case,
-    create_engine,
-    delete,
-    func,
-    pool,
-    select,
-    text,
-    update,
-)
-
-from sqlalchemy.orm import (
-    DeclarativeBase,
-    Mapped,
-    Session,
-    mapped_column,
-    relationship,
-    sessionmaker,
-)
 
 
 STATUS_VALUES = {"open", "in_progress", "closed"}
@@ -1029,11 +1033,7 @@ class NiraStore:
         with self.session() as session:
             current_project = self.current_project(session)
             ticket = self.resolve_ticket(session, ticket_id, project_key=current_project)
-            stmt = (
-                select(History)
-                .where(History.ticket_id == ticket.id)
-                .order_by(History.created_at.desc())
-            )
+            stmt = select(History).where(History.ticket_id == ticket.id).order_by(History.created_at.desc())
             history = session.execute(stmt).scalars().all()
             return [
                 cast(
