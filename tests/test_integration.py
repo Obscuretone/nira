@@ -772,6 +772,8 @@ class TestHttpIntegration:
         assert "Open" in body
         assert "In Progress" in body
         assert "Closed" in body
+
+    def test_asset_endpoint_serves_logo_png(self):
         status, headers, body = self.request("GET", "/assets/nira.png", decode=False)
         assert status == 200
         assert headers["Content-Type"] == "image/png"
