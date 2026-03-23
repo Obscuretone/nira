@@ -1,0 +1,7 @@
+{
+  "include": ["nira_app", "tests"],
+  "exclude": [".nira", ".venv", "**/__pycache__"],
+  "pythonVersion": "3.13",
+  "typeCheckingMode": "basic",
+  "reportMissingTypeStubs": false
+}

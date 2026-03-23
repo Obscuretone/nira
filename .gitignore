@@ -1,0 +1,7 @@
+.nira/
+.venv/
+.mypy_cache/
+.pyright/
+.pytest_cache/
+__pycache__/
+*.py[cod]
