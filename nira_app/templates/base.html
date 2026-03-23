@@ -98,6 +98,12 @@
         height: 1em;
         vertical-align: -0.125em;
       }
+      .kanban-card {
+        cursor: grab;
+      }
+      .kanban-card:active {
+        cursor: grabbing;
+      }
     </style>
     <script>
       // Load theme early to prevent flash of wrong theme
@@ -168,6 +174,7 @@
     <script src="{{ bootstrap_js }}" integrity="{{ bootstrap_js_integrity }}" crossorigin="anonymous"></script>
     <script src="{{ toast_ui_editor_js }}"></script>
     <script src="{{ htmx_js }}" integrity="{{ htmx_js_integrity }}" crossorigin="anonymous"></script>
+    <script src="{{ sortable_js }}"></script>
     <script>
       const statusSelectClasses = {
         open: "form-select form-select-lg fw-semibold border-secondary bg-secondary-subtle text-secondary-emphasis",
@@ -285,6 +292,28 @@
       document.querySelectorAll("[data-auto-submit]").forEach((input) => {
         input.addEventListener("change", () => {
           input.form?.requestSubmit();
+        });
+      });
+
+      // Kanban board drag and drop
+      document.querySelectorAll(".kanban-column").forEach((column) => {
+        if (!window.Sortable) return;
+        
+        new Sortable(column, {
+          group: "kanban",
+          animation: 150,
+          ghostClass: "bg-primary-subtle",
+          onEnd: (evt) => {
+            const ticketId = evt.item.dataset.ticketId;
+            const newStatus = evt.to.dataset.status;
+            if (evt.from !== evt.to) {
+              // Trigger HTMX request to update status
+              htmx.ajax('POST', `/tickets/${ticketId}/edit`, {
+                values: { status: newStatus },
+                target: 'body'
+              });
+            }
+          }
         });
       });
     </script>

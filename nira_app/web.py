@@ -32,6 +32,7 @@ TOAST_UI_EDITOR_DARK_CSS = "https://uicdn.toast.com/editor/3.2.2/theme/toastui-e
 TOAST_UI_EDITOR_JS = "https://uicdn.toast.com/editor/3.2.2/toastui-editor-all.min.js"
 HTMX_JS = "https://unpkg.com/htmx.org@1.9.10"
 HTMX_JS_INTEGRITY = "sha384-D1Kt99CQMDuVetoL1lrYwg5t+9QdHe7NLX/SoJYkXDFfX37iInKRy5xLSi8nO7UC"
+SORTABLE_JS = "https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"
 TEMPLATES_DIR = Path(__file__).with_name("templates")
 ASSETS_DIR = Path(__file__).with_name("assets")
 
@@ -182,6 +183,7 @@ class NiraWebApp:
             {
                 "htmx_js": HTMX_JS,
                 "htmx_js_integrity": HTMX_JS_INTEGRITY,
+                "sortable_js": SORTABLE_JS,
                 "bootstrap_css": BOOTSTRAP_CSS,
                 "bootstrap_css_integrity": BOOTSTRAP_CSS_INTEGRITY,
                 "bootstrap_js": BOOTSTRAP_JS,

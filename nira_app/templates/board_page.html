@@ -31,7 +31,7 @@
 </div>
 
 <div class="row gx-4">
-  {% macro board_column(title, tickets, border_class, header_class, next_status, next_label) %}
+  {% macro board_column(title, tickets, border_class, header_class, status_value, next_status, next_label) %}
   <div class="col-md-4">
     <div class="card bg-body-tertiary border-0 h-100 shadow-sm">
       <div class="card-header border-0 bg-transparent py-3 border-top border-3 {{ border_class }}">
@@ -40,9 +40,9 @@
           <span class="badge bg-secondary rounded-pill">{{ tickets|length }}</span>
         </h2>
       </div>
-      <div class="card-body p-2 d-flex flex-column gap-2" style="min-height: 50vh;">
+      <div class="card-body p-2 d-flex flex-column gap-2 kanban-column" style="min-height: 50vh;" data-status="{{ status_value }}">
         {% for ticket in tickets %}
-        <div class="card shadow-sm border-0">
+        <div class="card shadow-sm border-0 kanban-card" data-ticket-id="{{ ticket.id }}">
           <div class="card-body p-3">
             <div class="d-flex justify-content-between align-items-start mb-2">
               <a href="/tickets/{{ ticket.id }}" class="fw-bold link-body-emphasis text-decoration-none">{{ ticket.id }}</a>
@@ -88,8 +88,8 @@
   </div>
   {% endmacro %}
 
-  {{ board_column("Open", open_tickets, "border-secondary", "text-secondary", "in_progress", "Start") }}
-  {{ board_column("In Progress", in_progress_tickets, "border-primary", "text-primary", "closed", "Complete") }}
-  {{ board_column("Closed", closed_tickets, "border-success", "text-success", "open", "Reopen") }}
+  {{ board_column("Open", open_tickets, "border-secondary", "text-secondary", "open", "in_progress", "Start") }}
+  {{ board_column("In Progress", in_progress_tickets, "border-primary", "text-primary", "in_progress", "closed", "Complete") }}
+  {{ board_column("Closed", closed_tickets, "border-success", "text-success", "closed", "open", "Reopen") }}
 </div>
 {% endblock %}
