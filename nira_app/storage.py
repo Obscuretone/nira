@@ -130,8 +130,18 @@ def format_ticket_id(project_key: str, number: int) -> str:
     return f"{normalize_project(project_key)}-{int(number)}"
 
 
+from sqlalchemy import MetaData
+
+convention = {
+    "ix": "ix_%(column_0_label)s",
+    "uq": "uq_%(table_name)s_%(column_0_name)s",
+    "ck": "ck_%(table_name)s_%(constraint_name)s",
+    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+    "pk": "pk_%(table_name)s"
+}
+
 class Base(DeclarativeBase):
-    pass
+    metadata = MetaData(naming_convention=convention)
 
 
 class Setting(Base):
@@ -184,7 +194,7 @@ class Link(Base):
     created_at: Mapped[str] = mapped_column(String, nullable=False)
 
     __table_args__ = (
-        CheckConstraint("ticket_a_id < ticket_b_id"),
+        CheckConstraint("ticket_a_id < ticket_b_id", name="check_links_ordering"),
         Index("links_ticket_b_idx", "ticket_b_id"),
     )
 

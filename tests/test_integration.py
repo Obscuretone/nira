@@ -29,6 +29,12 @@ def run_cli(args, cwd, env=None, input_text=None, timeout=20):
     original_cwd = os.getcwd()
     os.chdir(cwd)
     original_env = os.environ.copy()
+    
+    # Disable rich formatting and color for consistent testing
+    os.environ["NO_COLOR"] = "1"
+    os.environ["TERM"] = "dumb"
+    os.environ["COLUMNS"] = "120"
+    
     if env:
         os.environ.update(env)
 
