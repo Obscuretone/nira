@@ -264,14 +264,19 @@ def edit(
 def close(
     ctx: typer.Context,
     ticket_id: Annotated[str, typer.Argument(help="ID of the ticket to close.")],
-    reason: Annotated[str, typer.Option(help="Resolution reason.", prompt=True)] = "completed",
+    notes: Annotated[Optional[str], typer.Option(help="Resolution notes (Markdown).")] = None,
+    edit: Annotated[bool, typer.Option(help="Open $EDITOR to write the resolution notes.")] = False,
 ):
     """
-    Close a ticket with a resolution reason.
+    Close a ticket with resolution notes.
     """
     try:
         store = resolve_store(ctx.obj["root"], create=False)
-        ticket = store.close_ticket(ticket_id, reason=reason)
+        resolution_md = read_markdown_input(body=notes, edit=edit)
+        if not resolution_md.strip():
+            console.print("[yellow]Warning:[/yellow] Empty resolution notes. Aborting.")
+            raise typer.Exit(1)
+        ticket = store.close_ticket(ticket_id, resolution_md=resolution_md)
         console.print(f"Closed [bold blue]{ticket['id']}[/bold blue]")
     except NiraError as exc:
         console.print(f"[red]Error:[/red] {exc}")

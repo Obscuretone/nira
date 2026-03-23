@@ -366,10 +366,10 @@ class NiraWebApp:
         return self.redirect(f"/tickets/{ticket_id}")
 
     def close_ticket_action(self, query: dict[str, str], form: dict[str, str], ticket_id: str) -> Response:
-        reason = (form.get("resolution_reason", "") or "").strip()
-        if not reason:
-            reason = self.store.get_ticket(ticket_id)["resolution_reason"] or "completed"
-        self.store.close_ticket(ticket_id, reason=reason)
+        resolution_md = (form.get("resolution_md", "") or "").strip()
+        if not resolution_md:
+            resolution_md = self.store.get_ticket(ticket_id)["resolution_md"] or "Closed via web UI."
+        self.store.close_ticket(ticket_id, resolution_md=resolution_md)
         return self.redirect(f"/tickets/{ticket_id}")
 
     def reopen_ticket_action(self, query: dict[str, str], form: dict[str, str], ticket_id: str) -> Response:

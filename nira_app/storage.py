@@ -756,11 +756,11 @@ class NiraStore:
             result = self.ticket_from_model(ticket, current_project)
         return result
 
-    def close_ticket(self, ticket_id: str, *, reason: str) -> dict:
-        reason = (reason or "").strip()
-        if not reason:
-            raise ValidationError("Closing a ticket requires a resolution reason.")
-        return self.update_ticket(ticket_id, status="closed", resolution_reason=reason)
+    def close_ticket(self, ticket_id: str, *, resolution_md: str) -> dict:
+        resolution_md = (resolution_md or "").strip()
+        if not resolution_md:
+            raise ValidationError("Closing a ticket requires resolution notes.")
+        return self.update_ticket(ticket_id, status="closed", resolution_reason="completed", resolution_md=resolution_md)
 
     def reopen_ticket(self, ticket_id: str) -> dict:
         return self.update_ticket(ticket_id, status="open", resolution_reason="")

@@ -53,13 +53,7 @@
       <div class="card shadow-sm mb-4">
         <div class="card-body">
           <h2 class="h5 mb-3">Resolution Notes</h2>
-          <textarea
-            class="form-control font-monospace"
-            id="resolution_md"
-            name="resolution_md"
-            rows="10"
-            placeholder="Optional closeout notes, decisions, or follow-up context."
-          >{{ ticket.resolution_md }}</textarea>
+          {{ rich_editor("resolution_md", ticket.resolution_md, height_px=280) }}
           <div class="d-flex justify-content-end mt-3">
             <button class="btn btn-primary" type="submit">Save</button>
           </div>

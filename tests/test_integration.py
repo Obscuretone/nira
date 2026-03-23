@@ -274,7 +274,7 @@ class TestCliIntegration:
         assert "EMH-2" in show_linked.stdout
 
         close_result = run_cli(
-            ["close", "EMH-1", "--reason", "decided"],
+            ["close", "EMH-1", "--notes", "## Resolution\ndecided"],
             cwd=temp_root,
         )
         assert close_result.returncode == 0
@@ -287,10 +287,10 @@ class TestCliIntegration:
 
         with closing(sqlite3.connect(temp_root / ".nira" / "nira.db")) as connection:
             row = connection.execute(
-                "SELECT status, resolution_reason FROM tickets WHERE number = ?",
+                "SELECT status, resolution_reason, resolution_md FROM tickets WHERE number = ?",
                 (1,),
             ).fetchone()
-        assert row == ("closed", "decided")
+        assert row == ("closed", "completed", "## Resolution\ndecided")
 
         reopen_result = run_cli(["reopen", "EMH-1"], cwd=temp_root)
         assert reopen_result.returncode == 0
@@ -634,7 +634,7 @@ class TestHttpIntegration:
         assert "Updated body through the browser." in detail
         assert "Pending final decision." in detail
         assert "just now" in detail
-        assert 'data-rich-editor="resolution_md"' not in detail
+        assert 'data-rich-editor="resolution_md"' in detail
         assert "bg-primary-subtle" in detail
         assert "text-bg-primary" in detail
         assert "data-auto-submit" in detail
@@ -739,7 +739,7 @@ class TestHttpIntegration:
         status, headers, _ = self.request(
             "POST",
             "/tickets/EMH-1/close",
-            fields={},
+            fields={"resolution_md": "Closed via test"},
         )
         assert status == 303
         assert headers["Location"] == "/tickets/EMH-1"
@@ -748,6 +748,7 @@ class TestHttpIntegration:
         assert status == 200
         assert "closed" in detail
         assert "completed" in detail
+        assert "Closed via test" in detail
         assert "text-bg-success" in detail
 
         status, _, list_page = self.request("GET", "/")
