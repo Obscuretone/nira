@@ -195,10 +195,10 @@
               hx-include="#filter-form"
             >
           </form>
-          <a class="link-body-emphasis text-decoration-none fw-semibold" href="/">Ticket List</a>
-          <a class="link-body-emphasis text-decoration-none fw-semibold" href="/dashboard">Dashboard</a>
-          <a class="link-body-emphasis text-decoration-none fw-semibold" href="/board">Board</a>
-          <a class="link-body-emphasis text-decoration-none fw-semibold" href="/tickets/new">Create Ticket</a>
+          <a class="link-body-emphasis text-decoration-none fw-semibold" href="/" title="Go to List (L or /)">Ticket List</a>
+          <a class="link-body-emphasis text-decoration-none fw-semibold" href="/dashboard" title="Go to Dashboard (D)">Dashboard</a>
+          <a class="link-body-emphasis text-decoration-none fw-semibold" href="/board" title="Go to Kanban Board (B)">Board</a>
+          <a class="link-body-emphasis text-decoration-none fw-semibold" href="/tickets/new" title="Create a new ticket (C)">Create Ticket</a>
           <a class="link-body-emphasis text-decoration-none fw-semibold" href="/settings">Settings</a>
           <div class="dropdown ms-2">
             <button class="btn btn-sm btn-outline-secondary dropdown-toggle d-flex align-items-center" id="bd-theme" type="button" aria-expanded="false" data-bs-toggle="dropdown" aria-label="Toggle theme (auto)">
@@ -482,6 +482,47 @@
               input.closest('form').requestSubmit();
           }
       };
+
+      // Global keyboard shortcuts
+      document.addEventListener('keydown', (e) => {
+        // Ignore if user is typing in an input, textarea, or contenteditable element
+        const activeElement = document.activeElement;
+        const isInput = activeElement.tagName === 'INPUT' || 
+                        activeElement.tagName === 'TEXTAREA' || 
+                        activeElement.tagName === 'SELECT' ||
+                        activeElement.isContentEditable;
+                        
+        if (isInput) {
+            if (e.key === 'Escape') {
+                activeElement.blur();
+            }
+            return;
+        }
+
+        // Shortcuts
+        const key = e.key.toLowerCase();
+        if (key === 'c') {
+            e.preventDefault();
+            htmx.ajax('GET', '/tickets/new', {target: 'body', pushUrl: true});
+        } else if (key === 'b') {
+            e.preventDefault();
+            htmx.ajax('GET', '/board', {target: 'body', pushUrl: true});
+        } else if (key === 'd') {
+            e.preventDefault();
+            htmx.ajax('GET', '/dashboard', {target: 'body', pushUrl: true});
+        } else if (key === 'l') {
+            e.preventDefault();
+            htmx.ajax('GET', '/', {target: 'body', pushUrl: true});
+        } else if (key === 'f' || key === '/') {
+            e.preventDefault();
+            const searchInput = document.getElementById('global-search-input');
+            if (searchInput) {
+                searchInput.focus();
+                // Optionally select all text
+                searchInput.select();
+            }
+        }
+      });
 
     </script>
   </body>
