@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Final, Iterable, Iterator, Any
 from sqlalchemy import (
     CheckConstraint,
-    Column,
     ForeignKey,
     Index,
     Integer,
