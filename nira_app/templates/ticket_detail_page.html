@@ -127,38 +127,71 @@
     </div>
 
     <div class="card shadow-sm mb-4">
-      <div class="card-body">
-        <h2 class="h5 mb-3">Comments</h2>
-        
-        {% if comments %}
-        <div class="mb-4">
-          {% for comment in comments %}
-          <div class="mb-3 pb-3 {% if not loop.last %}border-bottom{% endif %}">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <span class="badge text-bg-light border text-secondary">#{{ comment.id }}</span>
-              <span class="text-body-secondary small">{{ format_time(comment.created_at, relative=True) | safe }}</span>
+      <div class="card-header bg-transparent border-bottom-0 pb-0">
+        <ul class="nav nav-tabs card-header-tabs" id="activityTab" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="comments-tab" data-bs-toggle="tab" data-bs-target="#comments-pane" type="button" role="tab" aria-controls="comments-pane" aria-selected="true">Comments ({{ comments|length }})</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="history-tab" data-bs-toggle="tab" data-bs-target="#history-pane" type="button" role="tab" aria-controls="history-pane" aria-selected="false">History ({{ history|length }})</button>
+          </li>
+        </ul>
+      </div>
+      <div class="card-body tab-content" id="activityTabContent">
+        <div class="tab-pane fade show active" id="comments-pane" role="tabpanel" aria-labelledby="comments-tab" tabindex="0">
+          {% if comments %}
+          <div class="mb-4 mt-2">
+            {% for comment in comments %}
+            <div class="mb-3 pb-3 {% if not loop.last %}border-bottom{% endif %}">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="badge text-bg-light border text-secondary">#{{ comment.id }}</span>
+                <span class="text-body-secondary small">{{ format_time(comment.created_at, relative=True) | safe }}</span>
+              </div>
+              <div class="markdown-output">
+                {{ render_markdown(comment.body_md) | safe }}
+              </div>
             </div>
-            <div class="markdown-output">
-              {{ render_markdown(comment.body_md) | safe }}
-            </div>
+            {% endfor %}
           </div>
-          {% endfor %}
-        </div>
-        {% endif %}
+          {% else %}
+          <p class="text-body-secondary mt-3">No comments yet.</p>
+          {% endif %}
 
-        <form
-          method="post"
-          action="/tickets/{{ ticket.id }}/comment"
-          hx-post="/tickets/{{ ticket.id }}/comment"
-          hx-target="body"
-        >
-          <div class="mb-3">
-            {{ rich_editor("body_md", "", height_px=200) }}
+          <form
+            method="post"
+            action="/tickets/{{ ticket.id }}/comment"
+            hx-post="/tickets/{{ ticket.id }}/comment"
+            hx-target="body"
+          >
+            <div class="mb-3">
+              {{ rich_editor("body_md", "", height_px=200) }}
+            </div>
+            <div class="d-flex justify-content-end">
+              <button class="btn btn-primary" type="submit">Add Comment</button>
+            </div>
+          </form>
+        </div>
+        
+        <div class="tab-pane fade" id="history-pane" role="tabpanel" aria-labelledby="history-tab" tabindex="0">
+          <div class="mt-3">
+            {% for item in history %}
+            <div class="d-flex gap-3 mb-3">
+              <div class="text-body-secondary small text-nowrap" style="width: 120px;">
+                {{ format_time(item.created_at, relative=True) | safe }}
+              </div>
+              <div>
+                <span class="fw-semibold">{{ item.field | replace('_', ' ') | capitalize }}</span> 
+                {% if item.old_value %}
+                changed from <span class="text-body-secondary">{{ item.old_value }}</span> 
+                {% endif %}
+                to <span class="fw-medium">{{ item.new_value }}</span>
+              </div>
+            </div>
+            {% else %}
+            <p class="text-body-secondary">No history recorded yet.</p>
+            {% endfor %}
           </div>
-          <div class="d-flex justify-content-end">
-            <button class="btn btn-primary" type="submit">Add Comment</button>
-          </div>
-        </form>
+        </div>
       </div>
     </div>
   </div>

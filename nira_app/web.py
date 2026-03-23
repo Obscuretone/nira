@@ -391,6 +391,7 @@ class NiraWebApp:
             related=details.get("related", []),
             sub_tasks=details.get("sub_tasks", []),
             comments=details.get("comments", []),
+            history=details.get("history", []),
             ticket_status_options=self.ticket_status_options(),
             priority_options=self.priority_options(),
             ticket_type_options=self.ticket_type_options(details["ticket"]["type"]),

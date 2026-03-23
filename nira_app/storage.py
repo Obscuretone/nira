@@ -188,6 +188,19 @@ class Link(Base):
     )
 
 
+class History(Base):
+    __tablename__ = "history"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    ticket_id: Mapped[int] = mapped_column(Integer, ForeignKey("tickets.id", ondelete="CASCADE"), nullable=False)
+    field: Mapped[str] = mapped_column(String, nullable=False)
+    old_value: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    new_value: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[str] = mapped_column(String, nullable=False)
+
+    ticket: Mapped["Ticket"] = relationship("Ticket", backref="history")
+    __table_args__ = (Index("history_ticket_id_idx", "ticket_id"),)
+
+
 def find_root(start: Path | None = None) -> Path | None:
     current = (start or Path.cwd()).resolve()
     for candidate in (current, *current.parents):
@@ -842,10 +855,21 @@ class NiraStore:
             if final_reason is not UNSET:
                 updates["resolution_reason"] = final_reason
 
+            now = utc_now()
             for key, value in updates.items():
-                setattr(ticket, key, value)
+                old_val = getattr(ticket, key)
+                if old_val != value:
+                    history_item = History(
+                        ticket_id=ticket.id,
+                        field=key,
+                        old_value=str(old_val) if old_val is not None else None,
+                        new_value=str(value) if value is not None else None,
+                        created_at=now,
+                    )
+                    session.add(history_item)
+                    setattr(ticket, key, value)
 
-            ticket.updated_at = utc_now()
+            ticket.updated_at = now
             session.flush()
             result = self.ticket_from_model(ticket, current_project)
         return result
@@ -904,6 +928,23 @@ class NiraStore:
                     "created_at": comment.created_at,
                 }
                 for comment in comments
+            ]
+
+    def list_history(self, ticket_id: str) -> list[dict]:
+        with self.session() as session:
+            current_project = self.current_project(session)
+            ticket = self.resolve_ticket(session, ticket_id, project_key=current_project)
+            stmt = select(History).where(History.ticket_id == ticket.id).order_by(History.created_at.desc())
+            history = session.execute(stmt).scalars().all()
+            return [
+                {
+                    "id": int(item.id),
+                    "field": item.field,
+                    "old_value": item.old_value,
+                    "new_value": item.new_value,
+                    "created_at": item.created_at,
+                }
+                for item in history
             ]
 
     def link_tickets(self, left_ticket: str, right_ticket: str) -> None:
@@ -1005,6 +1046,7 @@ class NiraStore:
             "ticket": ticket,
             "parent": parent,
             "comments": self.list_comments(ticket["id"]),
+            "history": self.list_history(ticket["id"]),
             "related": self.list_related_tickets(ticket["id"]),
             "sub_tasks": self.list_tickets(parent_id=ticket["db_id"]),
         }
