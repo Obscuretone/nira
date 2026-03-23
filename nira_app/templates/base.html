@@ -7,6 +7,7 @@
     <link rel="icon" type="image/png" href="{{ favicon_url }}">
     <link href="{{ bootstrap_css }}" rel="stylesheet" integrity="{{ bootstrap_css_integrity }}" crossorigin="anonymous">
     <link href="{{ toast_ui_editor_css }}" rel="stylesheet">
+    <link href="{{ toast_ui_editor_dark_css }}" rel="stylesheet">
     <style>
       :root {
         --nira-bg-gradient-light: radial-gradient(circle at top left, rgba(13, 110, 253, 0.08), transparent 35%), linear-gradient(180deg, #f8f9fa 0%, #eef1f4 100%);
@@ -169,11 +170,23 @@
       }
 
       const setTheme = theme => {
-        if (theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-          document.documentElement.setAttribute('data-bs-theme', 'dark')
-        } else {
-          document.documentElement.setAttribute('data-bs-theme', theme)
-        }
+        const isDark = (theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches) || theme === 'dark';
+        document.documentElement.setAttribute('data-bs-theme', isDark ? 'dark' : 'light');
+        
+        // Update any rich editors on the page
+        document.querySelectorAll(".rich-editor-shell").forEach((shell) => {
+           if (shell._editorInstance && typeof shell._editorInstance.changeTheme === 'function') {
+               shell._editorInstance.changeTheme(isDark ? 'dark' : 'light');
+           } else if (shell._editorInstance) {
+               // Fallback if changeTheme isn't fully supported without re-init
+               const target = shell.querySelector('.rich-editor-target');
+               if (isDark) {
+                   target.querySelector('.toastui-editor-defaultUI')?.classList.add('toastui-editor-dark');
+               } else {
+                   target.querySelector('.toastui-editor-defaultUI')?.classList.remove('toastui-editor-dark');
+               }
+           }
+        });
       }
 
       const showActiveTheme = (theme, focus = false) => {
@@ -218,6 +231,8 @@
           return;
         }
 
+        const isDark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+        
         const editor = new window.toastui.Editor({
           el: target,
           height: shell.dataset.editorHeight || "320px",
@@ -225,7 +240,11 @@
           initialValue: source.value,
           previewStyle: "vertical",
           usageStatistics: false,
+          theme: isDark ? 'dark' : 'light',
         });
+
+        // We need to keep a reference to update it when theme changes
+        shell._editorInstance = editor;
 
         target.classList.remove("d-none");
         source.classList.add("d-none");

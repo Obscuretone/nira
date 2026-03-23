@@ -29,6 +29,7 @@ BOOTSTRAP_JS = "https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.b
 BOOTSTRAP_CSS_INTEGRITY = "sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB"
 BOOTSTRAP_JS_INTEGRITY = "sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
 TOAST_UI_EDITOR_CSS = "https://uicdn.toast.com/editor/3.2.2/toastui-editor.min.css"
+TOAST_UI_EDITOR_DARK_CSS = "https://uicdn.toast.com/editor/3.2.2/theme/toastui-editor-dark.min.css"
 TOAST_UI_EDITOR_JS = "https://uicdn.toast.com/editor/3.2.2/toastui-editor-all.min.js"
 HTMX_JS = "https://unpkg.com/htmx.org@1.9.10"
 HTMX_JS_INTEGRITY = "sha384-D1Kt99CQMDuVetoL1lrYwg5t+9QdHe7NLX/SoJYkXDFfX37iInKRy5xLSi8nO7UC"
@@ -184,6 +185,7 @@ class NiraWebApp:
                 "bootstrap_js": BOOTSTRAP_JS,
                 "bootstrap_js_integrity": BOOTSTRAP_JS_INTEGRITY,
                 "toast_ui_editor_css": TOAST_UI_EDITOR_CSS,
+                "toast_ui_editor_dark_css": TOAST_UI_EDITOR_DARK_CSS,
                 "toast_ui_editor_js": TOAST_UI_EDITOR_JS,
                 "brand_logo_url": "/assets/nira.png",
                 "favicon_url": "/assets/nira.png",
