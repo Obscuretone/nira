@@ -107,13 +107,14 @@ def new_ticket(
     source: Annotated[str, typer.Option(help="Source of the ticket.")] = "",
     type: Annotated[str, typer.Option(help="Type of the ticket (e.g., task, bug).")] = "task",
     priority: Annotated[str, typer.Option(help="Priority level.")] = "medium",
+    labels: Annotated[str, typer.Option(help="Comma-separated labels.")] = "",
     body: Annotated[Optional[str], typer.Option(help="Initial body content (Markdown).")] = None,
     edit: Annotated[bool, typer.Option(help="Open $EDITOR to write the body.")] = False,
 ):
     """
     Create a new ticket.
     """
-    create_ticket_logic(ctx, title_parts, project, source, type, priority, body, edit)
+    create_ticket_logic(ctx, title_parts, project, source, type, priority, labels, body, edit)
 
 
 @app.command(name="create", hidden=True)
@@ -124,13 +125,14 @@ def create_ticket_alias(
     source: Annotated[str, typer.Option()] = "",
     type: Annotated[str, typer.Option()] = "task",
     priority: Annotated[str, typer.Option()] = "medium",
+    labels: Annotated[str, typer.Option()] = "",
     body: Annotated[Optional[str], typer.Option()] = None,
     edit: Annotated[bool, typer.Option()] = False,
 ):
-    create_ticket_logic(ctx, title_parts, project, source, type, priority, body, edit)
+    create_ticket_logic(ctx, title_parts, project, source, type, priority, labels, body, edit)
 
 
-def create_ticket_logic(ctx, title_parts, project, source, type, priority, body, edit):
+def create_ticket_logic(ctx, title_parts, project, source, type, priority, labels, body, edit):
     try:
         store = resolve_store(ctx.obj["root"], create=False)
         title = " ".join(title_parts).strip()
@@ -142,6 +144,7 @@ def create_ticket_logic(ctx, title_parts, project, source, type, priority, body,
             source=source,
             ticket_type=type,
             priority=priority,
+            labels=labels,
             body_md=body_md,
         )
         console.print(f"Created [bold blue]{ticket['id']}[/bold blue]")
@@ -215,6 +218,7 @@ def update(
     type: Annotated[Optional[str], typer.Option(help="New type.")] = None,
     priority: Annotated[Optional[str], typer.Option(help="New priority.")] = None,
     source: Annotated[Optional[str], typer.Option(help="New source.")] = None,
+    labels: Annotated[Optional[str], typer.Option(help="New comma-separated labels.")] = None,
     resolution_reason: Annotated[Optional[str], typer.Option(help="New resolution reason.")] = None,
 ):
     """
@@ -228,6 +232,7 @@ def update(
             "ticket_type": type if type is not None else UNSET,
             "priority": priority if priority is not None else UNSET,
             "source": source if source is not None else UNSET,
+            "labels": labels if labels is not None else UNSET,
             "resolution_reason": resolution_reason if resolution_reason is not None else UNSET,
         }
         ticket = store.update_ticket(ticket_id, **updates)
@@ -421,7 +426,7 @@ def launch_editor(initial_text: str) -> str:
         subprocess.run(command, check=True)
         return temp_path.read_text(encoding="utf-8")
     except subprocess.CalledProcessError as exc:
-        console.print(f"[red]Error:[/red] Editor command failed with status {exc.returncode}.", file=sys.stderr)
+        stderr_console.print(f"[red]Error:[/red] Editor command failed with status {exc.returncode}.")
         raise typer.Exit(1)
     finally:
         temp_path.unlink(missing_ok=True)
@@ -457,6 +462,8 @@ def print_ticket(details: dict) -> None:
     metadata_table.add_row("Status:", Text(ticket["status"], style=status_color))
     metadata_table.add_row("Type:", ticket["type"])
     metadata_table.add_row("Priority:", ticket["priority"])
+    if ticket.get("labels"):
+        metadata_table.add_row("Labels:", ticket["labels"])
     metadata_table.add_row("Source:", ticket["source"] or "[dim]none[/dim]")
     metadata_table.add_row("Created:", ticket["created_at"])
     metadata_table.add_row("Updated:", ticket["updated_at"])

@@ -192,6 +192,20 @@
         <h2 class="h5 mb-3">Details</h2>
         <div class="row g-3">
           <div class="col-12">
+            <label class="form-label" for="labels">Labels</label>
+            <input
+              class="form-control"
+              id="labels"
+              name="labels"
+              placeholder="bug, ui, v1.0"
+              value="{{ ticket.labels }}"
+              form="ticket-edit-form"
+              hx-post="/tickets/{{ ticket.id }}/edit"
+              hx-trigger="change"
+              hx-target="body"
+            >
+          </div>
+          <div class="col-12">
             <label class="form-label" for="source">Source</label>
             <input
               class="form-control"

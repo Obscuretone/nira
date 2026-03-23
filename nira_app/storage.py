@@ -150,6 +150,7 @@ class Ticket(Base):
     priority: Mapped[str] = mapped_column(String, nullable=False)
     source: Mapped[str] = mapped_column(String, nullable=False)
     resolution_reason: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    labels: Mapped[str] = mapped_column(String, nullable=False, default="")
     body_md: Mapped[str] = mapped_column(Text, nullable=False, default="")
     resolution_md: Mapped[str] = mapped_column(Text, nullable=False, default="")
     created_at: Mapped[str] = mapped_column(String, nullable=False)
@@ -213,14 +214,18 @@ class NiraStore:
             normalize_project(default_project) if default_project else derive_default_project_key(self.root.name)
         )
         
+        stamp_revision: str | None = None
         with self.connect() as connection:
             if self.needs_legacy_migration(connection):
                 self.migrate_legacy_schema(connection)
-                self.run_migrations(stamp_only=True)
+                stamp_revision = "b00dc4b8ba72"  # Initial schema revision
             elif not self.table_exists(connection, "settings"):
                 # Use SQLAlchemy to create initial schema
                 Base.metadata.create_all(self.engine)
-                self.run_migrations(stamp_only=True)
+                stamp_revision = "head"
+
+        if stamp_revision:
+            self.run_migrations(stamp_revision=stamp_revision)
 
         # Run alembic migrations (outside of connect context to avoid locking)
         if not _MIGRATIONS_RUN:
@@ -240,12 +245,12 @@ class NiraStore:
 
             connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
-    def run_migrations(self, *, stamp_only: bool = False) -> None:
+    def run_migrations(self, *, stamp_revision: str | None = None) -> None:
         # Alembic needs a SQLAlchemy connection
         with self.engine.begin() as sa_conn:
             self.alembic_cfg.attributes["connection"] = sa_conn
-            if stamp_only:
-                command.stamp(self.alembic_cfg, "head")
+            if stamp_revision:
+                command.stamp(self.alembic_cfg, stamp_revision)
             else:
                 command.upgrade(self.alembic_cfg, "head")
         self.engine.dispose()
@@ -510,6 +515,7 @@ class NiraStore:
             "priority": ticket.priority,
             "source": ticket.source,
             "resolution_reason": ticket.resolution_reason,
+            "labels": ticket.labels,
             "body_md": ticket.body_md,
             "resolution_md": ticket.resolution_md,
             "created_at": ticket.created_at,
@@ -542,6 +548,7 @@ class NiraStore:
         source: str = "",
         ticket_type: str = "task",
         priority: str = "medium",
+        labels: str = "",
         body_md: str = "",
         resolution_md: str = "",
     ) -> dict:
@@ -570,6 +577,7 @@ class NiraStore:
                 priority=(priority or "medium").strip() or "medium",
                 source=(source or "").strip(),
                 resolution_reason="",
+                labels=(labels or "").strip(),
                 body_md=body_md,
                 resolution_md=resolution_md,
                 created_at=now,
@@ -654,6 +662,7 @@ class NiraStore:
                 stmt = stmt.where(Ticket.type == ticket_type.strip())
 
             # Handle sorting
+            order_col: Any
             if sort_key == "ticket_id":
                 order_col = Ticket.number
             elif sort_key == "priority":
@@ -730,6 +739,7 @@ class NiraStore:
         priority: str | _UnsetType = UNSET,
         source: str | _UnsetType = UNSET,
         resolution_reason: str | _UnsetType = UNSET,
+        labels: str | _UnsetType = UNSET,
         body_md: str | _UnsetType = UNSET,
         resolution_md: str | _UnsetType = UNSET,
     ) -> dict:
@@ -754,6 +764,9 @@ class NiraStore:
 
         if isinstance(source, str):
             updates["source"] = source.strip()
+
+        if isinstance(labels, str):
+            updates["labels"] = labels.strip()
 
         normalized_reason: str | _UnsetType = UNSET
         if isinstance(resolution_reason, str):

@@ -93,8 +93,7 @@ class TestCliIntegration:
         assert "EMH-1" in list_result.stdout
         assert "Evaluate Tortoise alternatives" in list_result.stdout
 
-    @mock.patch("nira_app.storage.NiraStore.run_migrations")
-    def test_cli_migrates_legacy_text_ticket_ids_to_integer_primary_keys(self, mock_run_migrations, temp_root):
+    def test_cli_migrates_legacy_text_ticket_ids_to_integer_primary_keys(self, temp_root):
         workspace = temp_root / "legacy_workspace"
         workspace.mkdir()
         state_dir = workspace / ".nira"
@@ -728,7 +727,33 @@ class TestHttpIntegration:
         assert status == 200
         assert 'href="/tickets/EMH-2"' not in detail
 
-    def test_asset_endpoint_serves_logo_png(self):
+    def test_kanban_board(self):
+        self.request(
+            "POST",
+            "/tickets",
+            fields={
+                "project": "EMH",
+                "title": "Open ticket",
+            },
+        )
+        self.request(
+            "POST",
+            "/tickets",
+            fields={
+                "project": "EMH",
+                "title": "In progress ticket",
+                "status": "in_progress",
+            },
+        )
+
+        status, _, body = self.request("GET", "/board")
+        assert status == 200
+        assert "Kanban Board" in body
+        assert "Open ticket" in body
+        assert "In progress ticket" in body
+        assert "Open" in body
+        assert "In Progress" in body
+        assert "Closed" in body
         status, headers, body = self.request("GET", "/assets/nira.png", decode=False)
         assert status == 200
         assert headers["Content-Type"] == "image/png"

@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import parse_qs, urlencode
 from wsgiref.simple_server import WSGIRequestHandler, make_server
 
@@ -128,9 +128,9 @@ class Response:
 
 class Router:
     def __init__(self):
-        self.routes: list[tuple[str, re.Pattern, callable]] = []
+        self.routes: list[tuple[str, re.Pattern, Callable]] = []
 
-    def add(self, method: str, path_pattern: str, handler: callable):
+    def add(self, method: str, path_pattern: str, handler: Callable):
         # Replace {param} with named capture group (?P<param>[^/]+)
         regex_pattern = re.sub(r"\{([^}]+)\}", r"(?P<\1>[^/]+)", path_pattern)
         # Ensure it matches the whole path
@@ -141,17 +141,16 @@ class Router:
         def decorator(handler):
             self.add("GET", path_pattern, handler)
             return handler
-
         return decorator
 
     def post(self, path_pattern: str):
         def decorator(handler):
             self.add("POST", path_pattern, handler)
             return handler
-
         return decorator
 
-    def match(self, method: str, path: str) -> tuple[callable, dict[str, str]] | None:
+    def match(self, method: str, path: str) -> tuple[Callable, dict[str, str]] | None:
+
         for route_method, pattern, handler in self.routes:
             if route_method == method:
                 match = pattern.match(path)
@@ -211,6 +210,7 @@ class NiraWebApp:
 
         # Main pages
         self.router.add("GET", "/", self.list_page)
+        self.router.add("GET", "/board", self.board_page)
         self.router.add("GET", "/tickets/new", self.new_ticket_page)
         self.router.add("GET", "/settings", self.settings_page)
         self.router.add("POST", "/tickets", self.create_ticket_action)
@@ -296,6 +296,24 @@ class NiraWebApp:
         )
         return Response("200 OK", body)
 
+    def board_page(self, query: dict[str, str], form: dict[str, str]) -> Response:
+        search_query = query.get("search")
+        # Fetch a reasonable number of recent tickets for the board
+        tickets = self.store.list_tickets(search=search_query, limit=100)
+        
+        open_tickets = [t for t in tickets if t["status"] == "open"]
+        in_progress_tickets = [t for t in tickets if t["status"] == "in_progress"]
+        closed_tickets = [t for t in tickets if t["status"] == "closed"]
+
+        body = self.render(
+            "board_page.html",
+            search_query=search_query,
+            open_tickets=open_tickets,
+            in_progress_tickets=in_progress_tickets,
+            closed_tickets=closed_tickets,
+        )
+        return Response("200 OK", body)
+
     def new_ticket_page(self, query: dict[str, str], form: dict[str, str]) -> Response:
         default_project = query.get("project", "") or self.store.get_default_project()
         body = self.render(
@@ -358,6 +376,7 @@ class NiraWebApp:
             "status",
             "priority",
             "source",
+            "labels",
             "resolution_reason",
             "body_md",
             "resolution_md",

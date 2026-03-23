@@ -11,55 +11,33 @@
   <div class="text-body-secondary">SQLite-backed tickets for the current project.</div>
 </div>
 
-<form class="row g-3 mb-4" method="get" action="/" hx-get="/" hx-target="body" hx-push-url="true">
-  <div class="col-md-4">
-    <label class="form-label" for="search">Search</label>
-    <div class="input-group">
-      <span class="input-group-text bg-body-tertiary">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-search" viewBox="0 0 16 16">
-          <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"/>
-        </svg>
-      </span>
-      <input 
-        type="text" 
-        class="form-control" 
-        id="search" 
-        name="search" 
-        placeholder="Search tickets..." 
-        value="{{ search_query or '' }}"
-        hx-get="/"
-        hx-trigger="keyup changed delay:500ms"
-        hx-target="body"
-        hx-push-url="true"
-      >
-    </div>
-  </div>
-  <div class="col-md-2">
+<form id="filter-form" class="row g-3 mb-4" method="get" action="/" hx-get="/" hx-target="body" hx-push-url="true" hx-include="#global-search-input">
+  <div class="col-md-3">
     <label class="form-label" for="status">Status</label>
-    <select class="form-select" id="status" name="status" hx-get="/" hx-trigger="change" hx-target="body" hx-push-url="true">
+    <select class="form-select" id="status" name="status" hx-get="/" hx-trigger="change" hx-target="body" hx-push-url="true" hx-include="#global-search-input">
       {% for value, label in status_options -%}
       <option value="{{ value }}"{% if value == selected_status %} selected{% endif %}>{{ label }}</option>
       {% endfor -%}
     </select>
   </div>
-  <div class="col-md-2">
+  <div class="col-md-3">
     <label class="form-label" for="sort">Sort By</label>
-    <select class="form-select" id="sort" name="sort" hx-get="/" hx-trigger="change" hx-target="body" hx-push-url="true">
+    <select class="form-select" id="sort" name="sort" hx-get="/" hx-trigger="change" hx-target="body" hx-push-url="true" hx-include="#global-search-input">
       {% for value, label in sort_options -%}
       <option value="{{ value }}"{% if value == selected_sort %} selected{% endif %}>{{ label }}</option>
       {% endfor -%}
     </select>
   </div>
-  <div class="col-md-2">
+  <div class="col-md-3">
     <label class="form-label" for="direction">Direction</label>
-    <select class="form-select" id="direction" name="direction" hx-get="/" hx-trigger="change" hx-target="body" hx-push-url="true">
+    <select class="form-select" id="direction" name="direction" hx-get="/" hx-trigger="change" hx-target="body" hx-push-url="true" hx-include="#global-search-input">
       {% for value, label in direction_options -%}
       <option value="{{ value }}"{% if value == selected_direction %} selected{% endif %}>{{ label }}</option>
       {% endfor -%}
     </select>
   </div>
-  <div class="col-md-2 d-flex align-items-end gap-2">
-    <a class="btn btn-outline-secondary w-100" href="/">Reset</a>
+  <div class="col-md-3 d-flex align-items-end gap-2">
+    <a class="btn btn-outline-secondary w-100" href="/">Reset Filters</a>
   </div>
 </form>
 

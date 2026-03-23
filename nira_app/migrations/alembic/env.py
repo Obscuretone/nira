@@ -91,7 +91,7 @@ def run_migrations_online() -> None:
     else:
         # It's already a connection
         context.configure(
-            connection=connectable,
+            connection=connectable,  # type: ignore
             target_metadata=target_metadata,
             render_as_batch=True,  # Important for SQLite
             include_object=include_object,
