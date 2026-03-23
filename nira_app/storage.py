@@ -635,6 +635,7 @@ class NiraStore:
         offset: int = 0,
         limit: int | None = None,
         search: str | None = None,
+        label: str | None = None,
     ) -> list[dict]:
         sort_key = normalize_list_sort(sort_by)
         sort_direction = normalize_list_direction(direction).lower()
@@ -650,6 +651,9 @@ class NiraStore:
                 stmt = stmt.where(
                     text("tickets.id IN (SELECT rowid FROM tickets_search WHERE tickets_search MATCH :query)")
                 ).params(query=search)
+
+            if label:
+                stmt = stmt.where(Ticket.labels.contains(label.strip()))
 
             if status:
                 if status == "not_closed":
@@ -704,6 +708,7 @@ class NiraStore:
         priority: str | None = None,
         ticket_type: str | None = None,
         search: str | None = None,
+        label: str | None = None,
     ) -> int:
         with self.session() as session:
             current_project = self.current_project(session)
@@ -716,6 +721,9 @@ class NiraStore:
                 stmt = stmt.where(
                     text("tickets.id IN (SELECT rowid FROM tickets_search WHERE tickets_search MATCH :query)")
                 ).params(query=search)
+
+            if label:
+                stmt = stmt.where(Ticket.labels.contains(label.strip()))
 
             if status:
                 if status == "not_closed":

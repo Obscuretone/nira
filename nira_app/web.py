@@ -260,6 +260,7 @@ class NiraWebApp:
         selected_sort = normalize_list_sort(query.get("sort"))
         selected_direction = normalize_list_direction(query.get("direction"))
         search_query = query.get("search")
+        label_filter = query.get("label")
         try:
             page = int(query.get("page", 1))
             if page < 1:
@@ -278,8 +279,9 @@ class NiraWebApp:
             limit=limit,
             offset=offset,
             search=search_query,
+            label=label_filter,
         )
-        total_tickets = self.store.count_tickets(status=status_filter, search=search_query)
+        total_tickets = self.store.count_tickets(status=status_filter, search=search_query, label=label_filter)
         total_pages = (total_tickets + limit - 1) // limit
 
         body = self.render(
@@ -289,6 +291,7 @@ class NiraWebApp:
             selected_sort=selected_sort,
             selected_direction=selected_direction,
             search_query=search_query,
+            label_filter=label_filter,
             status_options=self.status_filter_options(),
             sort_options=self.list_sort_options(),
             direction_options=self.sort_direction_options(),
@@ -300,8 +303,9 @@ class NiraWebApp:
 
     def board_page(self, query: dict[str, str], form: dict[str, str]) -> Response:
         search_query = query.get("search")
+        label_filter = query.get("label")
         # Fetch a reasonable number of recent tickets for the board
-        tickets = self.store.list_tickets(search=search_query, limit=100)
+        tickets = self.store.list_tickets(search=search_query, label=label_filter, limit=100)
 
         open_tickets = [t for t in tickets if t["status"] == "open"]
         in_progress_tickets = [t for t in tickets if t["status"] == "in_progress"]
@@ -310,6 +314,7 @@ class NiraWebApp:
         body = self.render(
             "board_page.html",
             search_query=search_query,
+            label_filter=label_filter,
             open_tickets=open_tickets,
             in_progress_tickets=in_progress_tickets,
             closed_tickets=closed_tickets,
@@ -442,6 +447,7 @@ class NiraWebApp:
         selected_direction: str,
         selected_status: str,
         search_query: str | None = None,
+        label_filter: str | None = None,
     ) -> str:
         is_active = sort_key == selected_sort
         next_direction = "asc" if is_active and selected_direction == "desc" else "desc"
@@ -457,6 +463,8 @@ class NiraWebApp:
         }
         if search_query:
             params["search"] = search_query
+        if label_filter:
+            params["label"] = label_filter
 
         href = "/?" + urlencode(params)
         return (

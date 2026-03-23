@@ -12,7 +12,11 @@
 </div>
 
 <form id="filter-form" class="row g-3 mb-4" method="get" action="/" hx-get="/" hx-target="body" hx-push-url="true" hx-include="#global-search-input">
-  <div class="col-md-3">
+  <div class="col-md-2">
+    <label class="form-label" for="label">Label</label>
+    <input type="text" class="form-control" id="label" name="label" placeholder="Filter label..." value="{{ label_filter or '' }}" hx-get="/" hx-trigger="keyup changed delay:500ms" hx-target="body" hx-push-url="true" hx-include="#global-search-input">
+  </div>
+  <div class="col-md-2">
     <label class="form-label" for="status">Status</label>
     <select class="form-select" id="status" name="status" hx-get="/" hx-trigger="change" hx-target="body" hx-push-url="true" hx-include="#global-search-input">
       {% for value, label in status_options -%}
@@ -36,7 +40,7 @@
       {% endfor -%}
     </select>
   </div>
-  <div class="col-md-3 d-flex align-items-end gap-2">
+  <div class="col-md-2 d-flex align-items-end gap-2">
     <a class="btn btn-outline-secondary w-100" href="/">Reset Filters</a>
   </div>
 </form>
@@ -47,18 +51,27 @@
       <table class="table table-hover align-middle mb-0">
         <thead>
           <tr>
-            <th scope="col">{{ sort_header_link("Ticket", "ticket_id", selected_sort, selected_direction, selected_status, search_query) | safe }}</th>
+            <th scope="col">{{ sort_header_link("Ticket", "ticket_id", selected_sort, selected_direction, selected_status, search_query, label_filter) | safe }}</th>
             <th scope="col">Title</th>
-            <th scope="col">{{ sort_header_link("Status", "status", selected_sort, selected_direction, selected_status, search_query) | safe }}</th>
-            <th scope="col">{{ sort_header_link("Priority", "priority", selected_sort, selected_direction, selected_status, search_query) | safe }}</th>
-            <th scope="col">{{ sort_header_link("Updated", "updated", selected_sort, selected_direction, selected_status, search_query) | safe }}</th>
+            <th scope="col">{{ sort_header_link("Status", "status", selected_sort, selected_direction, selected_status, search_query, label_filter) | safe }}</th>
+            <th scope="col">{{ sort_header_link("Priority", "priority", selected_sort, selected_direction, selected_status, search_query, label_filter) | safe }}</th>
+            <th scope="col">{{ sort_header_link("Updated", "updated", selected_sort, selected_direction, selected_status, search_query, label_filter) | safe }}</th>
           </tr>
         </thead>
         <tbody>
           {% for ticket in tickets %}
           <tr>
             <td><a class="link-body-emphasis fw-semibold" href="/tickets/{{ ticket.id }}">{{ ticket.id }}</a></td>
-            <td><a class="link-body-emphasis text-decoration-none" href="/tickets/{{ ticket.id }}">{{ ticket.title }}</a></td>
+            <td>
+              <a class="link-body-emphasis text-decoration-none d-block fw-medium" href="/tickets/{{ ticket.id }}">{{ ticket.title }}</a>
+              {% if ticket.labels %}
+              <div class="mt-1">
+                {% for label in ticket.labels.split(',') %}
+                <span class="badge text-bg-light border text-secondary extra-small" style="font-size: 0.7rem;">{{ label.strip() }}</span>
+                {% endfor %}
+              </div>
+              {% endif %}
+            </td>
             <td>{{ status_badge(ticket.status) | safe }}</td>
             <td>{{ priority_badge(ticket.priority) | safe }}</td>
             <td>{{ format_time(ticket.updated_at, relative=True) | safe }}</td>
@@ -79,6 +92,7 @@
   <ul class="pagination justify-content-center">
     {% set params = {"status": selected_status, "sort": selected_sort, "direction": selected_direction} %}
     {% if search_query %}{% set _ = params.update({"search": search_query}) %}{% endif %}
+    {% if label_filter %}{% set _ = params.update({"label": label_filter}) %}{% endif %}
     <li class="page-item {% if page == 1 %}disabled{% endif %}">
       {% set prev_params = params.copy() %}{% set _ = prev_params.update({"page": page - 1}) %}
       <a class="page-link" href="/?{{ urlencode(prev_params) }}" hx-get="/?{{ urlencode(prev_params) }}" hx-target="body" hx-push-url="true" aria-label="Previous">
