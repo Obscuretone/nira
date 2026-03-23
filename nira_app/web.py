@@ -14,8 +14,11 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from .markdown import render_markdown
 from .storage import (
+    DashboardStats,
     NiraError,
     NiraStore,
+    TicketData,
+    TicketDetails,
     TicketNotFoundError,
     ValidationError,
     normalize_list_direction,
@@ -266,7 +269,7 @@ class NiraWebApp:
         return response.to_wsgi(start_response)
 
     def dashboard_page(self, query: dict[str, str], form: dict[str, str]) -> Response:
-        stats = self.store.get_dashboard_stats()
+        stats: DashboardStats = self.store.get_dashboard_stats()
         body = self.render("dashboard_page.html", stats=stats)
         return Response("200 OK", body)
 
@@ -288,7 +291,7 @@ class NiraWebApp:
 
         status_filter = None if selected_status == "all" else selected_status
 
-        tickets = self.store.list_tickets(
+        tickets: list[TicketData] = self.store.list_tickets(
             status=status_filter,
             sort_by=selected_sort,
             direction=selected_direction,
@@ -327,7 +330,7 @@ class NiraWebApp:
         search_query = query.get("search")
         label_filter = query.get("label")
         # Fetch a reasonable number of recent tickets for the board
-        tickets = self.store.list_tickets(search=search_query, label=label_filter, limit=100)
+        tickets: list[TicketData] = self.store.list_tickets(search=search_query, label=label_filter, limit=100)
 
         open_tickets = [t for t in tickets if t["status"] == "open"]
         in_progress_tickets = [t for t in tickets if t["status"] == "in_progress"]
@@ -410,7 +413,7 @@ class NiraWebApp:
         )
 
     def ticket_detail_page(self, query: dict[str, str], form: dict[str, str], ticket_id: str) -> Response:
-        details = self.store.ticket_details(ticket_id)
+        details: TicketDetails = self.store.ticket_details(ticket_id)
         body = self.render(
             "ticket_detail_page.html",
             ticket=details["ticket"],

@@ -4,7 +4,56 @@ import re
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Final, Iterable, Iterator, Optional
+from typing import Any, Final, Iterable, Iterator, Optional, TypedDict, cast
+
+class TicketData(TypedDict):
+    id: str
+    db_id: int
+    number: int
+    project: str
+    title: str
+    body_md: str
+    status: str
+    priority: str
+    type: str
+    source: str
+    labels: str
+    due_date: Optional[str]
+    parent_id: Optional[int]
+    parent_number: Optional[int]
+    story_points: Optional[int]
+    resolution_reason: Optional[str]
+    resolution_md: Optional[str]
+    created_at: str
+    updated_at: str
+
+class CommentData(TypedDict):
+    id: int
+    ticket_id: int
+    body_md: str
+    created_at: str
+
+class HistoryData(TypedDict):
+    ticket_id: str
+    field: str
+    old_value: Optional[str]
+    new_value: Optional[str]
+    created_at: str
+
+class DashboardStats(TypedDict):
+    status_counts: dict[str, int]
+    status_points: dict[str, int]
+    total_tickets: int
+    total_points: int
+    recent_history: list[HistoryData]
+
+class TicketDetails(TypedDict):
+    ticket: TicketData
+    parent: Optional[TicketData]
+    related: list[TicketData]
+    sub_tasks: list[TicketData]
+    comments: list[CommentData]
+    history: list[HistoryData]
 
 from alembic import command
 from alembic.config import Config
@@ -681,12 +730,12 @@ class NiraStore:
             "renamed_ticket_count": ticket_count if current_key != new_key else 0,
         }
 
-    def get_ticket(self, ticket_id: str) -> dict:
+    def get_ticket(self, ticket_id: str) -> TicketData:
         with self.session() as session:
             project_key = self.current_project(session)
             ticket = self.resolve_ticket(session, ticket_id, project_key=project_key)
             result = self.ticket_from_model(ticket, project_key)
-        return result
+        return cast(TicketData, result)
 
     def list_tickets(
         self,
@@ -703,7 +752,7 @@ class NiraStore:
         label: str | None = None,
         overdue: bool = False,
         parent_id: int | None = None,
-    ) -> list[dict]:
+    ) -> list[TicketData]:
         sort_key = normalize_list_sort(sort_by)
         sort_direction = normalize_list_direction(direction).lower()
 
@@ -772,7 +821,7 @@ class NiraStore:
                 stmt = stmt.offset(offset)
 
             tickets = session.execute(stmt).scalars().all()
-            return [self.ticket_from_model(ticket, current_project) for ticket in tickets]
+            return [cast(TicketData, self.ticket_from_model(ticket, current_project)) for ticket in tickets]
 
     def count_tickets(
         self,
@@ -953,7 +1002,7 @@ class NiraStore:
             }
         return result
 
-    def list_comments(self, ticket_id: str) -> list[dict]:
+    def list_comments(self, ticket_id: str) -> list[CommentData]:
         with self.session() as session:
             current_project = self.current_project(session)
             ticket = self.resolve_ticket(session, ticket_id, project_key=current_project)
@@ -964,29 +1013,39 @@ class NiraStore:
             )
             comments = session.execute(stmt).scalars().all()
             return [
-                {
-                    "id": int(comment.id),
-                    "ticket_id": format_ticket_id(current_project, int(ticket.number)),
-                    "body_md": comment.body_md,
-                    "created_at": comment.created_at,
-                }
+                cast(
+                    CommentData,
+                    {
+                        "id": int(comment.id),
+                        "ticket_id": int(ticket.id),
+                        "body_md": comment.body_md,
+                        "created_at": comment.created_at,
+                    },
+                )
                 for comment in comments
             ]
 
-    def list_history(self, ticket_id: str) -> list[dict]:
+    def list_history(self, ticket_id: str) -> list[HistoryData]:
         with self.session() as session:
             current_project = self.current_project(session)
             ticket = self.resolve_ticket(session, ticket_id, project_key=current_project)
-            stmt = select(History).where(History.ticket_id == ticket.id).order_by(History.created_at.desc())
+            stmt = (
+                select(History)
+                .where(History.ticket_id == ticket.id)
+                .order_by(History.created_at.desc())
+            )
             history = session.execute(stmt).scalars().all()
             return [
-                {
-                    "id": int(item.id),
-                    "field": item.field,
-                    "old_value": item.old_value,
-                    "new_value": item.new_value,
-                    "created_at": item.created_at,
-                }
+                cast(
+                    HistoryData,
+                    {
+                        "ticket_id": format_ticket_id(current_project, int(ticket.number)),
+                        "field": item.field,
+                        "old_value": item.old_value,
+                        "new_value": item.new_value,
+                        "created_at": item.created_at,
+                    },
+                )
                 for item in history
             ]
 
@@ -1027,7 +1086,7 @@ class NiraStore:
             left_ticket_model.updated_at = now
             right_ticket_model.updated_at = now
 
-    def list_related_tickets(self, ticket_id: str) -> list[dict]:
+    def list_related_tickets(self, ticket_id: str) -> list[TicketData]:
         with self.session() as session:
             current_project = self.current_project(session)
             ticket_model = self.resolve_ticket(session, ticket_id, project_key=current_project)
@@ -1045,7 +1104,7 @@ class NiraStore:
 
             stmt = select(Ticket).where(Ticket.id.in_(related_ids)).order_by(Ticket.number)
             tickets = session.execute(stmt).scalars().all()
-            return [self.ticket_from_model(ticket, current_project) for ticket in tickets]
+            return [cast(TicketData, self.ticket_from_model(ticket, current_project)) for ticket in tickets]
 
     def list_links(self, ticket_id: str | None = None) -> list[dict]:
         with self.session() as session:
@@ -1078,23 +1137,26 @@ class NiraStore:
             results.sort(key=lambda x: (x["ticket_a"], x["ticket_b"]))
             return results
 
-    def ticket_details(self, ticket_id: str) -> dict:
+    def ticket_details(self, ticket_id: str) -> TicketDetails:
         ticket = self.get_ticket(ticket_id)
         parent = (
-            self.get_ticket(format_ticket_id(ticket["project"], ticket["parent_number"]))
+            self.get_ticket(format_ticket_id(ticket["project"], cast(int, ticket["parent_number"])))
             if ticket.get("parent_number")
             else None
         )
-        return {
-            "ticket": ticket,
-            "parent": parent,
-            "comments": self.list_comments(ticket["id"]),
-            "history": self.list_history(ticket["id"]),
-            "related": self.list_related_tickets(ticket["id"]),
-            "sub_tasks": self.list_tickets(parent_id=ticket["db_id"]),
-        }
+        return cast(
+            TicketDetails,
+            {
+                "ticket": ticket,
+                "parent": parent,
+                "comments": self.list_comments(ticket["id"]),
+                "history": self.list_history(ticket["id"]),
+                "related": self.list_related_tickets(ticket["id"]),
+                "sub_tasks": self.list_tickets(parent_id=ticket["db_id"]),
+            },
+        )
 
-    def get_dashboard_stats(self) -> dict[str, Any]:
+    def get_dashboard_stats(self) -> DashboardStats:
         with self.session() as session:
             # Count by status
             status_counts = {}
@@ -1116,23 +1178,30 @@ class NiraStore:
 
             # Recent activity (history)
             recent_history = session.query(History).order_by(History.created_at.desc()).limit(10).all()
-            history_list = [
-                {
-                    "ticket_id": format_ticket_id(self.current_project(session), item.ticket.number),
-                    "field": item.field,
-                    "new_value": item.new_value,
-                    "created_at": item.created_at,
-                }
+            history_list: list[HistoryData] = [
+                cast(
+                    HistoryData,
+                    {
+                        "ticket_id": format_ticket_id(self.current_project(session), item.ticket.number),
+                        "field": item.field,
+                        "old_value": item.old_value,
+                        "new_value": item.new_value,
+                        "created_at": item.created_at,
+                    },
+                )
                 for item in recent_history
             ]
 
-            return {
-                "status_counts": status_counts,
-                "status_points": status_points,
-                "total_tickets": total_tickets,
-                "total_points": total_points,
-                "recent_history": history_list,
-            }
+            return cast(
+                DashboardStats,
+                {
+                    "status_counts": status_counts,
+                    "status_points": status_points,
+                    "total_tickets": total_tickets,
+                    "total_points": total_points,
+                    "recent_history": history_list,
+                },
+            )
 
     def touch_tickets(
         self,

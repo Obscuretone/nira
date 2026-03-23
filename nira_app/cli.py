@@ -7,7 +7,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-from typing import Annotated, Any, Optional
+from typing import Annotated, Any, Optional, cast
 
 import typer
 from rich.console import Console
@@ -16,7 +16,15 @@ from rich.table import Table
 from rich.markdown import Markdown
 from rich.text import Text
 
-from .storage import NiraError, NiraStore, UNSET, ValidationError, find_root
+from .storage import (
+    UNSET,
+    NiraError,
+    NiraStore,
+    TicketData,
+    TicketDetails,
+    ValidationError,
+    find_root,
+)
 from .web import serve as run_server
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
@@ -283,8 +291,14 @@ def edit(
     try:
         store = resolve_store(ctx.obj["root"], create=False)
         details = store.ticket_details(ticket_id)
-        field_name = "body_md" if field == "body" else "resolution_md"
-        updated_text = launch_editor(details["ticket"][field_name])
+        if field == "body":
+            field_name = "body_md"
+            initial_text = details["ticket"]["body_md"]
+        else:
+            field_name = "resolution_md"
+            initial_text = details["ticket"]["resolution_md"] or ""
+
+        updated_text = launch_editor(initial_text)
         updates: dict[str, Any] = {field_name: updated_text}
         ticket = store.update_ticket(ticket_id, **updates)
         console.print(f"Updated [bold blue]{ticket['id']}[/bold blue] {field}")
@@ -468,7 +482,7 @@ def read_markdown_input(*, body: str | None, edit: bool) -> str:
     return ""
 
 
-def print_ticket(details: dict) -> None:
+def print_ticket(details: TicketDetails) -> None:
     ticket = details["ticket"]
     related = details["related"]
     comments = details.get("comments", [])
@@ -492,15 +506,15 @@ def print_ticket(details: dict) -> None:
         metadata_table.add_row("Labels:", ticket["labels"])
     metadata_table.add_row("Source:", ticket["source"] or "[dim]none[/dim]")
     if ticket.get("due_date"):
-        metadata_table.add_row("Due Date:", ticket["due_date"])
+        metadata_table.add_row("Due Date:", cast(str, ticket["due_date"]))
     if details.get("parent"):
-        parent = details["parent"]
+        parent = cast(TicketData, details["parent"])
         metadata_table.add_row("Parent:", f"[blue]{parent['id']}[/blue] {parent['title']}")
     metadata_table.add_row("Created:", ticket["created_at"])
     metadata_table.add_row("Updated:", ticket["updated_at"])
 
-    if ticket["resolution_reason"]:
-        metadata_table.add_row("Resolution:", ticket["resolution_reason"])
+    if ticket.get("resolution_reason"):
+        metadata_table.add_row("Resolution:", cast(str, ticket["resolution_reason"]))
 
     console.print(Panel(metadata_table, title=header_text, title_align="left", expand=False))
 
@@ -508,9 +522,9 @@ def print_ticket(details: dict) -> None:
         console.print("\n[bold]Body[/bold]")
         console.print(Markdown(ticket["body_md"]))
 
-    if ticket["resolution_md"].strip():
+    if ticket.get("resolution_md") and cast(str, ticket["resolution_md"]).strip():
         console.print("\n[bold]Resolution Notes[/bold]")
-        console.print(Markdown(ticket["resolution_md"]))
+        console.print(Markdown(cast(str, ticket["resolution_md"])))
 
     if related:
         console.print("\n[bold]Related Tickets[/bold]")
@@ -529,7 +543,7 @@ def print_ticket(details: dict) -> None:
             console.print(Markdown(comment["body_md"]))
 
 
-def print_ticket_list(tickets: list[dict]) -> None:
+def print_ticket_list(tickets: list[TicketData]) -> None:
     if not tickets:
         console.print("[dim]No tickets found.[/dim]")
         return
