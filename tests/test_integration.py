@@ -464,7 +464,6 @@ class TestCliIntegration:
         assert root_help.returncode == 0
         assert "nira" in root_help.stdout.lower()
         assert "serve" in root_help.stdout.lower()
-        assert "comment" not in root_help.stdout.lower()
 
         command_help = run_cli(["help", "new"], cwd=temp_root)
         assert command_help.returncode == 0
@@ -647,8 +646,6 @@ class TestHttpIntegration:
         assert detail.index("Related</h2>") < detail.index("Status</h2>")
         assert detail.index("Status</h2>") < detail.index("Details</h2>")
         assert "Edit Ticket" not in detail
-        assert "Add Comment" not in detail
-        assert "Comments" not in detail
         assert "Track the ticket state here while the content stays front and center." not in detail
         assert "Close Ticket" not in detail
         assert "Workflow" not in detail
@@ -727,13 +724,17 @@ class TestHttpIntegration:
         assert status == 200
         assert 'value="NIRA-"' in renamed_new
 
-        status, _, missing_comment_route = self.request(
+        status, headers, _ = self.request(
             "POST",
             "/tickets/EMH-1/comment",
             fields={"body_md": "Browser comment body."},
         )
-        assert status == 404
-        assert "Page not found." in missing_comment_route
+        assert status == 303
+        assert headers["Location"] == "/tickets/EMH-1"
+
+        status, _, detail = self.request("GET", "/tickets/EMH-1")
+        assert status == 200
+        assert "Browser comment body." in detail
 
         status, headers, _ = self.request(
             "POST",

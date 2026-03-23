@@ -219,6 +219,7 @@ class NiraWebApp:
         self.router.add("POST", "/tickets/{ticket_id}/edit", self.edit_ticket_action)
         self.router.add("POST", "/tickets/{ticket_id}/close", self.close_ticket_action)
         self.router.add("POST", "/tickets/{ticket_id}/reopen", self.reopen_ticket_action)
+        self.router.add("POST", "/tickets/{ticket_id}/comment", self.add_comment_action)
         self.router.add("POST", "/tickets/{ticket_id}/link", self.link_ticket_action)
         self.router.add("POST", "/tickets/{ticket_id}/unlink", self.unlink_ticket_action)
 
@@ -337,6 +338,7 @@ class NiraWebApp:
             "ticket_detail_page.html",
             ticket=details["ticket"],
             related=details["related"],
+            comments=details.get("comments", []),
             ticket_status_options=self.ticket_status_options(),
             priority_options=self.priority_options(),
             ticket_type_options=self.ticket_type_options(details["ticket"]["type"]),
@@ -370,6 +372,11 @@ class NiraWebApp:
 
     def reopen_ticket_action(self, query: dict[str, str], form: dict[str, str], ticket_id: str) -> Response:
         self.store.reopen_ticket(ticket_id)
+        return self.redirect(f"/tickets/{ticket_id}")
+
+    def add_comment_action(self, query: dict[str, str], form: dict[str, str], ticket_id: str) -> Response:
+        body_md = form.get("body_md", "")
+        self.store.add_comment(ticket_id, body_md)
         return self.redirect(f"/tickets/{ticket_id}")
 
     def link_ticket_action(self, query: dict[str, str], form: dict[str, str], ticket_id: str) -> Response:

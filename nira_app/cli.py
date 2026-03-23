@@ -279,6 +279,29 @@ def close(
 
 
 @app.command()
+def comment(
+    ctx: typer.Context,
+    ticket_id: Annotated[str, typer.Argument(help="ID of the ticket to comment on.")],
+    body: Annotated[Optional[str], typer.Option(help="Comment body text.")] = None,
+    edit: Annotated[bool, typer.Option(help="Open $EDITOR to write the comment.")] = False,
+):
+    """
+    Add a comment to a ticket.
+    """
+    try:
+        store = resolve_store(ctx.obj["root"], create=False)
+        body_md = read_markdown_input(body=body, edit=edit)
+        if not body_md.strip():
+            console.print("[yellow]Warning:[/yellow] Empty comment. Aborting.")
+            raise typer.Exit(1)
+        comment_record = store.add_comment(ticket_id, body_md)
+        console.print(f"Added comment [bold blue]#{comment_record['id']}[/bold blue] to [bold blue]{ticket_id}[/bold blue]")
+    except NiraError as exc:
+        stderr_console.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(1)
+
+
+@app.command()
 def reopen(
     ctx: typer.Context,
     ticket_id: Annotated[str, typer.Argument(help="ID of the ticket to reopen.")],
@@ -406,6 +429,7 @@ def read_markdown_input(*, body: str | None, edit: bool) -> str:
 def print_ticket(details: dict) -> None:
     ticket = details["ticket"]
     related = details["related"]
+    comments = details.get("comments", [])
 
     status_color = "green" if ticket["status"] == "closed" else "yellow"
     if ticket["status"] == "in_progress":
@@ -443,6 +467,12 @@ def print_ticket(details: dict) -> None:
         console.print("\n[bold]Related Tickets[/bold]")
         for item in related:
             console.print(f"• [blue]{item['id']}[/blue] {item['title']}")
+
+    if comments:
+        console.print("\n[bold]Comments[/bold]")
+        for comment in comments:
+            console.print(f"\n[dim]#{comment['id']} • {comment['created_at']}[/dim]")
+            console.print(Markdown(comment["body_md"]))
 
 
 def print_ticket_list(tickets: list[dict]) -> None:

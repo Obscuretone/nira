@@ -110,6 +110,42 @@
         </ul>
       </div>
     </div>
+
+    <div class="card shadow-sm mb-4">
+      <div class="card-body">
+        <h2 class="h5 mb-3">Comments</h2>
+        
+        {% if comments %}
+        <div class="mb-4">
+          {% for comment in comments %}
+          <div class="mb-3 pb-3 {% if not loop.last %}border-bottom{% endif %}">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="badge text-bg-light border text-secondary">#{{ comment.id }}</span>
+              <span class="text-body-secondary small">{{ format_time(comment.created_at, relative=True) | safe }}</span>
+            </div>
+            <div class="markdown-output">
+              {{ render_markdown(comment.body_md) | safe }}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        <form
+          method="post"
+          action="/tickets/{{ ticket.id }}/comment"
+          hx-post="/tickets/{{ ticket.id }}/comment"
+          hx-target="body"
+        >
+          <div class="mb-3">
+            {{ rich_editor("body_md", "", height_px=200) }}
+          </div>
+          <div class="d-flex justify-content-end">
+            <button class="btn btn-primary" type="submit">Add Comment</button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 
   <div class="col-xl-4">
