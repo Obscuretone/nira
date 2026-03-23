@@ -30,6 +30,8 @@ BOOTSTRAP_CSS_INTEGRITY = "sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvN
 BOOTSTRAP_JS_INTEGRITY = "sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
 TOAST_UI_EDITOR_CSS = "https://uicdn.toast.com/editor/3.2.2/toastui-editor.min.css"
 TOAST_UI_EDITOR_JS = "https://uicdn.toast.com/editor/3.2.2/toastui-editor-all.min.js"
+HTMX_JS = "https://unpkg.com/htmx.org@1.9.10"
+HTMX_JS_INTEGRITY = "sha384-D1Kt99CQMDuVetoL1lrYwg5t+9QdHe7NLX/SoJYkXDFfX37iInKRy5xLSi8nO7UC"
 TEMPLATES_DIR = Path(__file__).with_name("templates")
 ASSETS_DIR = Path(__file__).with_name("assets")
 
@@ -175,6 +177,8 @@ class NiraWebApp:
     def _setup_jinja(self):
         self.jinja_env.globals.update(
             {
+                "htmx_js": HTMX_JS,
+                "htmx_js_integrity": HTMX_JS_INTEGRITY,
                 "bootstrap_css": BOOTSTRAP_CSS,
                 "bootstrap_css_integrity": BOOTSTRAP_CSS_INTEGRITY,
                 "bootstrap_js": BOOTSTRAP_JS,

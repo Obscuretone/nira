@@ -21,7 +21,14 @@
 
 <div class="row g-4">
   <div class="col-xl-8">
-    <form id="ticket-edit-form" method="post" action="/tickets/{{ ticket.id }}/edit" class="mb-4">
+    <form
+      id="ticket-edit-form"
+      method="post"
+      action="/tickets/{{ ticket.id }}/edit"
+      class="mb-4"
+      hx-post="/tickets/{{ ticket.id }}/edit"
+      hx-target="body"
+    >
       <div class="card shadow-sm mb-4">
         <div class="card-body">
           <label class="form-label" for="title">Title</label>
@@ -31,6 +38,9 @@
             name="title"
             value="{{ ticket.title }}"
             required
+            hx-post="/tickets/{{ ticket.id }}/edit"
+            hx-trigger="change"
+            hx-target="body"
           >
           <h2 class="h5 mb-3">Body</h2>
           {{ rich_editor("body_md", ticket.body_md, height_px=420) }}
@@ -60,7 +70,13 @@
     <div class="card shadow-sm mb-4">
       <div class="card-body">
         <h2 class="h5 mb-3">Related</h2>
-        <form method="post" action="/tickets/{{ ticket.id }}/link" class="mb-3">
+        <form
+          method="post"
+          action="/tickets/{{ ticket.id }}/link"
+          class="mb-3"
+          hx-post="/tickets/{{ ticket.id }}/link"
+          hx-target="body"
+        >
           <div class="input-group">
             <input class="form-control" type="text" name="other_ticket_id" placeholder="EMH-2" required>
             <button class="btn btn-outline-dark" type="submit">Link</button>
@@ -73,7 +89,12 @@
               <a class="link-dark fw-semibold text-nowrap" href="/tickets/{{ item.id }}">{{ item.id }}</a>
               <span class="text-truncate">{{ item.title }}</span>
             </div>
-            <form method="post" action="/tickets/{{ ticket.id }}/unlink">
+            <form
+              method="post"
+              action="/tickets/{{ ticket.id }}/unlink"
+              hx-post="/tickets/{{ ticket.id }}/unlink"
+              hx-target="body"
+            >
               <input type="hidden" name="other_ticket_id" value="{{ item.id }}">
               <button class="btn btn-link link-danger p-0 border-0" type="submit" title="Remove link">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-x-circle" viewBox="0 0 16 16">
@@ -104,22 +125,32 @@
               name="status"
               form="ticket-edit-form"
               data-status-select
-              data-auto-submit
+              hx-post="/tickets/{{ ticket.id }}/edit"
+              hx-trigger="change"
+              hx-target="body"
             >
-              {% for value, label in ticket_status_options %}
-              <option value="{{ value }}" {% if value == ticket.status %}selected{% endif %}>{{ label }}</option>
-              {% endfor %}
+              {% for value, label in ticket_status_options -%}
+              <option value="{{ value }}"{% if value == ticket.status %} selected{% endif %}>{{ label }}</option>
+              {% endfor -%}
             </select>
           </div>
           <div class="col-12">
             <label class="form-label" for="priority">Priority</label>
-            <select class="form-select" id="priority" name="priority" form="ticket-edit-form" data-auto-submit>
-              {% for value, label in priority_options %}
-              <option value="{{ value }}" {% if value == ticket.priority %}selected{% endif %}>{{ label }}</option>
-              {% endfor %}
+            <select
+              class="form-select"
+              id="priority"
+              name="priority"
+              form="ticket-edit-form"
+              hx-post="/tickets/{{ ticket.id }}/edit"
+              hx-trigger="change"
+              hx-target="body"
+            >
+              {% for value, label in priority_options -%}
+              <option value="{{ value }}"{% if value == ticket.priority %} selected{% endif %}>{{ label }}</option>
+              {% endfor -%}
             </select>
           </div>
-          <div class="col-12">
+          <div class="col-12 d-none">
             <button class="btn btn-primary w-100" type="submit" form="ticket-edit-form">Save</button>
           </div>
         </div>
@@ -138,17 +169,28 @@
               name="source"
               value="{{ ticket.source }}"
               form="ticket-edit-form"
+              hx-post="/tickets/{{ ticket.id }}/edit"
+              hx-trigger="change"
+              hx-target="body"
             >
           </div>
           <div class="col-12">
             <label class="form-label" for="type">Type</label>
-            <select class="form-select" id="type" name="type" form="ticket-edit-form" data-auto-submit>
-              {% for value, label in ticket_type_options %}
-              <option value="{{ value }}" {% if value == ticket.type %}selected{% endif %}>{{ label }}</option>
-              {% endfor %}
+            <select
+              class="form-select"
+              id="type"
+              name="type"
+              form="ticket-edit-form"
+              hx-post="/tickets/{{ ticket.id }}/edit"
+              hx-trigger="change"
+              hx-target="body"
+            >
+              {% for value, label in ticket_type_options -%}
+              <option value="{{ value }}"{% if value == ticket.type %} selected{% endif %}>{{ label }}</option>
+              {% endfor -%}
             </select>
           </div>
-          <div class="col-12">
+          <div class="col-12 d-none">
             <button class="btn btn-primary w-100" type="submit" form="ticket-edit-form">Save</button>
           </div>
         </div>
