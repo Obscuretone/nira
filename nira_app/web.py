@@ -141,12 +141,14 @@ class Router:
         def decorator(handler):
             self.add("GET", path_pattern, handler)
             return handler
+
         return decorator
 
     def post(self, path_pattern: str):
         def decorator(handler):
             self.add("POST", path_pattern, handler)
             return handler
+
         return decorator
 
     def match(self, method: str, path: str) -> tuple[callable, dict[str, str]] | None:
@@ -263,7 +265,7 @@ class NiraWebApp:
             page = 1
         limit = 20
         offset = (page - 1) * limit
-        
+
         status_filter = None if selected_status == "all" else selected_status
 
         tickets = self.store.list_tickets(
@@ -435,7 +437,6 @@ class NiraWebApp:
             f'href="{h(href)}" hx-get="{h(href)}" hx-target="body" hx-push-url="true">{h(label)}{indicator}</a>'
         )
 
-
     def ticket_status_options(self) -> list[tuple[str, str]]:
         return [("open", "open"), ("in_progress", "in progress"), ("closed", "completed")]
 
@@ -500,6 +501,4 @@ def serve(store: NiraStore, host: str, port: int) -> None:
                 return
     except OSError as exc:
         reason = exc.strerror or str(exc)
-        raise ValidationError(
-            f"Could not start Nira server on http://{host}:{port}: {reason}."
-        ) from exc
+        raise ValidationError(f"Could not start Nira server on http://{host}:{port}: {reason}.") from exc

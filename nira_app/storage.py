@@ -194,8 +194,8 @@ class NiraStore:
         self.ensure_schema(default_project=default_project)
 
     def ensure_schema(self, default_project: str | None = None) -> None:
-        default_key = normalize_project(default_project) if default_project else derive_default_project_key(
-            self.root.name
+        default_key = (
+            normalize_project(default_project) if default_project else derive_default_project_key(self.root.name)
         )
         with self.connect() as connection:
             if not self.table_exists(connection, "settings"):
@@ -345,15 +345,9 @@ class NiraStore:
             """
         ).fetchall()
 
-        legacy_projects = {
-            normalize_project(row["project"])
-            for row in old_tickets
-            if row["project"]
-        }
+        legacy_projects = {normalize_project(row["project"]) for row in old_tickets if row["project"]}
         if len(legacy_projects) > 1:
-            raise ValidationError(
-                "This workspace has multiple legacy ticket prefixes and cannot be auto-migrated."
-            )
+            raise ValidationError("This workspace has multiple legacy ticket prefixes and cannot be auto-migrated.")
 
         connection.executescript(
             """
@@ -759,7 +753,9 @@ class NiraStore:
         resolution_md = (resolution_md or "").strip()
         if not resolution_md:
             raise ValidationError("Closing a ticket requires resolution notes.")
-        return self.update_ticket(ticket_id, status="closed", resolution_reason="completed", resolution_md=resolution_md)
+        return self.update_ticket(
+            ticket_id, status="closed", resolution_reason="completed", resolution_md=resolution_md
+        )
 
     def reopen_ticket(self, ticket_id: str) -> dict:
         return self.update_ticket(ticket_id, status="open", resolution_reason="")
@@ -793,7 +789,11 @@ class NiraStore:
         with self.session() as session:
             current_project = self.current_project(session)
             ticket = self.resolve_ticket(session, ticket_id, project_key=current_project)
-            stmt = select(Comment).where(Comment.ticket_id == ticket.id).order_by(Comment.created_at.asc(), Comment.id.asc())
+            stmt = (
+                select(Comment)
+                .where(Comment.ticket_id == ticket.id)
+                .order_by(Comment.created_at.asc(), Comment.id.asc())
+            )
             comments = session.execute(stmt).scalars().all()
             return [
                 {
@@ -880,12 +880,14 @@ class NiraStore:
                 ticket_a = session.get(Ticket, ticket_a_id)
                 ticket_b = session.get(Ticket, ticket_b_id)
                 if ticket_a and ticket_b:
-                    results.append({
-                        "ticket_a": format_ticket_id(current_project, ticket_a.number),
-                        "ticket_b": format_ticket_id(current_project, ticket_b.number),
-                        "ticket_a_title": ticket_a.title,
-                        "ticket_b_title": ticket_b.title,
-                    })
+                    results.append(
+                        {
+                            "ticket_a": format_ticket_id(current_project, ticket_a.number),
+                            "ticket_b": format_ticket_id(current_project, ticket_b.number),
+                            "ticket_a_title": ticket_a.title,
+                            "ticket_b_title": ticket_b.title,
+                        }
+                    )
 
             # Sort results manually as per previous behavior
             results.sort(key=lambda x: (x["ticket_a"], x["ticket_b"]))

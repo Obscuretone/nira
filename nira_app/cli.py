@@ -135,7 +135,7 @@ def create_ticket_logic(ctx, title_parts, project, source, type, priority, body,
         store = resolve_store(ctx.obj["root"], create=False)
         title = " ".join(title_parts).strip()
         body_md = read_markdown_input(body=body, edit=edit)
-        
+
         ticket = store.create_ticket(
             project or "",
             title,
@@ -300,7 +300,9 @@ def comment(
             console.print("[yellow]Warning:[/yellow] Empty comment. Aborting.")
             raise typer.Exit(1)
         comment_record = store.add_comment(ticket_id, body_md)
-        console.print(f"Added comment [bold blue]#{comment_record['id']}[/bold blue] to [bold blue]{ticket_id}[/bold blue]")
+        console.print(
+            f"Added comment [bold blue]#{comment_record['id']}[/bold blue] to [bold blue]{ticket_id}[/bold blue]"
+        )
     except NiraError as exc:
         stderr_console.print(f"[red]Error:[/red] {exc}")
         raise typer.Exit(1)
@@ -397,9 +399,11 @@ def serve(
         stderr_console.print(f"[red]Error:[/red] {exc}")
         raise typer.Exit(1)
     except OSError as exc:
-        if exc.errno == 48: # Address already in use
-             stderr_console.print(f"[red]Error:[/red] Could not start Nira server on http://{host}:{port}: Address already in use.")
-             raise typer.Exit(1)
+        if exc.errno == 48:  # Address already in use
+            stderr_console.print(
+                f"[red]Error:[/red] Could not start Nira server on http://{host}:{port}: Address already in use."
+            )
+            raise typer.Exit(1)
         raise
 
 
@@ -443,18 +447,18 @@ def print_ticket(details: dict) -> None:
     header_text = Text()
     header_text.append(f"{ticket['id']}", style="bold blue")
     header_text.append(f" {ticket['title']}", style="bold")
-    
+
     metadata_table = Table.grid(padding=(0, 2))
     metadata_table.add_column(style="dim")
     metadata_table.add_column()
-    
+
     metadata_table.add_row("Status:", Text(ticket["status"], style=status_color))
     metadata_table.add_row("Type:", ticket["type"])
     metadata_table.add_row("Priority:", ticket["priority"])
     metadata_table.add_row("Source:", ticket["source"] or "[dim]none[/dim]")
     metadata_table.add_row("Created:", ticket["created_at"])
     metadata_table.add_row("Updated:", ticket["updated_at"])
-    
+
     if ticket["resolution_reason"]:
         metadata_table.add_row("Resolution:", ticket["resolution_reason"])
 
@@ -496,7 +500,7 @@ def print_ticket_list(tickets: list[dict]) -> None:
         status_style = "green" if ticket["status"] == "closed" else ""
         if ticket["status"] == "in_progress":
             status_style = "blue"
-            
+
         priority_style = ""
         if ticket["priority"] == "critical":
             priority_style = "bold red"
@@ -523,7 +527,7 @@ def print_links(links: list[dict], *, ticket_id: str | None = None) -> None:
         table = Table(title=f"Related tickets for {ticket_id}", box=None)
         table.add_column("ID", style="blue")
         table.add_column("Title")
-        
+
         for link in links:
             if link["ticket_a"] == ticket_id:
                 table.add_row(link["ticket_b"], link["ticket_b_title"])
@@ -540,7 +544,7 @@ def print_links(links: list[dict], *, ticket_id: str | None = None) -> None:
     table.add_column("Ticket A", style="blue")
     table.add_column("↔", justify="center")
     table.add_column("Ticket B", style="blue")
-    
+
     for link in links:
         table.add_row(link["ticket_a"], "↔", link["ticket_b"])
     console.print(table)

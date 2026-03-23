@@ -133,9 +133,7 @@ class TestCliIntegration:
                 );
                 """
             )
-            connection.execute(
-                "INSERT INTO settings (key, value) VALUES ('default_project', 'EMH')"
-            )
+            connection.execute("INSERT INTO settings (key, value) VALUES ('default_project', 'EMH')")
             connection.execute(
                 "INSERT INTO projects (key, next_number, created_at) VALUES (?, ?, ?)",
                 ("EMH", 2, "2026-03-23T00:00:00Z"),
@@ -173,9 +171,7 @@ class TestCliIntegration:
         with closing(sqlite3.connect(db_path)) as connection:
             id_info = connection.execute("PRAGMA table_info(tickets)").fetchall()
             id_column = next(row for row in id_info if row[1] == "id")
-            migrated_row = connection.execute(
-                "SELECT id, number, title FROM tickets WHERE number = 1"
-            ).fetchone()
+            migrated_row = connection.execute("SELECT id, number, title FROM tickets WHERE number = 1").fetchone()
 
         assert str(id_column[2]).upper() == "INTEGER"
         assert migrated_row is not None

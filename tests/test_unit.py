@@ -32,9 +32,7 @@ def test_safe_url_allows_http_and_relative_urls() -> None:
 
 
 def test_render_markdown_renders_common_blocks() -> None:
-    rendered = render_markdown(
-        "# Title\n\n## Summary\n- first\n- second\n\nParagraph with **bold** and `code`.\n"
-    )
+    rendered = render_markdown("# Title\n\n## Summary\n- first\n- second\n\nParagraph with **bold** and `code`.\n")
 
     assert "<h1>Title</h1>" in rendered
     assert "<h2>Summary</h2>" in rendered
