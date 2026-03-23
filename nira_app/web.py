@@ -432,7 +432,7 @@ class NiraWebApp:
             }
         )
         return (
-            f'<a class="link-dark text-decoration-none d-inline-flex align-items-center gap-1" '
+            f'<a class="link-body-emphasis text-decoration-none d-inline-flex align-items-center gap-1" '
             f'href="{h(href)}" hx-get="{h(href)}" hx-target="body" hx-push-url="true">{h(label)}{indicator}</a>'
         )
 
