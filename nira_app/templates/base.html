@@ -299,148 +299,173 @@
       setTheme(initialTheme)
       showActiveTheme(initialTheme)
 
-      document.querySelectorAll(".rich-editor-shell").forEach((shell) => {
-        const source = shell.querySelector(".rich-editor-source");
-        const target = shell.querySelector(".rich-editor-target");
-        const form = shell.closest("form");
-        if (!window.toastui || !window.toastui.Editor) {
-          return;
-        }
+      function initNiraComponents(root) {
+        root.querySelectorAll(".rich-editor-shell").forEach((shell) => {
+          if (shell.dataset.editorInitialized) return;
+          shell.dataset.editorInitialized = "true";
 
-        const isDark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
-        
-        const editor = new window.toastui.Editor({
-          el: target,
-          height: shell.dataset.editorHeight || "320px",
-          initialEditType: "wysiwyg",
-          initialValue: source.value,
-          previewStyle: "vertical",
-          usageStatistics: false,
-          theme: isDark ? 'dark' : 'light',
-        });
-
-        // We need to keep a reference to update it when theme changes
-        shell._editorInstance = editor;
-
-        target.classList.remove("d-none");
-        source.classList.add("d-none");
-
-        const syncEditor = () => {
-          source.value = editor.getMarkdown();
-        };
-
-        form?.addEventListener("submit", syncEditor);
-      });
-
-      document.querySelectorAll("[data-status-select]").forEach((select) => {
-        const applyStatusClass = () => {
-          select.className = statusSelectClasses[select.value] || statusSelectClasses.open;
-        };
-
-        applyStatusClass();
-        select.addEventListener("change", applyStatusClass);
-      });
-
-      document.querySelectorAll("[data-auto-submit]").forEach((input) => {
-        input.addEventListener("change", () => {
-          input.form?.requestSubmit();
-        });
-      });
-
-      // Kanban board drag and drop
-      document.querySelectorAll(".kanban-column").forEach((column) => {
-        if (!window.Sortable) return;
-        
-        new Sortable(column, {
-          group: "kanban",
-          animation: 150,
-          ghostClass: "bg-primary-subtle",
-          filter: "a, button, input",
-          preventOnFilter: false,
-          onEnd: (evt) => {
-            const ticketId = evt.item.dataset.ticketId;
-            const newStatus = evt.to.dataset.status;
-            if (evt.from !== evt.to) {
-              // Trigger HTMX request to update status
-              htmx.ajax('POST', `/tickets/${ticketId}/edit`, {
-                values: { status: newStatus },
-                target: 'body'
-              });
-            }
+          const source = shell.querySelector(".rich-editor-source");
+          const target = shell.querySelector(".rich-editor-target");
+          const form = shell.closest("form");
+          if (!window.toastui || !window.toastui.Editor) {
+            return;
           }
+
+          const isDark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+          
+          const editor = new window.toastui.Editor({
+            el: target,
+            height: shell.dataset.editorHeight || "320px",
+            initialEditType: "wysiwyg",
+            initialValue: source.value,
+            previewStyle: "vertical",
+            usageStatistics: false,
+            theme: isDark ? 'dark' : 'light',
+          });
+
+          // We need to keep a reference to update it when theme changes
+          shell._editorInstance = editor;
+
+          target.classList.remove("d-none");
+          source.classList.add("d-none");
+
+          const syncEditor = () => {
+            source.value = editor.getMarkdown();
+          };
+
+          form?.addEventListener("submit", syncEditor);
         });
-      });
-      // Label interactive pills
-      document.querySelectorAll('.label-input-container').forEach(container => {
-        const input = container.querySelector('.label-hidden-input');
-        const hiddenRealInput = container.querySelector('.label-real-input');
-        
-        function updateRealInput() {
-            const labels = Array.from(container.querySelectorAll('.label-pill span'))
-                .map(span => span.textContent.trim());
-            hiddenRealInput.value = labels.join(', ');
-            // Trigger change event for HTMX auto-save if applicable
-            hiddenRealInput.dispatchEvent(new Event('change', { bubbles: true }));
-        }
 
-        function createPill(text) {
-            const pill = document.createElement('div');
-            pill.className = 'label-pill mb-0';
-            
-            const span = document.createElement('span');
-            span.textContent = text;
-            
-            const removeBtn = document.createElement('i');
-            removeBtn.className = 'label-pill-remove';
-            removeBtn.innerHTML = '&times;';
-            removeBtn.onclick = (e) => {
-                e.preventDefault();
-                pill.remove();
-                updateRealInput();
-                input.focus();
-            };
-            
-            pill.appendChild(span);
-            pill.appendChild(removeBtn);
-            
-            // Insert before the input field
-            container.insertBefore(pill, input);
-        }
+        root.querySelectorAll("[data-status-select]").forEach((select) => {
+          if (select.dataset.statusInitialized) return;
+          select.dataset.statusInitialized = "true";
 
-        // Initialize existing labels
-        if (hiddenRealInput.value) {
-            hiddenRealInput.value.split(',').forEach(lbl => {
-                const trimmed = lbl.trim();
-                if (trimmed) createPill(trimmed);
-            });
-        }
+          const applyStatusClass = () => {
+            select.className = statusSelectClasses[select.value] || statusSelectClasses.open;
+          };
 
-        input.addEventListener('keydown', (e) => {
-            if (e.key === ',' || e.key === 'Enter') {
-                e.preventDefault();
-                const text = input.value.trim().replace(/,/g, '');
-                if (text) {
-                    createPill(text);
-                    updateRealInput();
-                    input.value = '';
-                }
-            } else if (e.key === 'Backspace' && input.value === '') {
-                // Remove the last pill if backspace is pressed on empty input
-                const pills = container.querySelectorAll('.label-pill');
-                if (pills.length > 0) {
-                    pills[pills.length - 1].remove();
-                    updateRealInput();
-                }
+          applyStatusClass();
+          select.addEventListener("change", applyStatusClass);
+        });
+
+        root.querySelectorAll("[data-auto-submit]").forEach((input) => {
+          if (input.dataset.autoSubmitInitialized) return;
+          input.dataset.autoSubmitInitialized = "true";
+
+          input.addEventListener("change", () => {
+            input.form?.requestSubmit();
+          });
+        });
+
+        // Kanban board drag and drop
+        root.querySelectorAll(".kanban-column").forEach((column) => {
+          if (!window.Sortable || column.dataset.sortableInitialized) return;
+          column.dataset.sortableInitialized = "true";
+          
+          new Sortable(column, {
+            group: "kanban",
+            animation: 150,
+            ghostClass: "bg-primary-subtle",
+            filter: "a, button, input",
+            preventOnFilter: false,
+            onEnd: (evt) => {
+              const ticketId = evt.item.dataset.ticketId;
+              const newStatus = evt.to.dataset.status;
+              if (evt.from !== evt.to) {
+                // Trigger HTMX request to update status
+                htmx.ajax('POST', `/tickets/${ticketId}/edit`, {
+                  values: { status: newStatus },
+                  target: 'body'
+                });
+              }
             }
+          });
         });
 
-        // Focus the input when clicking anywhere in the container
-        container.addEventListener('click', (e) => {
-            if (e.target === container) {
-                input.focus();
-            }
+        // Label interactive pills
+        root.querySelectorAll('.label-input-container').forEach(container => {
+          if (container.dataset.pillsInitialized) return;
+          container.dataset.pillsInitialized = "true";
+
+          const input = container.querySelector('.label-hidden-input');
+          const hiddenRealInput = container.querySelector('.label-real-input');
+          
+          function updateRealInput() {
+              const labels = Array.from(container.querySelectorAll('.label-pill span'))
+                  .map(span => span.textContent.trim());
+              hiddenRealInput.value = labels.join(', ');
+              // Trigger change event for HTMX auto-save if applicable
+              hiddenRealInput.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+
+          function createPill(text) {
+              const pill = document.createElement('div');
+              pill.className = 'label-pill mb-0';
+              
+              const span = document.createElement('span');
+              span.textContent = text;
+              
+              const removeBtn = document.createElement('i');
+              removeBtn.className = 'label-pill-remove';
+              removeBtn.innerHTML = '&times;';
+              removeBtn.onclick = (e) => {
+                  e.preventDefault();
+                  pill.remove();
+                  updateRealInput();
+                  input.focus();
+              };
+              
+              pill.appendChild(span);
+              pill.appendChild(removeBtn);
+              
+              // Insert before the input field
+              container.insertBefore(pill, input);
+          }
+
+          // Initialize existing labels
+          if (hiddenRealInput.value) {
+              hiddenRealInput.value.split(',').forEach(lbl => {
+                  const trimmed = lbl.trim();
+                  if (trimmed) createPill(trimmed);
+              });
+          }
+
+          input.addEventListener('keydown', (e) => {
+              if (e.key === ',' || e.key === 'Enter') {
+                  e.preventDefault();
+                  const text = input.value.trim().replace(/,/g, '');
+                  if (text) {
+                      createPill(text);
+                      updateRealInput();
+                      input.value = '';
+                  }
+              } else if (e.key === 'Backspace' && input.value === '') {
+                  // Remove the last pill if backspace is pressed on empty input
+                  const pills = container.querySelectorAll('.label-pill');
+                  if (pills.length > 0) {
+                      pills[pills.length - 1].remove();
+                      updateRealInput();
+                  }
+              }
+          });
+
+          // Focus the input when clicking anywhere in the container
+          container.addEventListener('click', (e) => {
+              if (e.target === container) {
+                  input.focus();
+              }
+          });
         });
+      }
+
+      // Initialize on first load
+      initNiraComponents(document);
+
+      // Re-initialize after HTMX swaps
+      document.body.addEventListener('htmx:load', function(evt) {
+          initNiraComponents(evt.detail.elt);
       });
+
 
     </script>
   </body>
