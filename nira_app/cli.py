@@ -186,6 +186,7 @@ def list_tickets(
     status: Annotated[Optional[str], typer.Option(help="Filter by status.")] = None,
     priority: Annotated[Optional[str], typer.Option(help="Filter by priority.")] = None,
     type: Annotated[Optional[str], typer.Option(help="Filter by type.")] = None,
+    search: Annotated[Optional[str], typer.Option(help="Search query.")] = None,
 ):
     """
     List tickets in the current workspace.
@@ -197,6 +198,7 @@ def list_tickets(
             status=status,
             priority=priority,
             ticket_type=type,
+            search=search,
         )
         print_ticket_list(tickets)
     except NiraError as exc:

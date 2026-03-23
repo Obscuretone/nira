@@ -257,6 +257,7 @@ class NiraWebApp:
         selected_status = query.get("status") or "not_closed"
         selected_sort = normalize_list_sort(query.get("sort"))
         selected_direction = normalize_list_direction(query.get("direction"))
+        search_query = query.get("search")
         try:
             page = int(query.get("page", 1))
             if page < 1:
@@ -274,8 +275,9 @@ class NiraWebApp:
             direction=selected_direction,
             limit=limit,
             offset=offset,
+            search=search_query,
         )
-        total_tickets = self.store.count_tickets(status=status_filter)
+        total_tickets = self.store.count_tickets(status=status_filter, search=search_query)
         total_pages = (total_tickets + limit - 1) // limit
 
         body = self.render(
@@ -284,6 +286,7 @@ class NiraWebApp:
             selected_status=selected_status,
             selected_sort=selected_sort,
             selected_direction=selected_direction,
+            search_query=search_query,
             status_options=self.status_filter_options(),
             sort_options=self.list_sort_options(),
             direction_options=self.sort_direction_options(),
@@ -417,6 +420,7 @@ class NiraWebApp:
         selected_sort: str,
         selected_direction: str,
         selected_status: str,
+        search_query: str | None = None,
     ) -> str:
         is_active = sort_key == selected_sort
         next_direction = "asc" if is_active and selected_direction == "desc" else "desc"
@@ -424,14 +428,16 @@ class NiraWebApp:
         if is_active:
             indicator = " ↓" if selected_direction == "desc" else " ↑"
 
-        href = "/?" + urlencode(
-            {
-                "status": selected_status,
-                "sort": sort_key,
-                "direction": next_direction,
-                "page": "1",  # Reset to page 1 on sort change
-            }
-        )
+        params = {
+            "status": selected_status,
+            "sort": sort_key,
+            "direction": next_direction,
+            "page": "1",  # Reset to page 1 on sort change
+        }
+        if search_query:
+            params["search"] = search_query
+
+        href = "/?" + urlencode(params)
         return (
             f'<a class="link-body-emphasis text-decoration-none d-inline-flex align-items-center gap-1" '
             f'href="{h(href)}" hx-get="{h(href)}" hx-target="body" hx-push-url="true">{h(label)}{indicator}</a>'

@@ -17,6 +17,7 @@ from sqlalchemy import (
     delete,
     func,
     select,
+    text,
     update,
 )
 
@@ -308,6 +309,45 @@ class NiraStore:
             CREATE INDEX IF NOT EXISTS links_ticket_b_idx ON links(ticket_b_id);
             """
         )
+        if not self.table_exists(connection, "tickets_search"):
+            self.create_fts_schema(connection)
+            self.populate_fts_index(connection)
+
+    def create_fts_schema(self, connection: sqlite3.Connection) -> None:
+        connection.executescript(
+            """
+            CREATE VIRTUAL TABLE IF NOT EXISTS tickets_search USING fts5(
+                title,
+                body_md,
+                resolution_md,
+                content='tickets',
+                content_rowid='id'
+            );
+
+            CREATE TRIGGER IF NOT EXISTS tickets_ai AFTER INSERT ON tickets BEGIN
+                INSERT INTO tickets_search(rowid, title, body_md, resolution_md)
+                VALUES (new.id, new.title, new.body_md, new.resolution_md);
+            END;
+
+            CREATE TRIGGER IF NOT EXISTS tickets_ad AFTER DELETE ON tickets BEGIN
+                INSERT INTO tickets_search(tickets_search, rowid, title, body_md, resolution_md)
+                VALUES('delete', old.id, old.title, old.body_md, old.resolution_md);
+            END;
+
+            CREATE TRIGGER IF NOT EXISTS tickets_au AFTER UPDATE ON tickets BEGIN
+                INSERT INTO tickets_search(tickets_search, rowid, title, body_md, resolution_md)
+                VALUES('delete', old.id, old.title, old.body_md, old.resolution_md);
+                INSERT INTO tickets_search(rowid, title, body_md, resolution_md)
+                VALUES (new.id, new.title, new.body_md, new.resolution_md);
+            END;
+            """
+        )
+
+    def populate_fts_index(self, connection: sqlite3.Connection) -> None:
+        connection.execute(
+            "INSERT INTO tickets_search(rowid, title, body_md, resolution_md) "
+            "SELECT id, title, body_md, resolution_md FROM tickets"
+        )
 
     def ensure_default_project(
         self,
@@ -597,6 +637,7 @@ class NiraStore:
         direction: str | None = None,
         offset: int = 0,
         limit: int | None = None,
+        search: str | None = None,
     ) -> list[dict]:
         sort_key = normalize_list_sort(sort_by)
         sort_direction = normalize_list_direction(direction).lower()
@@ -607,6 +648,11 @@ class NiraStore:
                 return []
 
             stmt = select(Ticket)
+
+            if search:
+                stmt = stmt.where(
+                    text("tickets.id IN (SELECT rowid FROM tickets_search WHERE tickets_search MATCH :query)")
+                ).params(query=search)
 
             if status:
                 if status == "not_closed":
@@ -659,6 +705,7 @@ class NiraStore:
         status: str | None = None,
         priority: str | None = None,
         ticket_type: str | None = None,
+        search: str | None = None,
     ) -> int:
         with self.session() as session:
             current_project = self.current_project(session)
@@ -666,6 +713,11 @@ class NiraStore:
                 return 0
 
             stmt = select(func.count(Ticket.id))
+
+            if search:
+                stmt = stmt.where(
+                    text("tickets.id IN (SELECT rowid FROM tickets_search WHERE tickets_search MATCH :query)")
+                ).params(query=search)
 
             if status:
                 if status == "not_closed":

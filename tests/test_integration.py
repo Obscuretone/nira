@@ -782,3 +782,35 @@ class TestHttpIntegration:
         assert status == 200
         assert headers["Content-Type"] == "image/png"
         assert body.startswith(b"\x89PNG\r\n\x1a\n")
+
+    def test_full_text_search(self):
+        self.request(
+            "POST",
+            "/tickets",
+            fields={
+                "project": "EMH",
+                "title": "Unique title for search",
+                "body_md": "This body contains the word flamingo.",
+            },
+        )
+        self.request(
+            "POST",
+            "/tickets",
+            fields={
+                "project": "EMH",
+                "title": "Another ticket",
+                "body_md": "This one does not.",
+            },
+        )
+
+        # Search in Web
+        status, _, body = self.request("GET", "/?search=flamingo")
+        assert status == 200
+        assert "Unique title for search" in body
+        assert "Another ticket" not in body
+
+        # Search in CLI
+        search_result = run_cli(["list", "--search", "flamingo"], cwd=self.root)
+        assert search_result.returncode == 0
+        assert "Unique title for search" in search_result.stdout
+        assert "Another ticket" not in search_result.stdout

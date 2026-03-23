@@ -12,7 +12,29 @@
 </div>
 
 <form class="row g-3 mb-4" method="get" action="/" hx-get="/" hx-target="body" hx-push-url="true">
-  <div class="col-md-3">
+  <div class="col-md-4">
+    <label class="form-label" for="search">Search</label>
+    <div class="input-group">
+      <span class="input-group-text bg-body-tertiary">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-search" viewBox="0 0 16 16">
+          <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"/>
+        </svg>
+      </span>
+      <input 
+        type="text" 
+        class="form-control" 
+        id="search" 
+        name="search" 
+        placeholder="Search tickets..." 
+        value="{{ search_query or '' }}"
+        hx-get="/"
+        hx-trigger="keyup changed delay:500ms"
+        hx-target="body"
+        hx-push-url="true"
+      >
+    </div>
+  </div>
+  <div class="col-md-2">
     <label class="form-label" for="status">Status</label>
     <select class="form-select" id="status" name="status" hx-get="/" hx-trigger="change" hx-target="body" hx-push-url="true">
       {% for value, label in status_options -%}
@@ -20,7 +42,7 @@
       {% endfor -%}
     </select>
   </div>
-  <div class="col-md-3">
+  <div class="col-md-2">
     <label class="form-label" for="sort">Sort By</label>
     <select class="form-select" id="sort" name="sort" hx-get="/" hx-trigger="change" hx-target="body" hx-push-url="true">
       {% for value, label in sort_options -%}
@@ -36,10 +58,8 @@
       {% endfor -%}
     </select>
   </div>
-  <div class="col-md-4 d-flex align-items-end gap-2">
-    <noscript><button class="btn btn-dark" type="submit">Filter</button></noscript>
-    <a class="btn btn-outline-secondary" href="/">Reset</a>
-    <a class="btn btn-primary ms-auto" href="/tickets/new">Create Ticket</a>
+  <div class="col-md-2 d-flex align-items-end gap-2">
+    <a class="btn btn-outline-secondary w-100" href="/">Reset</a>
   </div>
 </form>
 
@@ -49,11 +69,11 @@
       <table class="table table-hover align-middle mb-0">
         <thead>
           <tr>
-            <th scope="col">{{ sort_header_link("Ticket", "ticket_id", selected_sort, selected_direction, selected_status) | safe }}</th>
+            <th scope="col">{{ sort_header_link("Ticket", "ticket_id", selected_sort, selected_direction, selected_status, search_query) | safe }}</th>
             <th scope="col">Title</th>
-            <th scope="col">{{ sort_header_link("Status", "status", selected_sort, selected_direction, selected_status) | safe }}</th>
-            <th scope="col">{{ sort_header_link("Priority", "priority", selected_sort, selected_direction, selected_status) | safe }}</th>
-            <th scope="col">{{ sort_header_link("Updated", "updated", selected_sort, selected_direction, selected_status) | safe }}</th>
+            <th scope="col">{{ sort_header_link("Status", "status", selected_sort, selected_direction, selected_status, search_query) | safe }}</th>
+            <th scope="col">{{ sort_header_link("Priority", "priority", selected_sort, selected_direction, selected_status, search_query) | safe }}</th>
+            <th scope="col">{{ sort_header_link("Updated", "updated", selected_sort, selected_direction, selected_status, search_query) | safe }}</th>
           </tr>
         </thead>
         <tbody>
@@ -80,6 +100,7 @@
 <nav aria-label="Ticket pagination" class="mt-4">
   <ul class="pagination justify-content-center">
     {% set params = {"status": selected_status, "sort": selected_sort, "direction": selected_direction} %}
+    {% if search_query %}{% set _ = params.update({"search": search_query}) %}{% endif %}
     <li class="page-item {% if page == 1 %}disabled{% endif %}">
       {% set prev_params = params.copy() %}{% set _ = prev_params.update({"page": page - 1}) %}
       <a class="page-link" href="/?{{ urlencode(prev_params) }}" hx-get="/?{{ urlencode(prev_params) }}" hx-target="body" hx-push-url="true" aria-label="Previous">
