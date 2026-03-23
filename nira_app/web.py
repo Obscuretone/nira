@@ -7,9 +7,11 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import lru_cache
 from pathlib import Path
-from string import Template
+from typing import Any
 from urllib.parse import parse_qs, urlencode
 from wsgiref.simple_server import WSGIRequestHandler, make_server
+
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from .markdown import render_markdown
 from .storage import (
@@ -105,17 +107,6 @@ def priority_badge(priority: str) -> str:
     return f'<span class="badge {variants.get(priority, "text-bg-light border")}">{h(priority)}</span>'
 
 
-@lru_cache(maxsize=None)
-def load_template(name: str) -> Template:
-    path = TEMPLATES_DIR / name
-    return Template(path.read_text(encoding="utf-8"))
-
-
-def render_template(name: str, **context: object) -> str:
-    normalized_context = {key: "" if value is None else str(value) for key, value in context.items()}
-    return load_template(name).substitute(normalized_context)
-
-
 @dataclass
 class Response:
     status: str
@@ -174,7 +165,38 @@ class NiraWebApp:
     def __init__(self, store: NiraStore):
         self.store = store
         self.router = Router()
+        self.jinja_env = Environment(
+            loader=FileSystemLoader(TEMPLATES_DIR),
+            autoescape=select_autoescape(["html", "xml"]),
+        )
+        self._setup_jinja()
         self._register_routes()
+
+    def _setup_jinja(self):
+        self.jinja_env.globals.update(
+            {
+                "bootstrap_css": BOOTSTRAP_CSS,
+                "bootstrap_css_integrity": BOOTSTRAP_CSS_INTEGRITY,
+                "bootstrap_js": BOOTSTRAP_JS,
+                "bootstrap_js_integrity": BOOTSTRAP_JS_INTEGRITY,
+                "toast_ui_editor_css": TOAST_UI_EDITOR_CSS,
+                "toast_ui_editor_js": TOAST_UI_EDITOR_JS,
+                "brand_logo_url": "/assets/nira.png",
+                "favicon_url": "/assets/nira.png",
+                "h": h,
+                "render_markdown": render_markdown,
+                "format_time": format_time,
+                "status_badge": status_badge,
+                "priority_badge": priority_badge,
+                "status_select_classes": status_select_classes,
+                "urlencode": urlencode,
+                "sort_header_link": self.sort_header_link,
+            }
+        )
+
+    def render(self, template_name: str, **context: Any) -> str:
+        template = self.jinja_env.get_template(template_name)
+        return template.render(**context)
 
     def _register_routes(self):
         # Asset delivery
@@ -232,75 +254,38 @@ class NiraWebApp:
             sort_by=selected_sort,
             direction=selected_direction,
         )
-        rows = "".join(
-            render_template(
-                "ticket_table_row.html",
-                ticket_id=h(ticket["id"]),
-                title=h(ticket["title"]),
-                status_badge=status_badge(ticket["status"]),
-                priority_badge=priority_badge(ticket["priority"]),
-                updated_time=format_time(ticket["updated_at"], relative=True),
-            )
-            for ticket in tickets
-        )
-        if not rows:
-            rows = render_template("ticket_table_empty_row.html")
 
-        table = render_template(
-            "ticket_table.html",
-            ticket_header=self.sort_header_link(
-                "Ticket", "ticket_id", selected_sort, selected_direction, selected_status
-            ),
-            status_header=self.sort_header_link(
-                "Status", "status", selected_sort, selected_direction, selected_status
-            ),
-            priority_header=self.sort_header_link(
-                "Priority", "priority", selected_sort, selected_direction, selected_status
-            ),
-            updated_header=self.sort_header_link(
-                "Updated", "updated", selected_sort, selected_direction, selected_status
-            ),
-            rows=rows,
+        body = self.render(
+            "list_page.html",
+            tickets=tickets,
+            selected_status=selected_status,
+            selected_sort=selected_sort,
+            selected_direction=selected_direction,
+            status_options=self.status_filter_options(),
+            sort_options=self.list_sort_options(),
+            direction_options=self.sort_direction_options(),
         )
-
-        filters = render_template(
-            "list_filters.html",
-            status_options=self.status_filter_options(selected_status),
-            sort_options=self.list_sort_options(selected_sort),
-            direction_options=self.sort_direction_options(selected_direction),
-        )
-
-        content = render_template("list_page.html", filters=filters, table=table)
-        return self.page("Nira", content)
+        return Response("200 OK", body)
 
     def new_ticket_page(self, query: dict[str, str], form: dict[str, str]) -> Response:
         default_project = query.get("project", "") or self.store.get_default_project()
-        content = render_template(
+        body = self.render(
             "new_ticket_page.html",
-            default_project=h(default_project),
-            body_editor=self.rich_editor("body_md", "", height_px=380),
+            default_project=default_project,
             ticket_type_options=self.ticket_type_options("task", include_existing=False),
-            priority_options=self.priority_options("medium"),
+            priority_options=self.priority_options(),
         )
-        return self.page("Create Ticket", content)
+        return Response("200 OK", body)
 
     def settings_page(self, query: dict[str, str], form: dict[str, str]) -> Response:
         settings = self.store.get_settings()
-        save_notice = ""
-        if query.get("saved") == "1":
-            save_notice = (
-                '<div class="alert alert-success" role="alert">'
-                "Workspace settings updated."
-                "</div>"
-            )
-
-        content = render_template(
+        body = self.render(
             "settings_page.html",
-            save_notice=save_notice,
-            default_project=h(str(settings["default_project"])),
-            ticket_count=str(settings["ticket_count"]),
+            saved=query.get("saved") == "1",
+            default_project=settings["default_project"],
+            ticket_count=settings["ticket_count"],
         )
-        return self.page("Settings", content)
+        return Response("200 OK", body)
 
     def create_ticket_action(self, query: dict[str, str], form: dict[str, str]) -> Response:
         ticket = self.store.create_ticket(
@@ -326,39 +311,15 @@ class NiraWebApp:
 
     def ticket_detail_page(self, query: dict[str, str], form: dict[str, str], ticket_id: str) -> Response:
         details = self.store.ticket_details(ticket_id)
-        ticket = details["ticket"]
-        related = details["related"]
-
-        related_items = "".join(
-            render_template(
-                "related_item.html",
-                ticket_id=h(ticket["id"]),
-                related_ticket_id=h(item["id"]),
-            )
-            for item in related
-        )
-        if not related_items:
-            related_items = '<li class="list-group-item text-body-secondary">No related tickets yet.</li>'
-
-        content = render_template(
+        body = self.render(
             "ticket_detail_page.html",
-            project=h(ticket["project"]),
-            ticket_id=h(ticket["id"]),
-            title=h(ticket["title"]),
-            status_badge=status_badge(ticket["status"]),
-            priority_badge=priority_badge(ticket["priority"]),
-            body_editor=self.rich_editor("body_md", ticket["body_md"], height_px=420),
-            resolution_md=h(ticket["resolution_md"]),
-            related_items=related_items,
-            status_select_classes=status_select_classes(ticket["status"]),
-            ticket_status_options=self.ticket_status_options(ticket["status"]),
-            priority_options=self.priority_options(ticket["priority"]),
-            source=h(ticket["source"]),
-            ticket_type_options=self.ticket_type_options(ticket["type"]),
-            created_time=format_time(ticket["created_at"]),
-            updated_time=format_time(ticket["updated_at"], relative=True),
+            ticket=details["ticket"],
+            related=details["related"],
+            ticket_status_options=self.ticket_status_options(),
+            priority_options=self.priority_options(),
+            ticket_type_options=self.ticket_type_options(details["ticket"]["type"]),
         )
-        return self.page(ticket["id"], content)
+        return Response("200 OK", body)
 
     def edit_ticket_action(self, query: dict[str, str], form: dict[str, str], ticket_id: str) -> Response:
         updates = {}
@@ -397,37 +358,25 @@ class NiraWebApp:
         self.store.unlink_tickets(ticket_id, form.get("other_ticket_id", ""))
         return self.redirect(f"/tickets/{ticket_id}")
 
-    def status_filter_options(self, selected: str) -> str:
-        options = [
+    def status_filter_options(self) -> list[tuple[str, str]]:
+        return [
             ("not_closed", "not closed"),
             ("open", "open"),
             ("in_progress", "in progress"),
             ("closed", "completed"),
             ("all", "all"),
         ]
-        return "".join(
-            f'<option value="{h(value)}"{" selected" if value == selected else ""}>{h(label)}</option>'
-            for value, label in options
-        )
 
-    def list_sort_options(self, selected: str) -> str:
-        options = [
+    def list_sort_options(self) -> list[tuple[str, str]]:
+        return [
             ("updated", "updated"),
             ("ticket_id", "ticket ID"),
             ("priority", "priority"),
             ("status", "status"),
         ]
-        return "".join(
-            f'<option value="{h(value)}"{" selected" if value == selected else ""}>{h(label)}</option>'
-            for value, label in options
-        )
 
-    def sort_direction_options(self, selected: str) -> str:
-        options = [("desc", "descending"), ("asc", "ascending")]
-        return "".join(
-            f'<option value="{h(value)}"{" selected" if value == selected else ""}>{h(label)}</option>'
-            for value, label in options
-        )
+    def sort_direction_options(self) -> list[tuple[str, str]]:
+        return [("desc", "descending"), ("asc", "ascending")]
 
     def sort_header_link(
         self,
@@ -455,62 +404,25 @@ class NiraWebApp:
             f"{h(label)}<span>{h(indicator)}</span></a>"
         )
 
-    def ticket_status_options(self, selected: str) -> str:
-        options = [("open", "open"), ("in_progress", "in progress"), ("closed", "completed")]
-        return "".join(
-            f'<option value="{h(value)}"{" selected" if value == selected else ""}>{h(label)}</option>'
-            for value, label in options
-        )
+    def ticket_status_options(self) -> list[tuple[str, str]]:
+        return [("open", "open"), ("in_progress", "in progress"), ("closed", "completed")]
 
-    def priority_options(self, selected: str) -> str:
-        options = [("low", "low"), ("medium", "medium"), ("high", "high"), ("critical", "critical")]
-        return "".join(
-            f'<option value="{h(value)}"{" selected" if value == selected else ""}>{h(label)}</option>'
-            for value, label in options
-        )
+    def priority_options(self) -> list[tuple[str, str]]:
+        return [("low", "low"), ("medium", "medium"), ("high", "high"), ("critical", "critical")]
 
-    def ticket_type_options(self, selected: str, *, include_existing: bool = True) -> str:
+    def ticket_type_options(self, selected: str, *, include_existing: bool = True) -> list[tuple[str, str]]:
         options = [("task", "task"), ("bug", "bug")]
         normalized_selected = (selected or "task").strip() or "task"
         if include_existing and normalized_selected not in {value for value, _ in options}:
             options = [(normalized_selected, normalized_selected), *options]
-        return "".join(
-            f'<option value="{h(value)}"{" selected" if value == normalized_selected else ""}>{h(label)}</option>'
-            for value, label in options
-        )
-
-    def rich_editor(self, field_name: str, value: str, *, height_px: int) -> str:
-        return render_template(
-            "rich_editor.html",
-            field_name=h(field_name),
-            height_px=height_px,
-            value=h(value),
-        )
-
-    def page(self, title: str, content: str) -> Response:
-        return Response(
-            "200 OK",
-            render_template(
-                "base.html",
-                title=h(title),
-                brand_logo_url="/assets/nira.png",
-                favicon_url="/assets/nira.png",
-                bootstrap_css=BOOTSTRAP_CSS,
-                bootstrap_css_integrity=BOOTSTRAP_CSS_INTEGRITY,
-                toast_ui_editor_css=TOAST_UI_EDITOR_CSS,
-                bootstrap_js=BOOTSTRAP_JS,
-                bootstrap_js_integrity=BOOTSTRAP_JS_INTEGRITY,
-                toast_ui_editor_js=TOAST_UI_EDITOR_JS,
-                content=content,
-            ),
-        )
+        return options
 
     def redirect(self, location: str) -> Response:
         return Response("303 See Other", "", headers=[("Location", location)])
 
     def error_page(self, title: str, message: str, status: str) -> Response:
-        content = render_template("error_page.html", title=h(title), message=h(message))
-        return Response(status, self.page(title, content).body)
+        body = self.render("error_page.html", error_title=title, message=message)
+        return Response(status, body)
 
     def asset_response(self, query: dict[str, str], form: dict[str, str], asset_path: str) -> Response:
         if not asset_path:

@@ -1,3 +1,8 @@
+{% extends "base.html" %}
+
+{% block title %}Tickets{% endblock %}
+
+{% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
   <div>
     <p class="text-uppercase text-body-secondary small mb-1">Local issue tracker</p>
@@ -5,5 +10,69 @@
   </div>
   <div class="text-body-secondary">SQLite-backed tickets for the current project.</div>
 </div>
-${filters}
-${table}
+
+<form class="row g-3 mb-4" method="get" action="/">
+  <div class="col-md-3">
+    <label class="form-label" for="status">Status</label>
+    <select class="form-select" id="status" name="status">
+      {% for value, label in status_options -%}
+      <option value="{{ value }}"{% if value == selected_status %} selected{% endif %}>{{ label }}</option>
+      {% endfor -%}
+    </select>
+  </div>
+  <div class="col-md-3">
+    <label class="form-label" for="sort">Sort By</label>
+    <select class="form-select" id="sort" name="sort">
+      {% for value, label in sort_options -%}
+      <option value="{{ value }}"{% if value == selected_sort %} selected{% endif %}>{{ label }}</option>
+      {% endfor -%}
+    </select>
+  </div>
+  <div class="col-md-2">
+    <label class="form-label" for="direction">Direction</label>
+    <select class="form-select" id="direction" name="direction">
+      {% for value, label in direction_options -%}
+      <option value="{{ value }}"{% if value == selected_direction %} selected{% endif %}>{{ label }}</option>
+      {% endfor -%}
+    </select>
+  </div>
+  <div class="col-md-4 d-flex align-items-end gap-2">
+    <button class="btn btn-dark" type="submit">Filter</button>
+    <a class="btn btn-outline-secondary" href="/">Reset</a>
+    <a class="btn btn-primary ms-auto" href="/tickets/new">Create Ticket</a>
+  </div>
+</form>
+
+<div class="card shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th scope="col">{{ sort_header_link("Ticket", "ticket_id", selected_sort, selected_direction, selected_status) | safe }}</th>
+            <th scope="col">Title</th>
+            <th scope="col">{{ sort_header_link("Status", "status", selected_sort, selected_direction, selected_status) | safe }}</th>
+            <th scope="col">{{ sort_header_link("Priority", "priority", selected_sort, selected_direction, selected_status) | safe }}</th>
+            <th scope="col">{{ sort_header_link("Updated", "updated", selected_sort, selected_direction, selected_status) | safe }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for ticket in tickets %}
+          <tr>
+            <td><a class="link-dark fw-semibold" href="/tickets/{{ ticket.id }}">{{ ticket.id }}</a></td>
+            <td>{{ ticket.title }}</td>
+            <td>{{ status_badge(ticket.status) | safe }}</td>
+            <td>{{ priority_badge(ticket.priority) | safe }}</td>
+            <td>{{ format_time(ticket.updated_at, relative=True) | safe }}</td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="5" class="py-4 text-center text-body-secondary">No tickets match the current filters.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

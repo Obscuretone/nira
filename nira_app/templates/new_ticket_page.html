@@ -1,3 +1,9 @@
+{% extends "base.html" %}
+{% from "macros.html" import rich_editor %}
+
+{% block title %}Create Ticket{% endblock %}
+
+{% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
   <div>
     <p class="text-uppercase text-body-secondary small mb-1">New Ticket</p>
@@ -14,7 +20,7 @@
           <input class="form-control" id="title" name="title" required>
         </div>
         <h2 class="h5 mb-3">Body</h2>
-        ${body_editor}
+        {{ rich_editor("body_md", height_px=380) }}
       </div>
     </div>
   </div>
@@ -23,8 +29,8 @@
       <div class="card-body">
         <div class="mb-3">
           <label class="form-label" for="project_display">Ticket Prefix</label>
-          <input class="form-control" id="project_display" value="${default_project}-" readonly>
-          <input type="hidden" name="project" value="${default_project}">
+          <input class="form-control" id="project_display" value="{{ default_project }}-" readonly>
+          <input type="hidden" name="project" value="{{ default_project }}">
         </div>
         <div class="mb-3">
           <label class="form-label" for="source">Source</label>
@@ -33,13 +39,17 @@
         <div class="mb-3">
           <label class="form-label" for="type">Type</label>
           <select class="form-select" id="type" name="type">
-            ${ticket_type_options}
+            {% for value, label in ticket_type_options -%}
+            <option value="{{ value }}"{% if value == "task" %} selected{% endif %}>{{ label }}</option>
+            {% endfor -%}
           </select>
         </div>
         <div class="mb-3">
           <label class="form-label" for="priority">Priority</label>
           <select class="form-select" id="priority" name="priority">
-            ${priority_options}
+            {% for value, label in priority_options -%}
+            <option value="{{ value }}"{% if value == "medium" %} selected{% endif %}>{{ label }}</option>
+            {% endfor -%}
           </select>
         </div>
         <button class="btn btn-primary w-100" type="submit">Create Ticket</button>
@@ -47,3 +57,4 @@
     </div>
   </div>
 </form>
+{% endblock %}

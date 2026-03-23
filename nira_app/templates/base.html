@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>${title} · Nira</title>
-    <link rel="icon" type="image/png" href="${favicon_url}">
-    <link href="${bootstrap_css}" rel="stylesheet" integrity="${bootstrap_css_integrity}" crossorigin="anonymous">
-    <link href="${toast_ui_editor_css}" rel="stylesheet">
+    <title>{% block title %}{{ title }}{% endblock %} · Nira</title>
+    <link rel="icon" type="image/png" href="{{ favicon_url }}">
+    <link href="{{ bootstrap_css }}" rel="stylesheet" integrity="{{ bootstrap_css_integrity }}" crossorigin="anonymous">
+    <link href="{{ toast_ui_editor_css }}" rel="stylesheet">
     <style>
       body {
         background:
@@ -63,7 +63,7 @@
     <header class="brand-shell">
       <div class="container py-3 d-flex flex-wrap justify-content-between align-items-center gap-3">
         <a class="d-inline-flex align-items-center gap-3 text-decoration-none text-dark" href="/">
-          <img class="brand-mark" src="${brand_logo_url}" alt="Nira logo">
+          <img class="brand-mark" src="{{ brand_logo_url }}" alt="Nira logo">
           <span class="brand-wordmark">NIRA</span>
         </a>
         <nav class="d-flex flex-wrap align-items-center brand-nav">
@@ -74,10 +74,10 @@
       </div>
     </header>
     <main class="container page-shell">
-      ${content}
+      {% block content %}{{ content | safe }}{% endblock %}
     </main>
-    <script src="${bootstrap_js}" integrity="${bootstrap_js_integrity}" crossorigin="anonymous"></script>
-    <script src="${toast_ui_editor_js}"></script>
+    <script src="{{ bootstrap_js }}" integrity="{{ bootstrap_js_integrity }}" crossorigin="anonymous"></script>
+    <script src="{{ toast_ui_editor_js }}"></script>
     <script>
       const statusSelectClasses = {
         open: "form-select form-select-lg fw-semibold border-secondary bg-secondary-subtle text-secondary-emphasis",

@@ -1,12 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}{{ error_title }}{% endblock %}
+
+{% block content %}
 <div class="row justify-content-center">
   <div class="col-lg-8">
     <div class="card shadow-sm">
       <div class="card-body p-5 text-center">
         <p class="text-uppercase text-body-secondary small mb-2">Nira</p>
-        <h1 class="h3 mb-3">${title}</h1>
-        <p class="text-body-secondary mb-4">${message}</p>
+        <h1 class="h3 mb-3">{{ error_title }}</h1>
+        <p class="text-body-secondary mb-4">{{ message }}</p>
         <a class="btn btn-primary" href="/">Back to Tickets</a>
       </div>
     </div>
   </div>
 </div>
+{% endblock %}
