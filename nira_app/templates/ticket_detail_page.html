@@ -1,10 +1,16 @@
+{% extends "base.html" %}
+{% from "macros.html" import rich_editor, status_badge, priority_badge %}
+
+{% block title %}{{ ticket.id }}{% endblock %}
+
+{% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
   <div>
-    <p class="text-uppercase text-body-secondary small mb-1">${project}</p>
-    <h1 class="h2 mb-1">${ticket_id} ${title}</h1>
+    <p class="text-uppercase text-body-secondary small mb-1">{{ ticket.project }}</p>
+    <h1 class="h2 mb-1">{{ ticket.id }} {{ ticket.title }}</h1>
     <div class="d-flex flex-wrap gap-2">
-      ${status_badge}
-      ${priority_badge}
+      {{ status_badge(ticket.status) | safe }}
+      {{ priority_badge(ticket.priority) | safe }}
     </div>
   </div>
   <div class="d-flex gap-2">
@@ -15,7 +21,7 @@
 
 <div class="row g-4">
   <div class="col-xl-8">
-    <form id="ticket-edit-form" method="post" action="/tickets/${ticket_id}/edit" class="mb-4">
+    <form id="ticket-edit-form" method="post" action="/tickets/{{ ticket.id }}/edit" class="mb-4">
       <div class="card shadow-sm mb-4">
         <div class="card-body">
           <label class="form-label" for="title">Title</label>
@@ -23,11 +29,11 @@
             class="form-control form-control-lg mb-4"
             id="title"
             name="title"
-            value="${title}"
+            value="{{ ticket.title }}"
             required
           >
           <h2 class="h5 mb-3">Body</h2>
-          ${body_editor}
+          {{ rich_editor("body_md", ticket.body_md, height_px=420) }}
           <div class="d-flex justify-content-end mt-3">
             <button class="btn btn-primary" type="submit">Save</button>
           </div>
@@ -43,7 +49,7 @@
             name="resolution_md"
             rows="10"
             placeholder="Optional closeout notes, decisions, or follow-up context."
-          >${resolution_md}</textarea>
+          >{{ ticket.resolution_md }}</textarea>
           <div class="d-flex justify-content-end mt-3">
             <button class="btn btn-primary" type="submit">Save</button>
           </div>
@@ -54,13 +60,33 @@
     <div class="card shadow-sm mb-4">
       <div class="card-body">
         <h2 class="h5 mb-3">Related</h2>
-        <form method="post" action="/tickets/${ticket_id}/link" class="mb-3">
+        <form method="post" action="/tickets/{{ ticket.id }}/link" class="mb-3">
           <div class="input-group">
             <input class="form-control" type="text" name="other_ticket_id" placeholder="EMH-2" required>
             <button class="btn btn-outline-dark" type="submit">Link</button>
           </div>
         </form>
-        <ul class="list-group list-group-flush">${related_items}</ul>
+        <ul class="list-group list-group-flush">
+          {% for item in related %}
+          <li class="list-group-item d-flex justify-content-between align-items-center gap-3">
+            <div class="d-flex align-items-center gap-2 overflow-hidden">
+              <a class="link-dark fw-semibold text-nowrap" href="/tickets/{{ item.id }}">{{ item.id }}</a>
+              <span class="text-truncate">{{ item.title }}</span>
+            </div>
+            <form method="post" action="/tickets/{{ ticket.id }}/unlink">
+              <input type="hidden" name="other_ticket_id" value="{{ item.id }}">
+              <button class="btn btn-link link-danger p-0 border-0" type="submit" title="Remove link">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-x-circle" viewBox="0 0 16 16">
+                  <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/>
+                  <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708"/>
+                </svg>
+              </button>
+            </form>
+          </li>
+          {% else %}
+          <li class="list-group-item text-body-secondary">No related tickets yet.</li>
+          {% endfor %}
+        </ul>
       </div>
     </div>
   </div>
@@ -73,20 +99,24 @@
           <div class="col-12">
             <label class="form-label" for="status">Status</label>
             <select
-              class="${status_select_classes}"
+              class="{{ status_select_classes(ticket.status) }}"
               id="status"
               name="status"
               form="ticket-edit-form"
               data-status-select
               data-auto-submit
             >
-              ${ticket_status_options}
+              {% for value, label in ticket_status_options %}
+              <option value="{{ value }}" {% if value == ticket.status %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
             </select>
           </div>
           <div class="col-12">
             <label class="form-label" for="priority">Priority</label>
             <select class="form-select" id="priority" name="priority" form="ticket-edit-form" data-auto-submit>
-              ${priority_options}
+              {% for value, label in priority_options %}
+              <option value="{{ value }}" {% if value == ticket.priority %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
             </select>
           </div>
           <div class="col-12">
@@ -106,14 +136,16 @@
               class="form-control"
               id="source"
               name="source"
-              value="${source}"
+              value="{{ ticket.source }}"
               form="ticket-edit-form"
             >
           </div>
           <div class="col-12">
             <label class="form-label" for="type">Type</label>
             <select class="form-select" id="type" name="type" form="ticket-edit-form" data-auto-submit>
-              ${ticket_type_options}
+              {% for value, label in ticket_type_options %}
+              <option value="{{ value }}" {% if value == ticket.type %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
             </select>
           </div>
           <div class="col-12">
@@ -127,10 +159,11 @@
       <div class="card-body">
         <h2 class="h5 mb-3">Metadata</h2>
         <dl class="row mb-0">
-          <dt class="col-sm-4">Created</dt><dd class="col-sm-8">${created_time}</dd>
-          <dt class="col-sm-4">Updated</dt><dd class="col-sm-8">${updated_time}</dd>
+          <dt class="col-sm-4">Created</dt><dd class="col-sm-8">{{ format_time(ticket.created_at) }}</dd>
+          <dt class="col-sm-4">Updated</dt><dd class="col-sm-8">{{ format_time(ticket.updated_at, relative=True) }}</dd>
         </dl>
       </div>
     </div>
   </div>
 </div>
+{% endblock %}

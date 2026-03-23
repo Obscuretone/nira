@@ -1,3 +1,8 @@
+{% extends "base.html" %}
+
+{% block title %}Settings{% endblock %}
+
+{% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
   <div>
     <p class="text-uppercase text-body-secondary small mb-1">Workspace</p>
@@ -6,7 +11,11 @@
   <a class="btn btn-outline-secondary" href="/">Back to Tickets</a>
 </div>
 
-${save_notice}
+{% if saved %}
+<div class="alert alert-success" role="alert">
+  Workspace settings updated.
+</div>
+{% endif %}
 
 <div class="row g-4">
   <div class="col-lg-7">
@@ -24,7 +33,7 @@ ${save_notice}
               class="form-control"
               id="default_project"
               name="default_project"
-              value="${default_project}"
+              value="{{ default_project }}"
               required
             >
           </div>
@@ -39,10 +48,11 @@ ${save_notice}
       <div class="card-body">
         <h2 class="h5 mb-3">Current State</h2>
         <dl class="row mb-0">
-          <dt class="col-sm-5">Prefix</dt><dd class="col-sm-7">${default_project}</dd>
-          <dt class="col-sm-5">Tickets</dt><dd class="col-sm-7">${ticket_count}</dd>
+          <dt class="col-sm-5">Prefix</dt><dd class="col-sm-7">{{ default_project }}</dd>
+          <dt class="col-sm-5">Tickets</dt><dd class="col-sm-7">{{ ticket_count }}</dd>
         </dl>
       </div>
     </div>
   </div>
 </div>
+{% endblock %}

@@ -1,7 +1,0 @@
-<li class="list-group-item d-flex justify-content-between align-items-center">
-  <a class="link-dark fw-semibold" href="/tickets/${related_ticket_id}">${related_ticket_id}</a>
-  <form method="post" action="/tickets/${ticket_id}/unlink" class="m-0">
-    <input type="hidden" name="other_ticket_id" value="${related_ticket_id}">
-    <button class="btn btn-sm btn-outline-danger" type="submit">Remove</button>
-  </form>
-</li>
