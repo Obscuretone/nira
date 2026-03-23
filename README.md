@@ -4,6 +4,9 @@
 
 # Nira
 
+[![CI](https://github.com/Obscuretone/nira/actions/workflows/ci.yml/badge.svg)](https://github.com/Obscuretone/nira/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/Obscuretone/nira/graph/badge.svg?token=YOUR_TOKEN)](https://codecov.io/gh/Obscuretone/nira)
+
 Nira is a local issue tracker for a single workspace.
 
 It gives you:

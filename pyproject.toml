@@ -24,10 +24,27 @@ dev = [
     "mypy==1.19.1",
     "pyright==1.1.408",
     "pytest>=8.0.0",
+    "pytest-cov>=4.1.0",
 ]
 
 [project.scripts]
 nira = "nira_app.cli:main"
+
+[tool.pytest.ini_options]
+addopts = "--cov=nira_app --cov-report=term-missing --cov-fail-under=80"
+testpaths = ["tests"]
+
+[tool.coverage.run]
+omit = ["nira_app/__main__.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+]
 
 [tool.hatch.build.targets.sdist]
 include = ["nira_app"]

@@ -26,20 +26,32 @@ class ResponseCapture(TypedDict, total=False):
 
 
 def run_cli(args, cwd, env=None, input_text=None, timeout=20):
-    merged_env = os.environ.copy()
-    merged_env["PYTHONUNBUFFERED"] = "1"
-    merged_env["PYTHONPATH"] = str(REPO_ROOT)
+    original_cwd = os.getcwd()
+    os.chdir(cwd)
+    original_env = os.environ.copy()
     if env:
-        merged_env.update(env)
+        os.environ.update(env)
 
-    return subprocess.run(
-        [sys.executable, "-m", "nira_app.cli", *args],
-        cwd=cwd,
-        env=merged_env,
-        input=input_text,
-        text=True,
-        capture_output=True,
-        timeout=timeout,
+    stdout = io.StringIO()
+    stderr = io.StringIO()
+
+    try:
+        with (
+            redirect_stdout(stdout),
+            redirect_stderr(stderr),
+            mock.patch("sys.stdin", io.StringIO(input_text or "")),
+        ):
+            return_code = main(args)
+    finally:
+        os.chdir(original_cwd)
+        os.environ.clear()
+        os.environ.update(original_env)
+
+    return subprocess.CompletedProcess(
+        args=["nira", *args],
+        returncode=return_code,
+        stdout=stdout.getvalue(),
+        stderr=stderr.getvalue(),
     )
 
 
