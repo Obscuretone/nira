@@ -4,7 +4,31 @@ import re
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Final, Iterable, Iterator
+from typing import Final, Iterable, Iterator, Any
+from sqlalchemy import (
+    CheckConstraint,
+    Column,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    case,
+    create_engine,
+    delete,
+    func,
+    select,
+    update,
+)
+
+from sqlalchemy.orm import (
+    DeclarativeBase,
+    Mapped,
+    Session,
+    mapped_column,
+    relationship,
+    sessionmaker,
+)
 
 
 STATUS_VALUES = {"open", "in_progress", "closed"}
@@ -99,6 +123,57 @@ def format_ticket_id(project_key: str, number: int) -> str:
     return f"{normalize_project(project_key)}-{int(number)}"
 
 
+class Base(DeclarativeBase):
+    pass
+
+
+class Setting(Base):
+    __tablename__ = "settings"
+    key: Mapped[str] = mapped_column(String, primary_key=True)
+    value: Mapped[str] = mapped_column(String, nullable=False)
+
+
+class Ticket(Base):
+    __tablename__ = "tickets"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    number: Mapped[int] = mapped_column(Integer, nullable=False, unique=True)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String, nullable=False)
+    type: Mapped[str] = mapped_column(String, nullable=False)
+    priority: Mapped[str] = mapped_column(String, nullable=False)
+    source: Mapped[str] = mapped_column(String, nullable=False)
+    resolution_reason: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    body_md: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    resolution_md: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    created_at: Mapped[str] = mapped_column(String, nullable=False)
+    updated_at: Mapped[str] = mapped_column(String, nullable=False)
+
+    comments: Mapped[list["Comment"]] = relationship("Comment", back_populates="ticket", cascade="all, delete-orphan")
+
+
+class Comment(Base):
+    __tablename__ = "comments"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    ticket_id: Mapped[int] = mapped_column(Integer, ForeignKey("tickets.id", ondelete="CASCADE"), nullable=False)
+    body_md: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[str] = mapped_column(String, nullable=False)
+
+    ticket: Mapped["Ticket"] = relationship("Ticket", back_populates="comments")
+    __table_args__ = (Index("comments_ticket_id_idx", "ticket_id"),)
+
+
+class Link(Base):
+    __tablename__ = "links"
+    ticket_a_id: Mapped[int] = mapped_column(Integer, ForeignKey("tickets.id", ondelete="CASCADE"), primary_key=True)
+    ticket_b_id: Mapped[int] = mapped_column(Integer, ForeignKey("tickets.id", ondelete="CASCADE"), primary_key=True)
+    created_at: Mapped[str] = mapped_column(String, nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("ticket_a_id < ticket_b_id"),
+        Index("links_ticket_b_idx", "ticket_b_id"),
+    )
+
+
 def find_root(start: Path | None = None) -> Path | None:
     current = (start or Path.cwd()).resolve()
     for candidate in (current, *current.parents):
@@ -112,6 +187,8 @@ class NiraStore:
         self.root = root.resolve()
         self.state_dir = self.root / ".nira"
         self.db_path = self.state_dir / "nira.db"
+        self.engine = create_engine(f"sqlite:///{self.db_path}")
+        self.Session = sessionmaker(bind=self.engine)
 
     def initialize(self, default_project: str | None = None) -> None:
         self.state_dir.mkdir(parents=True, exist_ok=True)
@@ -153,6 +230,16 @@ class NiraStore:
             raise
         finally:
             connection.close()
+
+    @contextmanager
+    def session(self) -> Iterator[Session]:
+        with self.Session() as session:
+            try:
+                yield session
+                session.commit()
+            except Exception:
+                session.rollback()
+                raise
 
     def table_exists(self, connection: sqlite3.Connection, table_name: str) -> bool:
         row = connection.execute(
@@ -382,47 +469,43 @@ class NiraStore:
         connection.execute("CREATE INDEX IF NOT EXISTS comments_ticket_id_idx ON comments(ticket_id)")
         connection.execute("CREATE INDEX IF NOT EXISTS links_ticket_b_idx ON links(ticket_b_id)")
 
-    def current_project(self, connection: sqlite3.Connection) -> str:
-        row = connection.execute(
-            "SELECT value FROM settings WHERE key = ?",
-            (DEFAULT_PROJECT_SETTING,),
-        ).fetchone()
+    def current_project(self, session: Session) -> str:
+        stmt = select(Setting).where(Setting.key == DEFAULT_PROJECT_SETTING)
+        row = session.execute(stmt).scalar_one_or_none()
         if row is None:
             raise ValidationError("No default project key is configured. Run `nira init` again.")
-        return normalize_project(row["value"])
+        return normalize_project(row.value)
 
-    def ticket_from_row(self, row: sqlite3.Row, project_key: str) -> dict:
+    def ticket_from_model(self, ticket: Ticket, project_key: str) -> dict:
         return {
-            "db_id": int(row["id"]),
-            "id": format_ticket_id(project_key, int(row["number"])),
+            "db_id": int(ticket.id),
+            "id": format_ticket_id(project_key, int(ticket.number)),
             "project": project_key,
-            "number": int(row["number"]),
-            "title": row["title"],
-            "status": row["status"],
-            "type": row["type"],
-            "priority": row["priority"],
-            "source": row["source"],
-            "resolution_reason": row["resolution_reason"],
-            "body_md": row["body_md"],
-            "resolution_md": row["resolution_md"],
-            "created_at": row["created_at"],
-            "updated_at": row["updated_at"],
+            "number": int(ticket.number),
+            "title": ticket.title,
+            "status": ticket.status,
+            "type": ticket.type,
+            "priority": ticket.priority,
+            "source": ticket.source,
+            "resolution_reason": ticket.resolution_reason,
+            "body_md": ticket.body_md,
+            "resolution_md": ticket.resolution_md,
+            "created_at": ticket.created_at,
+            "updated_at": ticket.updated_at,
         }
 
-    def resolve_ticket_row(
+    def resolve_ticket(
         self,
-        connection: sqlite3.Connection,
+        session: Session,
         ticket_ref: str,
         *,
         project_key: str | None = None,
-    ) -> sqlite3.Row:
+    ) -> Ticket:
         number = ticket_number_from_ref(ticket_ref)
-        row = connection.execute(
-            "SELECT * FROM tickets WHERE number = ?",
-            (number,),
-        ).fetchone()
+        stmt = select(Ticket).where(Ticket.number == number)
+        row = session.execute(stmt).scalar_one_or_none()
         if row is None:
-            current_project = project_key or self.current_project(connection)
+            current_project = project_key or self.current_project(session)
             raise TicketNotFoundError(f"Ticket {format_ticket_id(current_project, number)} was not found.")
         return row
 
@@ -445,8 +528,8 @@ class NiraStore:
             raise ValidationError("Title is required.")
 
         now = utc_now()
-        with self.connect() as connection:
-            current_project = self.current_project(connection)
+        with self.session() as session:
+            current_project = self.current_project(session)
             if project:
                 requested_project = normalize_project(project)
                 if requested_project != current_project:
@@ -454,50 +537,36 @@ class NiraStore:
                         f"This workspace uses the {current_project} ticket prefix. Change it in settings first."
                     )
 
-            next_number_row = connection.execute(
-                "SELECT COALESCE(MAX(number), 0) + 1 AS next_number FROM tickets"
-            ).fetchone()
-            assert next_number_row is not None
-            number = int(next_number_row["next_number"])
-            cursor = connection.execute(
-                """
-                INSERT INTO tickets (
-                    number, title, status, type, priority, source,
-                    resolution_reason, body_md, resolution_md, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    number,
-                    title,
-                    "open",
-                    (ticket_type or "task").strip() or "task",
-                    (priority or "medium").strip() or "medium",
-                    (source or "").strip(),
-                    "",
-                    body_md,
-                    resolution_md,
-                    now,
-                    now,
-                ),
+            next_number = session.query(func.max(Ticket.number)).scalar() or 0
+            number = next_number + 1
+
+            ticket = Ticket(
+                number=number,
+                title=title,
+                status="open",
+                type=(ticket_type or "task").strip() or "task",
+                priority=(priority or "medium").strip() or "medium",
+                source=(source or "").strip(),
+                resolution_reason="",
+                body_md=body_md,
+                resolution_md=resolution_md,
+                created_at=now,
+                updated_at=now,
             )
-            assert cursor.lastrowid is not None
-            row = connection.execute(
-                "SELECT * FROM tickets WHERE id = ?",
-                (int(cursor.lastrowid),),
-            ).fetchone()
-        assert row is not None
-        return self.ticket_from_row(row, current_project)
+            session.add(ticket)
+            session.flush()
+            session.refresh(ticket)
+            result = self.ticket_from_model(ticket, current_project)
+        return result
 
     def get_default_project(self) -> str:
-        with self.connect() as connection:
-            return self.current_project(connection)
+        with self.session() as session:
+            return self.current_project(session)
 
     def get_settings(self) -> dict[str, object]:
-        with self.connect() as connection:
-            current_project = self.current_project(connection)
-            count_row = connection.execute("SELECT COUNT(*) AS ticket_count FROM tickets").fetchone()
-            assert count_row is not None
-            ticket_count = int(count_row["ticket_count"])
+        with self.session() as session:
+            current_project = self.current_project(session)
+            ticket_count = session.query(func.count(Ticket.id)).scalar() or 0
         return {
             "default_project": current_project,
             "ticket_count": ticket_count,
@@ -505,16 +574,12 @@ class NiraStore:
 
     def rename_default_project(self, new_project: str) -> dict[str, object]:
         new_key = normalize_project(new_project)
-        with self.connect() as connection:
-            current_key = self.current_project(connection)
+        with self.session() as session:
+            current_key = self.current_project(session)
             if current_key != new_key:
-                connection.execute(
-                    "UPDATE settings SET value = ? WHERE key = ?",
-                    (new_key, DEFAULT_PROJECT_SETTING),
-                )
-            count_row = connection.execute("SELECT COUNT(*) AS ticket_count FROM tickets").fetchone()
-            assert count_row is not None
-            ticket_count = int(count_row["ticket_count"])
+                stmt = update(Setting).where(Setting.key == DEFAULT_PROJECT_SETTING).values(value=new_key)
+                session.execute(stmt)
+            ticket_count = session.query(func.count(Ticket.id)).scalar() or 0
         return {
             "old_project": current_key,
             "new_project": new_key,
@@ -522,10 +587,11 @@ class NiraStore:
         }
 
     def get_ticket(self, ticket_id: str) -> dict:
-        with self.connect() as connection:
-            project_key = self.current_project(connection)
-            row = self.resolve_ticket_row(connection, ticket_id, project_key=project_key)
-        return self.ticket_from_row(row, project_key)
+        with self.session() as session:
+            project_key = self.current_project(session)
+            ticket = self.resolve_ticket(session, ticket_id, project_key=project_key)
+            result = self.ticket_from_model(ticket, project_key)
+        return result
 
     def list_tickets(
         self,
@@ -537,57 +603,54 @@ class NiraStore:
         sort_by: str | None = None,
         direction: str | None = None,
     ) -> list[dict]:
-        clauses: list[str] = []
-        values: list[str] = []
         sort_key = normalize_list_sort(sort_by)
-        sort_direction = normalize_list_direction(direction).upper()
+        sort_direction = normalize_list_direction(direction).lower()
 
-        with self.connect() as connection:
-            current_project = self.current_project(connection)
+        with self.session() as session:
+            current_project = self.current_project(session)
             if project and normalize_project(project) != current_project:
                 return []
+
+            stmt = select(Ticket)
+
             if status:
                 if status == "not_closed":
-                    clauses.append("status != ?")
-                    values.append("closed")
+                    stmt = stmt.where(Ticket.status != "closed")
                 else:
-                    clauses.append("status = ?")
-                    values.append(self.normalize_status(status))
+                    stmt = stmt.where(Ticket.status == self.normalize_status(status))
             if priority:
-                clauses.append("priority = ?")
-                values.append(priority.strip())
+                stmt = stmt.where(Ticket.priority == priority.strip())
             if ticket_type:
-                clauses.append("type = ?")
-                values.append(ticket_type.strip())
+                stmt = stmt.where(Ticket.type == ticket_type.strip())
 
-            query = "SELECT * FROM tickets"
-            if clauses:
-                query += " WHERE " + " AND ".join(clauses)
-
+            # Handle sorting
             if sort_key == "ticket_id":
-                order_clause = f"number {sort_direction}"
+                order_col = Ticket.number
             elif sort_key == "priority":
-                order_clause = (
-                    "CASE priority "
-                    "WHEN 'critical' THEN 4 "
-                    "WHEN 'high' THEN 3 "
-                    "WHEN 'medium' THEN 2 "
-                    "WHEN 'low' THEN 1 "
-                    f"ELSE 0 END {sort_direction}, updated_at DESC, number DESC"
+                order_col = case(
+                    (Ticket.priority == "critical", 4),
+                    (Ticket.priority == "high", 3),
+                    (Ticket.priority == "medium", 2),
+                    (Ticket.priority == "low", 1),
+                    else_=0,
                 )
             elif sort_key == "status":
-                order_clause = (
-                    "CASE status "
-                    "WHEN 'open' THEN 1 "
-                    "WHEN 'in_progress' THEN 2 "
-                    "WHEN 'closed' THEN 3 "
-                    f"ELSE 4 END {sort_direction}, updated_at DESC, number DESC"
+                order_col = case(
+                    (Ticket.status == "open", 1),
+                    (Ticket.status == "in_progress", 2),
+                    (Ticket.status == "closed", 3),
+                    else_=4,
                 )
             else:
-                order_clause = f"updated_at {sort_direction}, number DESC"
+                order_col = Ticket.updated_at
 
-            rows = connection.execute(f"{query} ORDER BY {order_clause}", values).fetchall()
-        return [self.ticket_from_row(row, current_project) for row in rows]
+            if sort_direction == "desc":
+                stmt = stmt.order_by(order_col.desc(), Ticket.number.desc())
+            else:
+                stmt = stmt.order_by(order_col.asc(), Ticket.number.desc())
+
+            tickets = session.execute(stmt).scalars().all()
+            return [self.ticket_from_model(ticket, current_project) for ticket in tickets]
 
     def update_ticket(
         self,
@@ -602,75 +665,62 @@ class NiraStore:
         body_md: str | _UnsetType = UNSET,
         resolution_md: str | _UnsetType = UNSET,
     ) -> dict:
-        assignments: list[str] = []
-        values: list[object] = []
+        updates: dict[str, Any] = {}
 
         if isinstance(title, str):
             clean_title = title.strip()
             if not clean_title:
                 raise ValidationError("Title cannot be empty.")
-            assignments.append("title = ?")
-            values.append(clean_title)
+            updates["title"] = clean_title
 
         normalized_status: str | _UnsetType = UNSET
         if isinstance(status, str):
             normalized_status = self.normalize_status(status)
-            assignments.append("status = ?")
-            values.append(normalized_status)
+            updates["status"] = normalized_status
 
         if isinstance(ticket_type, str):
-            assignments.append("type = ?")
-            values.append(ticket_type.strip())
+            updates["type"] = ticket_type.strip()
 
         if isinstance(priority, str):
-            assignments.append("priority = ?")
-            values.append(priority.strip())
+            updates["priority"] = priority.strip()
 
         if isinstance(source, str):
-            assignments.append("source = ?")
-            values.append(source.strip())
+            updates["source"] = source.strip()
 
         normalized_reason: str | _UnsetType = UNSET
         if isinstance(resolution_reason, str):
             normalized_reason = resolution_reason.strip()
 
         if isinstance(body_md, str):
-            assignments.append("body_md = ?")
-            values.append(body_md)
+            updates["body_md"] = body_md
 
         if isinstance(resolution_md, str):
-            assignments.append("resolution_md = ?")
-            values.append(resolution_md)
+            updates["resolution_md"] = resolution_md
 
-        if not assignments:
+        if not updates and normalized_reason is UNSET:
             raise ValidationError("No fields were provided to update.")
 
-        with self.connect() as connection:
-            current_project = self.current_project(connection)
-            existing_ticket = self.resolve_ticket_row(connection, ticket_id, project_key=current_project)
+        with self.session() as session:
+            current_project = self.current_project(session)
+            ticket = self.resolve_ticket(session, ticket_id, project_key=current_project)
+
             final_reason = normalized_reason
             if normalized_status is not UNSET:
                 if normalized_status == "closed" and (final_reason is UNSET or not final_reason):
-                    final_reason = (existing_ticket["resolution_reason"] or "").strip() or "completed"
-                elif existing_ticket["status"] == "closed" and final_reason is UNSET:
+                    final_reason = (ticket.resolution_reason or "").strip() or "completed"
+                elif ticket.status == "closed" and final_reason is UNSET:
                     final_reason = ""
 
             if final_reason is not UNSET:
-                assignments.append("resolution_reason = ?")
-                values.append(final_reason)
+                updates["resolution_reason"] = final_reason
 
-            values.append(utc_now())
-            values.append(int(existing_ticket["id"]))
-            connection.execute(
-                f"UPDATE tickets SET {', '.join(assignments)}, updated_at = ? WHERE id = ?",
-                values,
-            )
-            row = connection.execute(
-                "SELECT * FROM tickets WHERE id = ?",
-                (int(existing_ticket["id"]),),
-            ).fetchone()
-        assert row is not None
-        return self.ticket_from_row(row, current_project)
+            for key, value in updates.items():
+                setattr(ticket, key, value)
+
+            ticket.updated_at = utc_now()
+            session.flush()
+            result = self.ticket_from_model(ticket, current_project)
+        return result
 
     def close_ticket(self, ticket_id: str, *, reason: str) -> dict:
         reason = (reason or "").strip()
@@ -686,138 +736,127 @@ class NiraStore:
         if not body_md:
             raise ValidationError("Comment text is required.")
         now = utc_now()
-        with self.connect() as connection:
-            current_project = self.current_project(connection)
-            ticket_row = self.resolve_ticket_row(connection, ticket_id, project_key=current_project)
-            cursor = connection.execute(
-                "INSERT INTO comments (ticket_id, body_md, created_at) VALUES (?, ?, ?)",
-                (int(ticket_row["id"]), body_md, now),
+        with self.session() as session:
+            current_project = self.current_project(session)
+            ticket = self.resolve_ticket(session, ticket_id, project_key=current_project)
+            comment = Comment(
+                ticket_id=ticket.id,
+                body_md=body_md,
+                created_at=now,
             )
-            self.touch_tickets(connection, [int(ticket_row["id"])], now)
-            assert cursor.lastrowid is not None
-            row = connection.execute(
-                "SELECT * FROM comments WHERE id = ?",
-                (int(cursor.lastrowid),),
-            ).fetchone()
-        assert row is not None
-        return {
-            "id": int(row["id"]),
-            "ticket_id": format_ticket_id(current_project, int(ticket_row["number"])),
-            "body_md": row["body_md"],
-            "created_at": row["created_at"],
-        }
+            session.add(comment)
+            ticket.updated_at = now
+            session.flush()
+            session.refresh(comment)
+            result = {
+                "id": int(comment.id),
+                "ticket_id": format_ticket_id(current_project, int(ticket.number)),
+                "body_md": comment.body_md,
+                "created_at": comment.created_at,
+            }
+        return result
 
     def list_comments(self, ticket_id: str) -> list[dict]:
-        with self.connect() as connection:
-            current_project = self.current_project(connection)
-            ticket_row = self.resolve_ticket_row(connection, ticket_id, project_key=current_project)
-            rows = connection.execute(
-                "SELECT * FROM comments WHERE ticket_id = ? ORDER BY created_at ASC, id ASC",
-                (int(ticket_row["id"]),),
-            ).fetchall()
-        return [
-            {
-                "id": int(row["id"]),
-                "ticket_id": format_ticket_id(current_project, int(ticket_row["number"])),
-                "body_md": row["body_md"],
-                "created_at": row["created_at"],
-            }
-            for row in rows
-        ]
+        with self.session() as session:
+            current_project = self.current_project(session)
+            ticket = self.resolve_ticket(session, ticket_id, project_key=current_project)
+            stmt = select(Comment).where(Comment.ticket_id == ticket.id).order_by(Comment.created_at.asc(), Comment.id.asc())
+            comments = session.execute(stmt).scalars().all()
+            return [
+                {
+                    "id": int(comment.id),
+                    "ticket_id": format_ticket_id(current_project, int(ticket.number)),
+                    "body_md": comment.body_md,
+                    "created_at": comment.created_at,
+                }
+                for comment in comments
+            ]
 
     def link_tickets(self, left_ticket: str, right_ticket: str) -> None:
         now = utc_now()
-        with self.connect() as connection:
-            current_project = self.current_project(connection)
-            left_row = self.resolve_ticket_row(connection, left_ticket, project_key=current_project)
-            right_row = self.resolve_ticket_row(connection, right_ticket, project_key=current_project)
-            left_db_id = int(left_row["id"])
-            right_db_id = int(right_row["id"])
-            if left_db_id == right_db_id:
+        with self.session() as session:
+            current_project = self.current_project(session)
+            left_ticket_model = self.resolve_ticket(session, left_ticket, project_key=current_project)
+            right_ticket_model = self.resolve_ticket(session, right_ticket, project_key=current_project)
+
+            if left_ticket_model.id == right_ticket_model.id:
                 raise ValidationError("A ticket cannot be related to itself.")
 
-            ticket_a_id, ticket_b_id = sorted((left_db_id, right_db_id))
-            connection.execute(
-                "INSERT OR IGNORE INTO links (ticket_a_id, ticket_b_id, created_at) VALUES (?, ?, ?)",
-                (ticket_a_id, ticket_b_id, now),
-            )
-            self.touch_tickets(connection, [left_db_id, right_db_id], now)
+            ticket_a_id, ticket_b_id = sorted((left_ticket_model.id, right_ticket_model.id))
+            stmt = select(Link).where(Link.ticket_a_id == ticket_a_id, Link.ticket_b_id == ticket_b_id)
+            existing = session.execute(stmt).scalar_one_or_none()
+            if not existing:
+                link = Link(ticket_a_id=ticket_a_id, ticket_b_id=ticket_b_id, created_at=now)
+                session.add(link)
+
+            left_ticket_model.updated_at = now
+            right_ticket_model.updated_at = now
 
     def unlink_tickets(self, left_ticket: str, right_ticket: str) -> None:
         now = utc_now()
-        with self.connect() as connection:
-            current_project = self.current_project(connection)
-            left_row = self.resolve_ticket_row(connection, left_ticket, project_key=current_project)
-            right_row = self.resolve_ticket_row(connection, right_ticket, project_key=current_project)
-            left_db_id = int(left_row["id"])
-            right_db_id = int(right_row["id"])
-            if left_db_id == right_db_id:
+        with self.session() as session:
+            current_project = self.current_project(session)
+            left_ticket_model = self.resolve_ticket(session, left_ticket, project_key=current_project)
+            right_ticket_model = self.resolve_ticket(session, right_ticket, project_key=current_project)
+
+            if left_ticket_model.id == right_ticket_model.id:
                 raise ValidationError("A ticket cannot be related to itself.")
 
-            ticket_a_id, ticket_b_id = sorted((left_db_id, right_db_id))
-            connection.execute(
-                "DELETE FROM links WHERE ticket_a_id = ? AND ticket_b_id = ?",
-                (ticket_a_id, ticket_b_id),
-            )
-            self.touch_tickets(connection, [left_db_id, right_db_id], now)
+            ticket_a_id, ticket_b_id = sorted((left_ticket_model.id, right_ticket_model.id))
+            stmt = delete(Link).where(Link.ticket_a_id == ticket_a_id, Link.ticket_b_id == ticket_b_id)
+            session.execute(stmt)
+
+            left_ticket_model.updated_at = now
+            right_ticket_model.updated_at = now
 
     def list_related_tickets(self, ticket_id: str) -> list[dict]:
-        with self.connect() as connection:
-            current_project = self.current_project(connection)
-            ticket_row = self.resolve_ticket_row(connection, ticket_id, project_key=current_project)
-            rows = connection.execute(
-                """
-                SELECT t.*
-                FROM tickets t
-                WHERE t.id IN (
-                    SELECT ticket_b_id FROM links WHERE ticket_a_id = ?
-                    UNION
-                    SELECT ticket_a_id FROM links WHERE ticket_b_id = ?
-                )
-                ORDER BY t.number
-                """,
-                (int(ticket_row["id"]), int(ticket_row["id"])),
-            ).fetchall()
-        return [self.ticket_from_row(row, current_project) for row in rows]
+        with self.session() as session:
+            current_project = self.current_project(session)
+            ticket_model = self.resolve_ticket(session, ticket_id, project_key=current_project)
+
+            # Find all tickets linked to this one
+            stmt_a = select(Link.ticket_b_id).where(Link.ticket_a_id == ticket_model.id)
+            stmt_b = select(Link.ticket_a_id).where(Link.ticket_b_id == ticket_model.id)
+
+            related_ids_a = session.execute(stmt_a).scalars().all()
+            related_ids_b = session.execute(stmt_b).scalars().all()
+            related_ids = set(related_ids_a) | set(related_ids_b)
+
+            if not related_ids:
+                return []
+
+            stmt = select(Ticket).where(Ticket.id.in_(related_ids)).order_by(Ticket.number)
+            tickets = session.execute(stmt).scalars().all()
+            return [self.ticket_from_model(ticket, current_project) for ticket in tickets]
 
     def list_links(self, ticket_id: str | None = None) -> list[dict]:
-        with self.connect() as connection:
-            current_project = self.current_project(connection)
-            values: tuple[object, ...] = ()
-            where_clause = ""
+        with self.session() as session:
+            current_project = self.current_project(session)
+            stmt = select(
+                Link.ticket_a_id,
+                Link.ticket_b_id,
+            )
             if ticket_id is not None:
-                ticket_row = self.resolve_ticket_row(connection, ticket_id, project_key=current_project)
-                ticket_db_id = int(ticket_row["id"])
-                where_clause = "WHERE l.ticket_a_id = ? OR l.ticket_b_id = ?"
-                values = (ticket_db_id, ticket_db_id)
+                ticket_model = self.resolve_ticket(session, ticket_id, project_key=current_project)
+                stmt = stmt.where((Link.ticket_a_id == ticket_model.id) | (Link.ticket_b_id == ticket_model.id))
 
-            rows = connection.execute(
-                f"""
-                SELECT
-                    l.ticket_a_id,
-                    l.ticket_b_id,
-                    left_ticket.number AS ticket_a_number,
-                    right_ticket.number AS ticket_b_number,
-                    left_ticket.title AS ticket_a_title,
-                    right_ticket.title AS ticket_b_title
-                FROM links l
-                JOIN tickets AS left_ticket ON left_ticket.id = l.ticket_a_id
-                JOIN tickets AS right_ticket ON right_ticket.id = l.ticket_b_id
-                {where_clause}
-                ORDER BY left_ticket.number, right_ticket.number
-                """,
-                values,
-            ).fetchall()
+            rows = session.execute(stmt).all()
 
-        return [
-            {
-                "ticket_a": format_ticket_id(current_project, int(row["ticket_a_number"])),
-                "ticket_b": format_ticket_id(current_project, int(row["ticket_b_number"])),
-                "ticket_a_title": row["ticket_a_title"],
-                "ticket_b_title": row["ticket_b_title"],
-            }
-            for row in rows
-        ]
+            results = []
+            for ticket_a_id, ticket_b_id in rows:
+                ticket_a = session.get(Ticket, ticket_a_id)
+                ticket_b = session.get(Ticket, ticket_b_id)
+                if ticket_a and ticket_b:
+                    results.append({
+                        "ticket_a": format_ticket_id(current_project, ticket_a.number),
+                        "ticket_b": format_ticket_id(current_project, ticket_b.number),
+                        "ticket_a_title": ticket_a.title,
+                        "ticket_b_title": ticket_b.title,
+                    })
+
+            # Sort results manually as per previous behavior
+            results.sort(key=lambda x: (x["ticket_a"], x["ticket_b"]))
+            return results
 
     def ticket_details(self, ticket_id: str) -> dict:
         ticket = self.get_ticket(ticket_id)
@@ -829,7 +868,7 @@ class NiraStore:
 
     def touch_tickets(
         self,
-        connection: sqlite3.Connection,
+        session: Session,
         ticket_db_ids: Iterable[int],
         timestamp: str | None = None,
     ) -> None:
@@ -837,10 +876,8 @@ class NiraStore:
         normalized_ids = [int(ticket_db_id) for ticket_db_id in ticket_db_ids]
         if not normalized_ids:
             return
-        connection.executemany(
-            "UPDATE tickets SET updated_at = ? WHERE id = ?",
-            [(stamp, ticket_db_id) for ticket_db_id in normalized_ids],
-        )
+        stmt = update(Ticket).where(Ticket.id.in_(normalized_ids)).values(updated_at=stamp)
+        session.execute(stmt)
 
     def normalize_status(self, status: str) -> str:
         normalized = (status or "").strip().lower()
