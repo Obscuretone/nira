@@ -151,6 +151,7 @@ class Ticket(Base):
     source: Mapped[str] = mapped_column(String, nullable=False)
     resolution_reason: Mapped[str] = mapped_column(Text, nullable=False, default="")
     labels: Mapped[str] = mapped_column(String, nullable=False, default="")
+    due_date: Mapped[str | None] = mapped_column(String, nullable=True)
     body_md: Mapped[str] = mapped_column(Text, nullable=False, default="")
     resolution_md: Mapped[str] = mapped_column(Text, nullable=False, default="")
     created_at: Mapped[str] = mapped_column(String, nullable=False)
@@ -516,6 +517,7 @@ class NiraStore:
             "source": ticket.source,
             "resolution_reason": ticket.resolution_reason,
             "labels": ticket.labels,
+            "due_date": ticket.due_date,
             "body_md": ticket.body_md,
             "resolution_md": ticket.resolution_md,
             "created_at": ticket.created_at,
@@ -549,6 +551,7 @@ class NiraStore:
         ticket_type: str = "task",
         priority: str = "medium",
         labels: str = "",
+        due_date: str | None = None,
         body_md: str = "",
         resolution_md: str = "",
     ) -> dict:
@@ -578,6 +581,7 @@ class NiraStore:
                 source=(source or "").strip(),
                 resolution_reason="",
                 labels=(labels or "").strip(),
+                due_date=due_date,
                 body_md=body_md,
                 resolution_md=resolution_md,
                 created_at=now,
@@ -636,6 +640,7 @@ class NiraStore:
         limit: int | None = None,
         search: str | None = None,
         label: str | None = None,
+        overdue: bool = False,
     ) -> list[dict]:
         sort_key = normalize_list_sort(sort_by)
         sort_direction = normalize_list_direction(direction).lower()
@@ -654,6 +659,10 @@ class NiraStore:
 
             if label:
                 stmt = stmt.where(Ticket.labels.contains(label.strip()))
+
+            if overdue:
+                today = utc_now()[:10]  # YYYY-MM-DD
+                stmt = stmt.where(Ticket.due_date < today).where(Ticket.status != "closed")
 
             if status:
                 if status == "not_closed":
@@ -709,6 +718,7 @@ class NiraStore:
         ticket_type: str | None = None,
         search: str | None = None,
         label: str | None = None,
+        overdue: bool = False,
     ) -> int:
         with self.session() as session:
             current_project = self.current_project(session)
@@ -724,6 +734,10 @@ class NiraStore:
 
             if label:
                 stmt = stmt.where(Ticket.labels.contains(label.strip()))
+
+            if overdue:
+                today = utc_now()[:10]  # YYYY-MM-DD
+                stmt = stmt.where(Ticket.due_date < today).where(Ticket.status != "closed")
 
             if status:
                 if status == "not_closed":
@@ -748,6 +762,7 @@ class NiraStore:
         source: str | _UnsetType = UNSET,
         resolution_reason: str | _UnsetType = UNSET,
         labels: str | _UnsetType = UNSET,
+        due_date: str | None | _UnsetType = UNSET,
         body_md: str | _UnsetType = UNSET,
         resolution_md: str | _UnsetType = UNSET,
     ) -> dict:
@@ -775,6 +790,9 @@ class NiraStore:
 
         if isinstance(labels, str):
             updates["labels"] = labels.strip()
+
+        if due_date is not UNSET:
+            updates["due_date"] = due_date
 
         normalized_reason: str | _UnsetType = UNSET
         if isinstance(resolution_reason, str):

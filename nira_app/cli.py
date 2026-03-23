@@ -108,13 +108,14 @@ def new_ticket(
     type: Annotated[str, typer.Option(help="Type of the ticket (e.g., task, bug).")] = "task",
     priority: Annotated[str, typer.Option(help="Priority level.")] = "medium",
     labels: Annotated[str, typer.Option(help="Comma-separated labels.")] = "",
+    due: Annotated[Optional[str], typer.Option(help="Due date (YYYY-MM-DD).")] = None,
     body: Annotated[Optional[str], typer.Option(help="Initial body content (Markdown).")] = None,
     edit: Annotated[bool, typer.Option(help="Open $EDITOR to write the body.")] = False,
 ):
     """
     Create a new ticket.
     """
-    create_ticket_logic(ctx, title_parts, project, source, type, priority, labels, body, edit)
+    create_ticket_logic(ctx, title_parts, project, source, type, priority, labels, due, body, edit)
 
 
 @app.command(name="create", hidden=True)
@@ -126,13 +127,14 @@ def create_ticket_alias(
     type: Annotated[str, typer.Option()] = "task",
     priority: Annotated[str, typer.Option()] = "medium",
     labels: Annotated[str, typer.Option()] = "",
+    due: Annotated[Optional[str], typer.Option()] = None,
     body: Annotated[Optional[str], typer.Option()] = None,
     edit: Annotated[bool, typer.Option()] = False,
 ):
-    create_ticket_logic(ctx, title_parts, project, source, type, priority, labels, body, edit)
+    create_ticket_logic(ctx, title_parts, project, source, type, priority, labels, due, body, edit)
 
 
-def create_ticket_logic(ctx, title_parts, project, source, type, priority, labels, body, edit):
+def create_ticket_logic(ctx, title_parts, project, source, type, priority, labels, due, body, edit):
     try:
         store = resolve_store(ctx.obj["root"], create=False)
         title = " ".join(title_parts).strip()
@@ -145,6 +147,7 @@ def create_ticket_logic(ctx, title_parts, project, source, type, priority, label
             ticket_type=type,
             priority=priority,
             labels=labels,
+            due_date=due,
             body_md=body_md,
         )
         console.print(f"Created [bold blue]{ticket['id']}[/bold blue]")
@@ -221,6 +224,7 @@ def update(
     priority: Annotated[Optional[str], typer.Option(help="New priority.")] = None,
     source: Annotated[Optional[str], typer.Option(help="New source.")] = None,
     labels: Annotated[Optional[str], typer.Option(help="New comma-separated labels.")] = None,
+    due: Annotated[Optional[str], typer.Option(help="New due date (YYYY-MM-DD).")] = None,
     resolution_reason: Annotated[Optional[str], typer.Option(help="New resolution reason.")] = None,
 ):
     """
@@ -235,6 +239,7 @@ def update(
             "priority": priority if priority is not None else UNSET,
             "source": source if source is not None else UNSET,
             "labels": labels if labels is not None else UNSET,
+            "due_date": due if due is not None else UNSET,
             "resolution_reason": resolution_reason if resolution_reason is not None else UNSET,
         }
         ticket = store.update_ticket(ticket_id, **updates)
@@ -467,6 +472,8 @@ def print_ticket(details: dict) -> None:
     if ticket.get("labels"):
         metadata_table.add_row("Labels:", ticket["labels"])
     metadata_table.add_row("Source:", ticket["source"] or "[dim]none[/dim]")
+    if ticket.get("due_date"):
+        metadata_table.add_row("Due Date:", ticket["due_date"])
     metadata_table.add_row("Created:", ticket["created_at"])
     metadata_table.add_row("Updated:", ticket["updated_at"])
 

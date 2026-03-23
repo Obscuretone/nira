@@ -206,6 +206,20 @@
             >
           </div>
           <div class="col-12">
+            <label class="form-label" for="due_date">Due Date</label>
+            <input
+              type="date"
+              class="form-control"
+              id="due_date"
+              name="due_date"
+              value="{{ ticket.due_date or '' }}"
+              form="ticket-edit-form"
+              hx-post="/tickets/{{ ticket.id }}/edit"
+              hx-trigger="change"
+              hx-target="body"
+            >
+          </div>
+          <div class="col-12">
             <label class="form-label" for="source">Source</label>
             <input
               class="form-control"

@@ -20,6 +20,7 @@ from .storage import (
     ValidationError,
     normalize_list_direction,
     normalize_list_sort,
+    utc_now,
 )
 
 
@@ -196,6 +197,7 @@ class NiraWebApp:
                 "h": h,
                 "render_markdown": render_markdown,
                 "format_time": format_time,
+                "utc_now": utc_now,
                 "status_badge": status_badge,
                 "priority_badge": priority_badge,
                 "status_select_classes": status_select_classes,
@@ -263,6 +265,7 @@ class NiraWebApp:
         selected_direction = normalize_list_direction(query.get("direction"))
         search_query = query.get("search")
         label_filter = query.get("label")
+        overdue_filter = query.get("overdue") == "1"
         try:
             page = int(query.get("page", 1))
             if page < 1:
@@ -282,8 +285,11 @@ class NiraWebApp:
             offset=offset,
             search=search_query,
             label=label_filter,
+            overdue=overdue_filter,
         )
-        total_tickets = self.store.count_tickets(status=status_filter, search=search_query, label=label_filter)
+        total_tickets = self.store.count_tickets(
+            status=status_filter, search=search_query, label=label_filter, overdue=overdue_filter
+        )
         total_pages = (total_tickets + limit - 1) // limit
 
         body = self.render(
@@ -294,6 +300,7 @@ class NiraWebApp:
             selected_direction=selected_direction,
             search_query=search_query,
             label_filter=label_filter,
+            overdue_filter=overdue_filter,
             status_options=self.status_filter_options(),
             sort_options=self.list_sort_options(),
             direction_options=self.sort_direction_options(),
@@ -350,6 +357,8 @@ class NiraWebApp:
             source=form.get("source", ""),
             ticket_type=form.get("type", "task"),
             priority=form.get("priority", "medium"),
+            labels=form.get("labels", ""),
+            due_date=form.get("due_date") or None,
             body_md=form.get("body_md", ""),
             resolution_md=form.get("resolution_md", ""),
         )
@@ -386,12 +395,17 @@ class NiraWebApp:
             "priority",
             "source",
             "labels",
+            "due_date",
             "resolution_reason",
             "body_md",
             "resolution_md",
         ):
             if field_name in form:
-                updates[field_name] = form[field_name]
+                val = form[field_name]
+                if field_name == "due_date" and not val:
+                    updates[field_name] = None
+                else:
+                    updates[field_name] = val
         if "type" in form:
             updates["ticket_type"] = form["type"]
         self.store.update_ticket(ticket_id, **updates)
