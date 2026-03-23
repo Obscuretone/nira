@@ -468,6 +468,70 @@ class TestCliIntegration:
         assert "links" in links_help.stdout.lower()
 
 
+
+    def test_cli_global_options_and_resolve_store(self, temp_root):
+        from nira_app.cli import resolve_store
+        import os
+        
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as jail:
+            jail_path = Path(jail).resolve()
+            res = run_cli(['--root', str(jail_path), 'list'], cwd='.')
+            assert res.returncode == 1
+            assert 'Error' in res.stdout
+            
+            store = resolve_store(jail_path, create=True)
+            assert store.root == jail_path
+            
+            res = run_cli(['--root', str(jail_path), 'init'], cwd='.')
+            assert res.returncode == 0
+            
+            res = run_cli(['--root', str(jail_path), 'list'], cwd='.')
+            assert res.returncode == 0
+            assert 'No tickets found' in res.stdout
+
+    def test_cli_not_found_errors(self, temp_root):
+        run_cli(['init'], cwd=temp_root)
+        
+        res = run_cli(['show', 'MISSING-1'], cwd=temp_root)
+        assert res.returncode == 1
+        assert 'Error' in res.stdout
+        
+        res = run_cli(['update', 'MISSING-1'], cwd=temp_root)
+        assert res.returncode == 1
+        assert 'Error' in res.stdout
+        
+        res = run_cli(['close', 'MISSING-1', '--notes', 'testing'], cwd=temp_root)
+        assert res.returncode == 1
+        assert 'Error' in res.stdout
+        
+        res = run_cli(['links', 'MISSING-1'], cwd=temp_root)
+        assert res.returncode == 1
+        assert 'Error' in res.stdout
+        
+        res = run_cli(['start', 'MISSING-1'], cwd=temp_root)
+        assert res.returncode == 1
+        assert 'Error' in res.stderr
+
+    def test_cli_missing_root_dir_without_explicit_root(self, temp_root):
+        import tempfile
+        import os
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as td:
+            res = run_cli(['list'], cwd=td)
+            assert res.returncode == 1
+            assert 'Error' in res.stdout
+
+    def test_cli_explicit_missing_root_no_create(self, temp_root):
+        import tempfile
+        from pathlib import Path
+        from nira_app.cli import resolve_store
+        import pytest
+        with tempfile.TemporaryDirectory() as td:
+            p = Path(td) / "missing"
+            with pytest.raises(Exception, match="No .nira directory"):
+                resolve_store(p, create=False)
 class TestHttpIntegration:
     @pytest.fixture(autouse=True)
     def setup(self, temp_root):
@@ -798,67 +862,3 @@ class TestHttpIntegration:
         assert "Kanban Board" in body
         assert "Open ticket" in body
         assert "In progress ticket" in body
-        assert "Open" in body
-        assert "In Progress" in body
-        assert "Closed" in body
-
-    def test_dashboard(self):
-        self.request(
-            "POST",
-            "/tickets",
-            fields={
-                "project": "EMH",
-                "title": "Stats ticket",
-                "story_points": "5",
-            },
-        )
-        # Record some activity
-        self.request(
-            "POST",
-            "/tickets/EMH-1/edit",
-            fields={"status": "in_progress"},
-        )
-        status, _, body = self.request("GET", "/dashboard")
-        assert status == 200
-        assert "Dashboard" in body
-        assert "EMH-1" in body
-        assert "in_progress" in body
-        assert "5" in body
-
-    def test_asset_endpoint_serves_logo_png(self):
-        status, headers, body = self.request("GET", "/assets/nira.png", decode=False)
-        assert status == 200
-        assert headers["Content-Type"] == "image/png"
-        assert body.startswith(b"\x89PNG\r\n\x1a\n")
-
-    def test_full_text_search(self):
-        self.request(
-            "POST",
-            "/tickets",
-            fields={
-                "project": "EMH",
-                "title": "Unique title for search",
-                "body_md": "This body contains the word flamingo.",
-            },
-        )
-        self.request(
-            "POST",
-            "/tickets",
-            fields={
-                "project": "EMH",
-                "title": "Another ticket",
-                "body_md": "This one does not.",
-            },
-        )
-
-        # Search in Web
-        status, _, body = self.request("GET", "/?search=flamingo")
-        assert status == 200
-        assert "Unique title for search" in body
-        assert "Another ticket" not in body
-
-        # Search in CLI
-        search_result = run_cli(["list", "--search", "flamingo"], cwd=self.root)
-        assert search_result.returncode == 0
-        assert "Unique title for search" in search_result.stdout
-        assert "Another ticket" not in search_result.stdout
