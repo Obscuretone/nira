@@ -4,7 +4,7 @@ import re
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Final, Iterable, Iterator
+from typing import Any, Final, Iterable, Iterator, Optional
 
 from alembic import command
 from alembic.config import Config
@@ -152,12 +152,17 @@ class Ticket(Base):
     resolution_reason: Mapped[str] = mapped_column(Text, nullable=False, default="")
     labels: Mapped[str] = mapped_column(String, nullable=False, default="")
     due_date: Mapped[str | None] = mapped_column(String, nullable=True)
+    parent_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("tickets.id", ondelete="SET NULL"), nullable=True)
     body_md: Mapped[str] = mapped_column(Text, nullable=False, default="")
     resolution_md: Mapped[str] = mapped_column(Text, nullable=False, default="")
     created_at: Mapped[str] = mapped_column(String, nullable=False)
     updated_at: Mapped[str] = mapped_column(String, nullable=False)
 
     comments: Mapped[list["Comment"]] = relationship("Comment", back_populates="ticket", cascade="all, delete-orphan")
+    parent: Mapped[Optional["Ticket"]] = relationship("Ticket", remote_side=[id], back_populates="sub_tasks")
+    sub_tasks: Mapped[list["Ticket"]] = relationship(
+        "Ticket", back_populates="parent", cascade="all, delete-orphan", passive_deletes=True
+    )
 
 
 class Comment(Base):
@@ -518,6 +523,8 @@ class NiraStore:
             "resolution_reason": ticket.resolution_reason,
             "labels": ticket.labels,
             "due_date": ticket.due_date,
+            "parent_id": ticket.parent_id,
+            "parent_number": ticket.parent.number if ticket.parent else None,
             "body_md": ticket.body_md,
             "resolution_md": ticket.resolution_md,
             "created_at": ticket.created_at,
@@ -552,6 +559,7 @@ class NiraStore:
         priority: str = "medium",
         labels: str = "",
         due_date: str | None = None,
+        parent_id: int | None = None,
         body_md: str = "",
         resolution_md: str = "",
     ) -> dict:
@@ -582,6 +590,7 @@ class NiraStore:
                 resolution_reason="",
                 labels=(labels or "").strip(),
                 due_date=due_date,
+                parent_id=parent_id,
                 body_md=body_md,
                 resolution_md=resolution_md,
                 created_at=now,
@@ -641,6 +650,7 @@ class NiraStore:
         search: str | None = None,
         label: str | None = None,
         overdue: bool = False,
+        parent_id: int | None = None,
     ) -> list[dict]:
         sort_key = normalize_list_sort(sort_by)
         sort_direction = normalize_list_direction(direction).lower()
@@ -663,6 +673,9 @@ class NiraStore:
             if overdue:
                 today = utc_now()[:10]  # YYYY-MM-DD
                 stmt = stmt.where(Ticket.due_date < today).where(Ticket.status != "closed")
+
+            if parent_id:
+                stmt = stmt.where(Ticket.parent_id == parent_id)
 
             if status:
                 if status == "not_closed":
@@ -719,6 +732,7 @@ class NiraStore:
         search: str | None = None,
         label: str | None = None,
         overdue: bool = False,
+        parent_id: int | None = None,
     ) -> int:
         with self.session() as session:
             current_project = self.current_project(session)
@@ -738,6 +752,9 @@ class NiraStore:
             if overdue:
                 today = utc_now()[:10]  # YYYY-MM-DD
                 stmt = stmt.where(Ticket.due_date < today).where(Ticket.status != "closed")
+
+            if parent_id:
+                stmt = stmt.where(Ticket.parent_id == parent_id)
 
             if status:
                 if status == "not_closed":
@@ -763,6 +780,7 @@ class NiraStore:
         resolution_reason: str | _UnsetType = UNSET,
         labels: str | _UnsetType = UNSET,
         due_date: str | None | _UnsetType = UNSET,
+        parent_id: int | None | _UnsetType = UNSET,
         body_md: str | _UnsetType = UNSET,
         resolution_md: str | _UnsetType = UNSET,
     ) -> dict:
@@ -793,6 +811,9 @@ class NiraStore:
 
         if due_date is not UNSET:
             updates["due_date"] = due_date
+
+        if parent_id is not UNSET:
+            updates["parent_id"] = parent_id
 
         normalized_reason: str | _UnsetType = UNSET
         if isinstance(resolution_reason, str):
@@ -975,10 +996,17 @@ class NiraStore:
 
     def ticket_details(self, ticket_id: str) -> dict:
         ticket = self.get_ticket(ticket_id)
+        parent = (
+            self.get_ticket(format_ticket_id(ticket["project"], ticket["parent_number"]))
+            if ticket.get("parent_number")
+            else None
+        )
         return {
             "ticket": ticket,
+            "parent": parent,
             "comments": self.list_comments(ticket["id"]),
             "related": self.list_related_tickets(ticket["id"]),
+            "sub_tasks": self.list_tickets(parent_id=ticket["db_id"]),
         }
 
     def touch_tickets(

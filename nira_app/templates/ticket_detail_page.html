@@ -6,7 +6,12 @@
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
   <div>
-    <p class="text-uppercase text-body-secondary small mb-1">{{ ticket.project }}</p>
+    <p class="text-uppercase text-body-secondary small mb-1">
+      {{ ticket.project }} 
+      {% if parent %}
+      / <a href="/tickets/{{ parent.id }}" class="text-decoration-none text-body-secondary">{{ parent.id }}</a>
+      {% endif %}
+    </p>
     <h1 class="h2 mb-1">{{ ticket.id }} {{ ticket.title }}</h1>
     <div class="d-flex flex-wrap gap-2">
       {{ status_badge(ticket.status) | safe }}
@@ -21,14 +26,30 @@
 
 <div class="row g-4">
   <div class="col-xl-8">
-    <form
-      id="ticket-edit-form"
-      method="post"
-      action="/tickets/{{ ticket.id }}/edit"
-      class="mb-4"
-      hx-post="/tickets/{{ ticket.id }}/edit"
-      hx-target="body"
-    >
+    <div class="card shadow-sm mb-4">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h2 class="h5 mb-0">Sub-tasks</h2>
+          <a href="/tickets/new?parent={{ ticket.id }}" class="btn btn-sm btn-outline-primary">Add Sub-task</a>
+        </div>
+        <ul class="list-group list-group-flush">
+          {% for sub in sub_tasks %}
+          <li class="list-group-item d-flex justify-content-between align-items-center gap-3">
+            <div class="d-flex align-items-center gap-2 overflow-hidden">
+              <a class="link-body-emphasis fw-semibold text-nowrap" href="/tickets/{{ sub.id }}">{{ sub.id }}</a>
+              <span class="text-truncate">{{ sub.title }}</span>
+            </div>
+            <div>{{ status_badge(sub.status) | safe }}</div>
+          </li>
+          {% else %}
+          <li class="list-group-item text-body-secondary">No sub-tasks yet.</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+
+    <form id="ticket-edit-form" method="post" action="/tickets/{{ ticket.id }}/edit" class="mb-4" hx-post="/tickets/{{ ticket.id }}/edit" hx-target="body">
+
       <div class="card shadow-sm mb-4">
         <div class="card-body">
           <label class="form-label" for="title">Title</label>

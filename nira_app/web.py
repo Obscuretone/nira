@@ -335,6 +335,7 @@ class NiraWebApp:
         body = self.render(
             "new_ticket_page.html",
             default_project=default_project,
+            parent_id=query.get("parent"),
             ticket_type_options=self.ticket_type_options("task", include_existing=False),
             priority_options=self.priority_options(),
         )
@@ -351,6 +352,12 @@ class NiraWebApp:
         return Response("200 OK", body)
 
     def create_ticket_action(self, query: dict[str, str], form: dict[str, str]) -> Response:
+        parent_db_id = None
+        parent_id = form.get("parent")
+        if parent_id:
+            parent_ticket = self.store.get_ticket(parent_id)
+            parent_db_id = parent_ticket["db_id"]
+
         ticket = self.store.create_ticket(
             form.get("project", ""),
             form.get("title", ""),
@@ -359,6 +366,7 @@ class NiraWebApp:
             priority=form.get("priority", "medium"),
             labels=form.get("labels", ""),
             due_date=form.get("due_date") or None,
+            parent_id=parent_db_id,
             body_md=form.get("body_md", ""),
             resolution_md=form.get("resolution_md", ""),
         )
@@ -379,7 +387,9 @@ class NiraWebApp:
         body = self.render(
             "ticket_detail_page.html",
             ticket=details["ticket"],
-            related=details["related"],
+            parent=details.get("parent"),
+            related=details.get("related", []),
+            sub_tasks=details.get("sub_tasks", []),
             comments=details.get("comments", []),
             ticket_status_options=self.ticket_status_options(),
             priority_options=self.priority_options(),
@@ -388,7 +398,7 @@ class NiraWebApp:
         return Response("200 OK", body)
 
     def edit_ticket_action(self, query: dict[str, str], form: dict[str, str], ticket_id: str) -> Response:
-        updates = {}
+        updates: dict[str, Any] = {}
         for field_name in (
             "title",
             "status",

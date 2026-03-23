@@ -7,7 +7,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated, Any, Optional
 
 import typer
 from rich.console import Console
@@ -109,13 +109,14 @@ def new_ticket(
     priority: Annotated[str, typer.Option(help="Priority level.")] = "medium",
     labels: Annotated[str, typer.Option(help="Comma-separated labels.")] = "",
     due: Annotated[Optional[str], typer.Option(help="Due date (YYYY-MM-DD).")] = None,
+    parent: Annotated[Optional[str], typer.Option(help="Parent ticket ID (e.g. EMH-1).")] = None,
     body: Annotated[Optional[str], typer.Option(help="Initial body content (Markdown).")] = None,
     edit: Annotated[bool, typer.Option(help="Open $EDITOR to write the body.")] = False,
 ):
     """
     Create a new ticket.
     """
-    create_ticket_logic(ctx, title_parts, project, source, type, priority, labels, due, body, edit)
+    create_ticket_logic(ctx, title_parts, project, source, type, priority, labels, due, parent, body, edit)
 
 
 @app.command(name="create", hidden=True)
@@ -128,15 +129,21 @@ def create_ticket_alias(
     priority: Annotated[str, typer.Option()] = "medium",
     labels: Annotated[str, typer.Option()] = "",
     due: Annotated[Optional[str], typer.Option()] = None,
+    parent: Annotated[Optional[str], typer.Option()] = None,
     body: Annotated[Optional[str], typer.Option()] = None,
     edit: Annotated[bool, typer.Option()] = False,
 ):
-    create_ticket_logic(ctx, title_parts, project, source, type, priority, labels, due, body, edit)
+    create_ticket_logic(ctx, title_parts, project, source, type, priority, labels, due, parent, body, edit)
 
 
-def create_ticket_logic(ctx, title_parts, project, source, type, priority, labels, due, body, edit):
+def create_ticket_logic(ctx, title_parts, project, source, type, priority, labels, due, parent, body, edit):
     try:
         store = resolve_store(ctx.obj["root"], create=False)
+        parent_db_id = None
+        if parent:
+            parent_ticket = store.get_ticket(parent)
+            parent_db_id = parent_ticket["db_id"]
+
         title = " ".join(title_parts).strip()
         body_md = read_markdown_input(body=body, edit=edit)
 
@@ -148,6 +155,7 @@ def create_ticket_logic(ctx, title_parts, project, source, type, priority, label
             priority=priority,
             labels=labels,
             due_date=due,
+            parent_id=parent_db_id,
             body_md=body_md,
         )
         console.print(f"Created [bold blue]{ticket['id']}[/bold blue]")
@@ -225,6 +233,7 @@ def update(
     source: Annotated[Optional[str], typer.Option(help="New source.")] = None,
     labels: Annotated[Optional[str], typer.Option(help="New comma-separated labels.")] = None,
     due: Annotated[Optional[str], typer.Option(help="New due date (YYYY-MM-DD).")] = None,
+    parent: Annotated[Optional[str], typer.Option(help="New parent ticket ID.")] = None,
     resolution_reason: Annotated[Optional[str], typer.Option(help="New resolution reason.")] = None,
 ):
     """
@@ -232,7 +241,7 @@ def update(
     """
     try:
         store = resolve_store(ctx.obj["root"], create=False)
-        updates = {
+        updates: dict[str, Any] = {
             "title": title if title is not None else UNSET,
             "status": status if status is not None else UNSET,
             "ticket_type": type if type is not None else UNSET,
@@ -242,6 +251,13 @@ def update(
             "due_date": due if due is not None else UNSET,
             "resolution_reason": resolution_reason if resolution_reason is not None else UNSET,
         }
+        if parent is not None:
+            if not parent.strip():
+                updates["parent_id"] = None
+            else:
+                parent_ticket = store.get_ticket(parent)
+                updates["parent_id"] = parent_ticket["db_id"]
+
         ticket = store.update_ticket(ticket_id, **updates)
         console.print(f"Updated [bold blue]{ticket['id']}[/bold blue]")
     except NiraError as exc:
@@ -267,7 +283,8 @@ def edit(
         details = store.ticket_details(ticket_id)
         field_name = "body_md" if field == "body" else "resolution_md"
         updated_text = launch_editor(details["ticket"][field_name])
-        ticket = store.update_ticket(ticket_id, **{field_name: updated_text})
+        updates: dict[str, Any] = {field_name: updated_text}
+        ticket = store.update_ticket(ticket_id, **updates)
         console.print(f"Updated [bold blue]{ticket['id']}[/bold blue] {field}")
     except NiraError as exc:
         console.print(f"[red]Error:[/red] {exc}")
@@ -474,6 +491,9 @@ def print_ticket(details: dict) -> None:
     metadata_table.add_row("Source:", ticket["source"] or "[dim]none[/dim]")
     if ticket.get("due_date"):
         metadata_table.add_row("Due Date:", ticket["due_date"])
+    if details.get("parent"):
+        parent = details["parent"]
+        metadata_table.add_row("Parent:", f"[blue]{parent['id']}[/blue] {parent['title']}")
     metadata_table.add_row("Created:", ticket["created_at"])
     metadata_table.add_row("Updated:", ticket["updated_at"])
 
@@ -493,6 +513,11 @@ def print_ticket(details: dict) -> None:
     if related:
         console.print("\n[bold]Related Tickets[/bold]")
         for item in related:
+            console.print(f"• [blue]{item['id']}[/blue] {item['title']}")
+
+    if details.get("sub_tasks"):
+        console.print("\n[bold]Sub-tasks[/bold]")
+        for item in details["sub_tasks"]:
             console.print(f"• [blue]{item['id']}[/blue] {item['title']}")
 
     if comments:
