@@ -1,5 +1,6 @@
 import io
 import os
+import re
 import sqlite3
 import subprocess
 import sys
@@ -41,11 +42,16 @@ def run_cli(args, cwd, env=None, input_text=None, timeout=20):
     try:
         result = _typer_runner.invoke(app, args, input=input_text, env=env)
 
+        # Remove ANSI escape sequences from standard output so assertions are robust
+        # even if Rich forces styles.
+        stdout_clean = re.sub(r"\x1b\[[0-9;]*m", "", result.stdout or "")
+        stderr_clean = re.sub(r"\x1b\[[0-9;]*m", "", result.stderr or "")
+
         return subprocess.CompletedProcess(
             args=["nira", *args],
             returncode=result.exit_code,
-            stdout=result.stdout or "",
-            stderr=result.stderr or "",
+            stdout=stdout_clean,
+            stderr=stderr_clean,
         )
     finally:
         os.chdir(original_cwd)
