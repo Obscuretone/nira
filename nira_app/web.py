@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import html
 import mimetypes
+import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import lru_cache
@@ -132,6 +133,38 @@ class Response:
         return [payload]
 
 
+class Router:
+    def __init__(self):
+        self.routes: list[tuple[str, re.Pattern, callable]] = []
+
+    def add(self, method: str, path_pattern: str, handler: callable):
+        # Replace {param} with named capture group (?P<param>[^/]+)
+        regex_pattern = re.sub(r"\{([^}]+)\}", r"(?P<\1>[^/]+)", path_pattern)
+        # Ensure it matches the whole path
+        regex_pattern = f"^{regex_pattern}$"
+        self.routes.append((method.upper(), re.compile(regex_pattern), handler))
+
+    def get(self, path_pattern: str):
+        def decorator(handler):
+            self.add("GET", path_pattern, handler)
+            return handler
+        return decorator
+
+    def post(self, path_pattern: str):
+        def decorator(handler):
+            self.add("POST", path_pattern, handler)
+            return handler
+        return decorator
+
+    def match(self, method: str, path: str) -> tuple[callable, dict[str, str]] | None:
+        for route_method, pattern, handler in self.routes:
+            if route_method == method:
+                match = pattern.match(path)
+                if match:
+                    return handler, match.groupdict()
+        return None
+
+
 class QuietRequestHandler(WSGIRequestHandler):
     def log_message(self, format, *args):
         return
@@ -140,6 +173,28 @@ class QuietRequestHandler(WSGIRequestHandler):
 class NiraWebApp:
     def __init__(self, store: NiraStore):
         self.store = store
+        self.router = Router()
+        self._register_routes()
+
+    def _register_routes(self):
+        # Asset delivery
+        self.router.add("GET", r"/assets/(?P<asset_path>.*)", self.asset_response)
+
+        # Main pages
+        self.router.add("GET", "/", self.list_page)
+        self.router.add("GET", "/tickets/new", self.new_ticket_page)
+        self.router.add("GET", "/settings", self.settings_page)
+        self.router.add("POST", "/tickets", self.create_ticket_action)
+        self.router.add("POST", "/settings", self.save_settings_action)
+        self.router.add("POST", "/preview", self.preview_markdown_action)
+
+        # Ticket details and actions
+        self.router.add("GET", "/tickets/{ticket_id}", self.ticket_detail_page)
+        self.router.add("POST", "/tickets/{ticket_id}/edit", self.edit_ticket_action)
+        self.router.add("POST", "/tickets/{ticket_id}/close", self.close_ticket_action)
+        self.router.add("POST", "/tickets/{ticket_id}/reopen", self.reopen_ticket_action)
+        self.router.add("POST", "/tickets/{ticket_id}/link", self.link_ticket_action)
+        self.router.add("POST", "/tickets/{ticket_id}/unlink", self.unlink_ticket_action)
 
     def __call__(self, environ, start_response):
         method = environ["REQUEST_METHOD"].upper()
@@ -148,7 +203,12 @@ class NiraWebApp:
         form = self.parse_form(environ) if method == "POST" else {}
 
         try:
-            response = self.route(method, path, query, form)
+            match = self.router.match(method, path)
+            if match:
+                handler, params = match
+                response = handler(query=query, form=form, **params)
+            else:
+                response = self.error_page("404 Not Found", "Page not found.", "404 Not Found")
         except TicketNotFoundError as exc:
             response = self.error_page("404 Not Found", str(exc), "404 Not Found")
         except ValidationError as exc:
@@ -163,85 +223,7 @@ class NiraWebApp:
             )
         return response.to_wsgi(start_response)
 
-    def route(self, method: str, path: str, query: dict[str, str], form: dict[str, str]) -> Response:
-        parts = [part for part in path.split("/") if part]
-
-        if method == "GET" and parts[:1] == ["assets"]:
-            return self.asset_response(parts[1:])
-
-        if method == "GET" and path == "/":
-            return self.list_page(query)
-
-        if method == "GET" and path == "/tickets/new":
-            return self.new_ticket_page(query)
-
-        if method == "GET" and path == "/settings":
-            return self.settings_page(query)
-
-        if method == "POST" and path == "/tickets":
-            ticket = self.store.create_ticket(
-                form.get("project", ""),
-                form.get("title", ""),
-                source=form.get("source", ""),
-                ticket_type=form.get("type", "task"),
-                priority=form.get("priority", "medium"),
-                body_md=form.get("body_md", ""),
-                resolution_md=form.get("resolution_md", ""),
-            )
-            return self.redirect(f"/tickets/{ticket['id']}")
-
-        if method == "POST" and path == "/settings":
-            self.store.rename_default_project(form.get("default_project", ""))
-            return self.redirect("/settings?saved=1")
-
-        if method == "POST" and path == "/preview":
-            return Response(
-                "200 OK",
-                render_markdown(form.get("markdown", "")),
-            )
-
-        if len(parts) == 2 and parts[0] == "tickets" and method == "GET":
-            return self.ticket_detail_page(parts[1])
-
-        if len(parts) == 3 and parts[0] == "tickets" and method == "POST":
-            ticket_id = parts[1]
-            action = parts[2]
-            if action == "edit":
-                updates = {}
-                for field_name in (
-                    "title",
-                    "status",
-                    "priority",
-                    "source",
-                    "resolution_reason",
-                    "body_md",
-                    "resolution_md",
-                ):
-                    if field_name in form:
-                        updates[field_name] = form[field_name]
-                if "type" in form:
-                    updates["ticket_type"] = form["type"]
-                self.store.update_ticket(ticket_id, **updates)
-                return self.redirect(f"/tickets/{ticket_id}")
-            if action == "close":
-                reason = (form.get("resolution_reason", "") or "").strip()
-                if not reason:
-                    reason = self.store.get_ticket(ticket_id)["resolution_reason"] or "completed"
-                self.store.close_ticket(ticket_id, reason=reason)
-                return self.redirect(f"/tickets/{ticket_id}")
-            if action == "reopen":
-                self.store.reopen_ticket(ticket_id)
-                return self.redirect(f"/tickets/{ticket_id}")
-            if action == "link":
-                self.store.link_tickets(ticket_id, form.get("other_ticket_id", ""))
-                return self.redirect(f"/tickets/{ticket_id}")
-            if action == "unlink":
-                self.store.unlink_tickets(ticket_id, form.get("other_ticket_id", ""))
-                return self.redirect(f"/tickets/{ticket_id}")
-
-        return self.error_page("404 Not Found", "Page not found.", "404 Not Found")
-
-    def list_page(self, query: dict[str, str]) -> Response:
+    def list_page(self, query: dict[str, str], form: dict[str, str]) -> Response:
         selected_status = query.get("status") or "not_closed"
         selected_sort = normalize_list_sort(query.get("sort"))
         selected_direction = normalize_list_direction(query.get("direction"))
@@ -291,7 +273,7 @@ class NiraWebApp:
         content = render_template("list_page.html", filters=filters, table=table)
         return self.page("Nira", content)
 
-    def new_ticket_page(self, query: dict[str, str]) -> Response:
+    def new_ticket_page(self, query: dict[str, str], form: dict[str, str]) -> Response:
         default_project = query.get("project", "") or self.store.get_default_project()
         content = render_template(
             "new_ticket_page.html",
@@ -302,7 +284,7 @@ class NiraWebApp:
         )
         return self.page("Create Ticket", content)
 
-    def settings_page(self, query: dict[str, str]) -> Response:
+    def settings_page(self, query: dict[str, str], form: dict[str, str]) -> Response:
         settings = self.store.get_settings()
         save_notice = ""
         if query.get("saved") == "1":
@@ -320,7 +302,29 @@ class NiraWebApp:
         )
         return self.page("Settings", content)
 
-    def ticket_detail_page(self, ticket_id: str) -> Response:
+    def create_ticket_action(self, query: dict[str, str], form: dict[str, str]) -> Response:
+        ticket = self.store.create_ticket(
+            form.get("project", ""),
+            form.get("title", ""),
+            source=form.get("source", ""),
+            ticket_type=form.get("type", "task"),
+            priority=form.get("priority", "medium"),
+            body_md=form.get("body_md", ""),
+            resolution_md=form.get("resolution_md", ""),
+        )
+        return self.redirect(f"/tickets/{ticket['id']}")
+
+    def save_settings_action(self, query: dict[str, str], form: dict[str, str]) -> Response:
+        self.store.rename_default_project(form.get("default_project", ""))
+        return self.redirect("/settings?saved=1")
+
+    def preview_markdown_action(self, query: dict[str, str], form: dict[str, str]) -> Response:
+        return Response(
+            "200 OK",
+            render_markdown(form.get("markdown", "")),
+        )
+
+    def ticket_detail_page(self, query: dict[str, str], form: dict[str, str], ticket_id: str) -> Response:
         details = self.store.ticket_details(ticket_id)
         ticket = details["ticket"]
         related = details["related"]
@@ -355,6 +359,43 @@ class NiraWebApp:
             updated_time=format_time(ticket["updated_at"], relative=True),
         )
         return self.page(ticket["id"], content)
+
+    def edit_ticket_action(self, query: dict[str, str], form: dict[str, str], ticket_id: str) -> Response:
+        updates = {}
+        for field_name in (
+            "title",
+            "status",
+            "priority",
+            "source",
+            "resolution_reason",
+            "body_md",
+            "resolution_md",
+        ):
+            if field_name in form:
+                updates[field_name] = form[field_name]
+        if "type" in form:
+            updates["ticket_type"] = form["type"]
+        self.store.update_ticket(ticket_id, **updates)
+        return self.redirect(f"/tickets/{ticket_id}")
+
+    def close_ticket_action(self, query: dict[str, str], form: dict[str, str], ticket_id: str) -> Response:
+        reason = (form.get("resolution_reason", "") or "").strip()
+        if not reason:
+            reason = self.store.get_ticket(ticket_id)["resolution_reason"] or "completed"
+        self.store.close_ticket(ticket_id, reason=reason)
+        return self.redirect(f"/tickets/{ticket_id}")
+
+    def reopen_ticket_action(self, query: dict[str, str], form: dict[str, str], ticket_id: str) -> Response:
+        self.store.reopen_ticket(ticket_id)
+        return self.redirect(f"/tickets/{ticket_id}")
+
+    def link_ticket_action(self, query: dict[str, str], form: dict[str, str], ticket_id: str) -> Response:
+        self.store.link_tickets(ticket_id, form.get("other_ticket_id", ""))
+        return self.redirect(f"/tickets/{ticket_id}")
+
+    def unlink_ticket_action(self, query: dict[str, str], form: dict[str, str], ticket_id: str) -> Response:
+        self.store.unlink_tickets(ticket_id, form.get("other_ticket_id", ""))
+        return self.redirect(f"/tickets/{ticket_id}")
 
     def status_filter_options(self, selected: str) -> str:
         options = [
@@ -471,23 +512,24 @@ class NiraWebApp:
         content = render_template("error_page.html", title=h(title), message=h(message))
         return Response(status, self.page(title, content).body)
 
-    def asset_response(self, asset_parts: list[str]) -> Response:
-        if not asset_parts:
+    def asset_response(self, query: dict[str, str], form: dict[str, str], asset_path: str) -> Response:
+        if not asset_path:
             return Response("404 Not Found", "Asset not found.", content_type="text/plain; charset=utf-8")
 
-        asset_path = (ASSETS_DIR / Path(*asset_parts)).resolve()
+        # Normalize and resolve the path to prevent directory traversal
         try:
-            asset_path.relative_to(ASSETS_DIR.resolve())
-        except ValueError:
+            full_path = (ASSETS_DIR / asset_path).resolve()
+            full_path.relative_to(ASSETS_DIR.resolve())
+        except (ValueError, OSError):
             return Response("404 Not Found", "Asset not found.", content_type="text/plain; charset=utf-8")
 
-        if not asset_path.is_file():
+        if not full_path.is_file():
             return Response("404 Not Found", "Asset not found.", content_type="text/plain; charset=utf-8")
 
-        content_type, _ = mimetypes.guess_type(asset_path.name)
+        content_type, _ = mimetypes.guess_type(full_path.name)
         return Response(
             "200 OK",
-            asset_path.read_bytes(),
+            full_path.read_bytes(),
             content_type=content_type or "application/octet-stream",
         )
 
