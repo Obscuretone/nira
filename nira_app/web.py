@@ -253,11 +253,26 @@ class NiraWebApp:
         selected_status = query.get("status") or "not_closed"
         selected_sort = normalize_list_sort(query.get("sort"))
         selected_direction = normalize_list_direction(query.get("direction"))
+        try:
+            page = int(query.get("page", 1))
+            if page < 1:
+                page = 1
+        except ValueError:
+            page = 1
+        limit = 20
+        offset = (page - 1) * limit
+        
+        status_filter = None if selected_status == "all" else selected_status
+
         tickets = self.store.list_tickets(
-            status=None if selected_status == "all" else selected_status,
+            status=status_filter,
             sort_by=selected_sort,
             direction=selected_direction,
+            limit=limit,
+            offset=offset,
         )
+        total_tickets = self.store.count_tickets(status=status_filter)
+        total_pages = (total_tickets + limit - 1) // limit
 
         body = self.render(
             "list_page.html",
@@ -268,6 +283,9 @@ class NiraWebApp:
             status_options=self.status_filter_options(),
             sort_options=self.list_sort_options(),
             direction_options=self.sort_direction_options(),
+            page=page,
+            total_pages=total_pages,
+            total_tickets=total_tickets,
         )
         return Response("200 OK", body)
 
@@ -401,12 +419,14 @@ class NiraWebApp:
                 "status": selected_status,
                 "sort": sort_key,
                 "direction": next_direction,
+                "page": "1",  # Reset to page 1 on sort change
             }
         )
         return (
-            f'<a class="link-dark text-decoration-none d-inline-flex align-items-center gap-1" href="{h(href)}">'
-            f"{h(label)}<span>{h(indicator)}</span></a>"
+            f'<a class="link-dark text-decoration-none d-inline-flex align-items-center gap-1" '
+            f'href="{h(href)}" hx-get="{h(href)}" hx-target="body" hx-push-url="true">{h(label)}{indicator}</a>'
         )
+
 
     def ticket_status_options(self) -> list[tuple[str, str]]:
         return [("open", "open"), ("in_progress", "in progress"), ("closed", "completed")]

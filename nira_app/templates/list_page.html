@@ -75,4 +75,31 @@
     </div>
   </div>
 </div>
+
+{% if total_pages > 1 %}
+<nav aria-label="Ticket pagination" class="mt-4">
+  <ul class="pagination justify-content-center">
+    {% set params = {"status": selected_status, "sort": selected_sort, "direction": selected_direction} %}
+    <li class="page-item {% if page == 1 %}disabled{% endif %}">
+      {% set prev_params = params.copy() %}{% set _ = prev_params.update({"page": page - 1}) %}
+      <a class="page-link" href="/?{{ urlencode(prev_params) }}" hx-get="/?{{ urlencode(prev_params) }}" hx-target="body" hx-push-url="true" aria-label="Previous">
+        <span aria-hidden="true">&laquo;</span>
+      </a>
+    </li>
+    <li class="page-item disabled">
+      <span class="page-link">Page {{ page }} of {{ total_pages }}</span>
+    </li>
+    <li class="page-item {% if page == total_pages %}disabled{% endif %}">
+      {% set next_params = params.copy() %}{% set _ = next_params.update({"page": page + 1}) %}
+      <a class="page-link" href="/?{{ urlencode(next_params) }}" hx-get="/?{{ urlencode(next_params) }}" hx-target="body" hx-push-url="true" aria-label="Next">
+        <span aria-hidden="true">&raquo;</span>
+      </a>
+    </li>
+  </ul>
+</nav>
+{% endif %}
+
+<div class="text-center mt-3 text-body-secondary small">
+  Showing {{ tickets|length }} of {{ total_tickets }} ticket{% if total_tickets != 1 %}s{% endif %}.
+</div>
 {% endblock %}

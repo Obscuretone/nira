@@ -602,6 +602,8 @@ class NiraStore:
         ticket_type: str | None = None,
         sort_by: str | None = None,
         direction: str | None = None,
+        offset: int = 0,
+        limit: int | None = None,
     ) -> list[dict]:
         sort_key = normalize_list_sort(sort_by)
         sort_direction = normalize_list_direction(direction).lower()
@@ -649,8 +651,40 @@ class NiraStore:
             else:
                 stmt = stmt.order_by(order_col.asc(), Ticket.number.desc())
 
+            if limit is not None:
+                stmt = stmt.limit(limit)
+            if offset > 0:
+                stmt = stmt.offset(offset)
+
             tickets = session.execute(stmt).scalars().all()
             return [self.ticket_from_model(ticket, current_project) for ticket in tickets]
+
+    def count_tickets(
+        self,
+        *,
+        project: str | None = None,
+        status: str | None = None,
+        priority: str | None = None,
+        ticket_type: str | None = None,
+    ) -> int:
+        with self.session() as session:
+            current_project = self.current_project(session)
+            if project and normalize_project(project) != current_project:
+                return 0
+
+            stmt = select(func.count(Ticket.id))
+
+            if status:
+                if status == "not_closed":
+                    stmt = stmt.where(Ticket.status != "closed")
+                else:
+                    stmt = stmt.where(Ticket.status == self.normalize_status(status))
+            if priority:
+                stmt = stmt.where(Ticket.priority == priority.strip())
+            if ticket_type:
+                stmt = stmt.where(Ticket.type == ticket_type.strip())
+
+            return session.execute(stmt).scalar() or 0
 
     def update_ticket(
         self,
