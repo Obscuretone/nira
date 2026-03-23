@@ -246,6 +246,20 @@
         <h2 class="h5 mb-3">Details</h2>
         <div class="row g-3">
           <div class="col-12">
+            <label class="form-label" for="parent">Parent Ticket</label>
+            <input
+              class="form-control"
+              id="parent"
+              name="parent"
+              placeholder="EMH-1"
+              value="{{ ticket.parent_number and (ticket.project ~ '-' ~ ticket.parent_number) or '' }}"
+              form="ticket-edit-form"
+              hx-post="/tickets/{{ ticket.id }}/edit"
+              hx-trigger="change"
+              hx-target="body"
+            >
+          </div>
+          <div class="col-12">
             <label class="form-label" for="labels">Labels</label>
             <input
               class="form-control"

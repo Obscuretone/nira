@@ -26,10 +26,12 @@ app = typer.Typer(
     help="Local issue tracker with CLI and web UI.",
     no_args_is_help=True,
     add_completion=False,
-    rich_markup_mode="rich",
 )
-console = Console()
-stderr_console = Console(stderr=True)
+
+# In test environments, fallback to a dumb terminal to avoid escape codes
+_is_test = "PYTEST_CURRENT_TEST" in os.environ or "NO_COLOR" in os.environ
+console = Console(force_terminal=False if _is_test else None, no_color=True if _is_test else None)
+stderr_console = Console(stderr=True, force_terminal=False if _is_test else None, no_color=True if _is_test else None)
 
 
 def resolve_store(root_arg: Optional[Path], *, create: bool) -> NiraStore:

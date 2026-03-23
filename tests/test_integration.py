@@ -1,5 +1,6 @@
 import io
 import os
+import re
 import sqlite3
 import subprocess
 import sys
@@ -13,11 +14,13 @@ import pytest
 from sqlalchemy import create_engine, text
 from wsgiref.util import setup_testing_defaults
 
-from nira_app.cli import main
+from nira_app.cli import app, main
 from nira_app.storage import NiraStore
 from nira_app.web import NiraWebApp
+from typer.testing import CliRunner
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+_typer_runner = CliRunner()
 
 
 class ResponseCapture(TypedDict, total=False):
@@ -29,30 +32,31 @@ def run_cli(args, cwd, env=None, input_text=None, timeout=20):
     original_cwd = os.getcwd()
     os.chdir(cwd)
     original_env = os.environ.copy()
+
+    os.environ["COLUMNS"] = "120"
+    os.environ["TERMINAL_WIDTH"] = "120"
+
     if env:
         os.environ.update(env)
 
-    stdout = io.StringIO()
-    stderr = io.StringIO()
-
     try:
-        with (
-            redirect_stdout(stdout),
-            redirect_stderr(stderr),
-            mock.patch("sys.stdin", io.StringIO(input_text or "")),
-        ):
-            return_code = main(args)
+        result = _typer_runner.invoke(app, args, input=input_text, env=env)
+
+        # Remove ANSI escape sequences from standard output so assertions are robust
+        # even if Rich forces styles.
+        stdout_clean = re.sub(r"\x1b\[[0-9;]*m", "", result.stdout or "")
+        stderr_clean = re.sub(r"\x1b\[[0-9;]*m", "", result.stderr or "")
+
+        return subprocess.CompletedProcess(
+            args=["nira", *args],
+            returncode=result.exit_code,
+            stdout=stdout_clean,
+            stderr=stderr_clean,
+        )
     finally:
         os.chdir(original_cwd)
         os.environ.clear()
         os.environ.update(original_env)
-
-    return subprocess.CompletedProcess(
-        args=["nira", *args],
-        returncode=return_code,
-        stdout=stdout.getvalue(),
-        stderr=stderr.getvalue(),
-    )
 
 
 class TestCliIntegration:

@@ -5,10 +5,8 @@
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
   <div>
-    <p class="text-uppercase text-body-secondary small mb-1">Local issue tracker</p>
     <h1 class="h2 mb-0">Tickets</h1>
   </div>
-  <div class="text-body-secondary">SQLite-backed tickets for the current project.</div>
 </div>
 
 <form id="filter-form" class="row g-3 mb-4" method="get" action="/" hx-get="/" hx-target="body" hx-push-url="true" hx-include="#global-search-input">
@@ -40,14 +38,12 @@
       {% endfor -%}
     </select>
   </div>
-  <div class="col-md-2 d-flex align-items-center">
-    <div class="form-check mt-4">
-      <input class="form-check-input" type="checkbox" id="overdue" name="overdue" value="1" {% if overdue_filter %}checked{% endif %} hx-get="/" hx-trigger="change" hx-target="body" hx-push-url="true" hx-include="#global-search-input">
-      <label class="form-check-label" for="overdue">Overdue Only</label>
-    </div>
-  </div>
-  <div class="col-md-1 d-flex align-items-end gap-2">
-    <a class="btn btn-outline-secondary w-100" href="/">Reset</a>
+  <div class="col-md-2">
+    <label class="form-label" for="overdue">Due Date</label>
+    <select class="form-select" id="overdue" name="overdue" hx-get="/" hx-trigger="change" hx-target="body" hx-push-url="true" hx-include="#global-search-input">
+      <option value="">All</option>
+      <option value="1" {% if overdue_filter %}selected{% endif %}>Overdue</option>
+    </select>
   </div>
 </form>
 
@@ -127,6 +123,6 @@
 {% endif %}
 
 <div class="text-center mt-3 text-body-secondary small">
-  Showing {{ tickets|length }} of {{ total_tickets }} ticket{% if total_tickets != 1 %}s{% endif %}.
+  Showing {{ tickets|length }} of {{ total_tickets }} total tickets.
 </div>
 {% endblock %}

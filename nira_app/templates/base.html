@@ -304,6 +304,8 @@
           group: "kanban",
           animation: 150,
           ghostClass: "bg-primary-subtle",
+          filter: "a, button, input",
+          preventOnFilter: false,
           onEnd: (evt) => {
             const ticketId = evt.item.dataset.ticketId;
             const newStatus = evt.to.dataset.status;

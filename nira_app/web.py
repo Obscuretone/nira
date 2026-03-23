@@ -293,10 +293,11 @@ class NiraWebApp:
             label=label_filter,
             overdue=overdue_filter,
         )
-        total_tickets = self.store.count_tickets(
+        filtered_tickets_count = self.store.count_tickets(
             status=status_filter, search=search_query, label=label_filter, overdue=overdue_filter
         )
-        total_pages = (total_tickets + limit - 1) // limit
+        total_project_tickets = self.store.count_tickets()
+        total_pages = (filtered_tickets_count + limit - 1) // limit
 
         body = self.render(
             "list_page.html",
@@ -312,7 +313,8 @@ class NiraWebApp:
             direction_options=self.sort_direction_options(),
             page=page,
             total_pages=total_pages,
-            total_tickets=total_tickets,
+            total_tickets=total_project_tickets,
+            filtered_tickets_count=filtered_tickets_count,
         )
         return Response("200 OK", body)
 
@@ -430,6 +432,17 @@ class NiraWebApp:
 
         if "type" in form:
             updates["ticket_type"] = form["type"]
+        if "parent" in form:
+            parent_val = form["parent"].strip()
+            if not parent_val:
+                updates["parent_id"] = None
+            else:
+                try:
+                    parent_ticket = self.store.get_ticket(parent_val)
+                    updates["parent_id"] = parent_ticket["db_id"]
+                except TicketNotFoundError:
+                    raise ValidationError(f"Parent ticket '{parent_val}' not found.")
+
         self.store.update_ticket(ticket_id, **updates)
         return self.redirect(f"/tickets/{ticket_id}")
 
