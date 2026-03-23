@@ -13,6 +13,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    MetaData,
     String,
     Text,
     case,
@@ -129,8 +130,6 @@ def ticket_number_from_ref(ticket_id: str) -> int:
 def format_ticket_id(project_key: str, number: int) -> str:
     return f"{normalize_project(project_key)}-{int(number)}"
 
-
-from sqlalchemy import MetaData
 
 convention = {
     "ix": "ix_%(column_0_label)s",
