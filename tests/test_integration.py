@@ -13,11 +13,13 @@ import pytest
 from sqlalchemy import create_engine, text
 from wsgiref.util import setup_testing_defaults
 
-from nira_app.cli import main
+from nira_app.cli import app, main
 from nira_app.storage import NiraStore
 from nira_app.web import NiraWebApp
+from typer.testing import CliRunner
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+_typer_runner = CliRunner()
 
 
 class ResponseCapture(TypedDict, total=False):
@@ -30,35 +32,25 @@ def run_cli(args, cwd, env=None, input_text=None, timeout=20):
     os.chdir(cwd)
     original_env = os.environ.copy()
     
-    # Disable rich formatting and color for consistent testing
-    os.environ["NO_COLOR"] = "1"
-    os.environ["TERM"] = "dumb"
     os.environ["COLUMNS"] = "120"
+    os.environ["TERMINAL_WIDTH"] = "120"
     
     if env:
         os.environ.update(env)
 
-    stdout = io.StringIO()
-    stderr = io.StringIO()
-
     try:
-        with (
-            redirect_stdout(stdout),
-            redirect_stderr(stderr),
-            mock.patch("sys.stdin", io.StringIO(input_text or "")),
-        ):
-            return_code = main(args)
+        result = _typer_runner.invoke(app, args, input=input_text, env=env)
+        
+        return subprocess.CompletedProcess(
+            args=["nira", *args],
+            returncode=result.exit_code,
+            stdout=result.stdout or "",
+            stderr=result.stderr or "",
+        )
     finally:
         os.chdir(original_cwd)
         os.environ.clear()
         os.environ.update(original_env)
-
-    return subprocess.CompletedProcess(
-        args=["nira", *args],
-        returncode=return_code,
-        stdout=stdout.getvalue(),
-        stderr=stderr.getvalue(),
-    )
 
 
 class TestCliIntegration:
