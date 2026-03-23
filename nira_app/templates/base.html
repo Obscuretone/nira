@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-bs-theme="auto">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -8,16 +8,27 @@
     <link href="{{ bootstrap_css }}" rel="stylesheet" integrity="{{ bootstrap_css_integrity }}" crossorigin="anonymous">
     <link href="{{ toast_ui_editor_css }}" rel="stylesheet">
     <style>
+      :root {
+        --nira-bg-gradient-light: radial-gradient(circle at top left, rgba(13, 110, 253, 0.08), transparent 35%), linear-gradient(180deg, #f8f9fa 0%, #eef1f4 100%);
+        --nira-bg-gradient-dark: radial-gradient(circle at top left, rgba(13, 110, 253, 0.15), transparent 35%), linear-gradient(180deg, #212529 0%, #1a1d20 100%);
+        --nira-header-bg-light: rgba(255, 255, 255, 0.78);
+        --nira-header-bg-dark: rgba(33, 37, 41, 0.78);
+      }
       body {
-        background:
-          radial-gradient(circle at top left, rgba(13, 110, 253, 0.08), transparent 35%),
-          linear-gradient(180deg, #f8f9fa 0%, #eef1f4 100%);
+        background: var(--nira-bg-gradient-light);
         min-height: 100vh;
       }
+      [data-bs-theme="dark"] body {
+        background: var(--nira-bg-gradient-dark);
+      }
       .brand-shell {
-        background: rgba(255, 255, 255, 0.78);
+        background: var(--nira-header-bg-light);
         backdrop-filter: blur(18px);
         border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+      }
+      [data-bs-theme="dark"] .brand-shell {
+        background: var(--nira-header-bg-dark);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
       }
       .brand-nav {
         gap: 0.75rem 1.25rem;
@@ -30,6 +41,7 @@
         font-size: 1.1rem;
         font-weight: 800;
         letter-spacing: 0.24rem;
+        color: var(--bs-body-color);
       }
       .page-shell {
         padding-block: 2.5rem 4rem;
@@ -41,8 +53,8 @@
         margin-bottom: 0.75rem;
       }
       .markdown-output pre {
-        background: #111827;
-        color: #f8f9fa;
+        background: var(--bs-dark);
+        color: var(--bs-light);
         padding: 1rem;
         border-radius: 0.75rem;
         overflow-x: auto;
@@ -52,24 +64,83 @@
       }
       .toastui-editor-defaultUI {
         border-radius: 0.75rem;
+        border-color: var(--bs-border-color);
+        background-color: var(--bs-body-bg);
       }
       .toastui-editor-toolbar {
         border-top-left-radius: 0.75rem;
         border-top-right-radius: 0.75rem;
+        background-color: var(--bs-tertiary-bg);
+      }
+      /* Dark mode overrides for toast UI editor */
+      [data-bs-theme="dark"] .toastui-editor-defaultUI {
+        color: var(--bs-body-color);
+      }
+      [data-bs-theme="dark"] .toastui-editor-defaultUI .ProseMirror {
+        color: var(--bs-body-color);
+      }
+      [data-bs-theme="dark"] .toastui-editor-toolbar,
+      [data-bs-theme="dark"] .toastui-editor-defaultUI-toolbar {
+        background-color: var(--bs-tertiary-bg);
+        border-color: var(--bs-border-color);
+      }
+      [data-bs-theme="dark"] .toastui-editor-popup {
+        background-color: var(--bs-body-bg);
+        border-color: var(--bs-border-color);
+      }
+      [data-bs-theme="dark"] .toastui-editor-dropdown-toolbar {
+        background-color: var(--bs-body-bg);
+        border-color: var(--bs-border-color);
+      }
+      .theme-icon-active {
+        width: 1em;
+        height: 1em;
+        vertical-align: -0.125em;
       }
     </style>
+    <script>
+      // Load theme early to prevent flash of wrong theme
+      const storedTheme = localStorage.getItem('theme');
+      if (storedTheme) {
+        document.documentElement.setAttribute('data-bs-theme', storedTheme);
+      } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.documentElement.setAttribute('data-bs-theme', 'dark');
+      }
+    </script>
   </head>
   <body>
     <header class="brand-shell">
       <div class="container py-3 d-flex flex-wrap justify-content-between align-items-center gap-3">
-        <a class="d-inline-flex align-items-center gap-3 text-decoration-none text-dark" href="/">
+        <a class="d-inline-flex align-items-center gap-3 text-decoration-none" href="/">
           <img class="brand-mark" src="{{ brand_logo_url }}" alt="Nira logo">
           <span class="brand-wordmark">NIRA</span>
         </a>
         <nav class="d-flex flex-wrap align-items-center brand-nav">
-          <a class="link-dark text-decoration-none fw-semibold" href="/">Ticket List</a>
-          <a class="link-dark text-decoration-none fw-semibold" href="/tickets/new">Create Ticket</a>
-          <a class="link-dark text-decoration-none fw-semibold" href="/settings">Settings</a>
+          <a class="link-body-emphasis text-decoration-none fw-semibold" href="/">Ticket List</a>
+          <a class="link-body-emphasis text-decoration-none fw-semibold" href="/tickets/new">Create Ticket</a>
+          <a class="link-body-emphasis text-decoration-none fw-semibold" href="/settings">Settings</a>
+          <div class="dropdown ms-2">
+            <button class="btn btn-sm btn-outline-secondary dropdown-toggle d-flex align-items-center" id="bd-theme" type="button" aria-expanded="false" data-bs-toggle="dropdown" aria-label="Toggle theme (auto)">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-circle-half theme-icon-active" viewBox="0 0 16 16"><path d="M8 15A7 7 0 1 0 8 1v14zm0 1A8 8 0 1 1 8 0a8 8 0 0 1 0 16z"/></svg>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="bd-theme-text">
+              <li>
+                <button type="button" class="dropdown-item d-flex align-items-center" data-bs-theme-value="light" aria-pressed="false">
+                  Light
+                </button>
+              </li>
+              <li>
+                <button type="button" class="dropdown-item d-flex align-items-center" data-bs-theme-value="dark" aria-pressed="false">
+                  Dark
+                </button>
+              </li>
+              <li>
+                <button type="button" class="dropdown-item d-flex align-items-center active" data-bs-theme-value="auto" aria-pressed="true">
+                  Auto
+                </button>
+              </li>
+            </ul>
+          </div>
         </nav>
       </div>
     </header>
@@ -85,6 +156,59 @@
         in_progress: "form-select form-select-lg fw-semibold border-primary bg-primary-subtle text-primary-emphasis",
         closed: "form-select form-select-lg fw-semibold border-success bg-success-subtle text-success-emphasis",
       };
+
+      const getStoredTheme = () => localStorage.getItem('theme')
+      const setStoredTheme = theme => localStorage.setItem('theme', theme)
+      
+      const getPreferredTheme = () => {
+        const storedTheme = getStoredTheme()
+        if (storedTheme) {
+          return storedTheme
+        }
+        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+      }
+
+      const setTheme = theme => {
+        if (theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          document.documentElement.setAttribute('data-bs-theme', 'dark')
+        } else {
+          document.documentElement.setAttribute('data-bs-theme', theme)
+        }
+      }
+
+      const showActiveTheme = (theme, focus = false) => {
+        const themeSwitcher = document.querySelector('#bd-theme')
+        if (!themeSwitcher) return
+        const btnToActive = document.querySelector(`[data-bs-theme-value="${theme}"]`)
+        document.querySelectorAll('[data-bs-theme-value]').forEach(element => {
+          element.classList.remove('active')
+          element.setAttribute('aria-pressed', 'false')
+        })
+        btnToActive.classList.add('active')
+        btnToActive.setAttribute('aria-pressed', 'true')
+        if (focus) {
+          themeSwitcher.focus()
+        }
+      }
+
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+        const storedTheme = getStoredTheme()
+        if (storedTheme !== 'light' && storedTheme !== 'dark') {
+          setTheme(getPreferredTheme())
+        }
+      })
+
+      document.querySelectorAll('[data-bs-theme-value]').forEach(toggle => {
+        toggle.addEventListener('click', () => {
+          const theme = toggle.getAttribute('data-bs-theme-value')
+          setStoredTheme(theme)
+          setTheme(theme)
+          showActiveTheme(theme, true)
+        })
+      })
+
+      setTheme(getPreferredTheme())
+      showActiveTheme(getStoredTheme() || 'auto')
 
       document.querySelectorAll(".rich-editor-shell").forEach((shell) => {
         const source = shell.querySelector(".rich-editor-source");
