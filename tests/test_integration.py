@@ -30,11 +30,12 @@ class ResponseCapture(TypedDict, total=False):
 def run_cli(args, cwd, env=None, input_text=None, timeout=20):
     merged_env = os.environ.copy()
     merged_env["PYTHONUNBUFFERED"] = "1"
+    merged_env["PYTHONPATH"] = str(REPO_ROOT)
     if env:
         merged_env.update(env)
 
     return subprocess.run(
-        [sys.executable, str(CLI_PATH), *args],
+        [sys.executable, "-m", "nira_app.cli", *args],
         cwd=cwd,
         env=merged_env,
         input=input_text,

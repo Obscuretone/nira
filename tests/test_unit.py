@@ -45,4 +45,4 @@ class MarkdownTests(unittest.TestCase):
 class RepositoryShapeTests(unittest.TestCase):
     def test_entrypoint_exists(self) -> None:
         repo_root = Path(__file__).resolve().parents[1]
-        self.assertTrue((repo_root / "nira").exists())
+        self.assertTrue((repo_root / "pyproject.toml").exists())
