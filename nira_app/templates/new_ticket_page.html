@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import rich_editor %}
+{% from "macros.html" import rich_editor, ticket_typeahead %}
 
 {% block title %}Create Ticket{% endblock %}
 
@@ -52,9 +52,9 @@
           <label class="form-label" for="story_points">Story Points</label>
           <input type="number" class="form-control" id="story_points" name="story_points" placeholder="e.g. 5">
         </div>
-        <div class="mb-3">
+        <div class="mb-3 position-relative">
           <label class="form-label" for="parent">Parent Ticket (optional)</label>
-          <input class="form-control" id="parent" name="parent" placeholder="EMH-1" value="{{ parent_id or '' }}">
+          {{ ticket_typeahead("parent", "parent", parent_id or '', placeholder="Search or enter ticket ID...") }}
         </div>
         <div class="mb-3">
           <label class="form-label" for="source">Source</label>

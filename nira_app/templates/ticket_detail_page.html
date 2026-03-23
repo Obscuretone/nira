@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import rich_editor, status_badge, priority_badge %}
+{% from "macros.html" import rich_editor, status_badge, priority_badge, ticket_typeahead %}
 
 {% block title %}{{ ticket.id }}{% endblock %}
 
@@ -93,7 +93,7 @@
           hx-target="body"
         >
           <div class="input-group">
-            <input class="form-control" type="text" name="other_ticket_id" placeholder="EMH-2" required>
+            {{ ticket_typeahead("other_ticket_id", "other_ticket_id", "", placeholder="Search for ticket to link...", exclude_id=ticket.id) }}
             <button class="btn btn-outline-dark" type="submit">Link</button>
           </div>
         </form>
@@ -245,19 +245,9 @@
       <div class="card-body">
         <h2 class="h5 mb-3">Details</h2>
         <div class="row g-3">
-          <div class="col-12">
+          <div class="col-12 position-relative">
             <label class="form-label" for="parent">Parent Ticket</label>
-            <input
-              class="form-control"
-              id="parent"
-              name="parent"
-              placeholder="EMH-1"
-              value="{{ ticket.parent_number and (ticket.project ~ '-' ~ ticket.parent_number) or '' }}"
-              form="ticket-edit-form"
-              hx-post="/tickets/{{ ticket.id }}/edit"
-              hx-trigger="change"
-              hx-target="body"
-            >
+            {{ ticket_typeahead("parent", "parent", ticket.parent_number and (ticket.project ~ '-' ~ ticket.parent_number) or '', exclude_id=ticket.id, form="ticket-edit-form", hx_post="/tickets/" ~ ticket.id ~ "/edit", hx_trigger="change", hx_target="body") }}
           </div>
           <div class="col-12">
             <label class="form-label" for="labels">Labels</label>

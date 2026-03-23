@@ -466,6 +466,22 @@
           initNiraComponents(evt.detail.elt);
       });
 
+      // Global handler for ticket typeahead selection
+      window.selectTicket = function(button, ticketId) {
+          const container = button.closest('.ticket-typeahead-container');
+          if (!container) return;
+          const input = container.querySelector('.typeahead-input');
+          if (!input) return;
+          
+          input.value = ticketId;
+          // Trigger change so parent HTMX forms know about the update
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+          
+          // Optionally auto-submit if part of a specific form (like Add Related)
+          if (input.hasAttribute('data-auto-submit-parent')) {
+              input.closest('form').requestSubmit();
+          }
+      };
 
     </script>
   </body>

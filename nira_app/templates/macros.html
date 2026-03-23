@@ -32,3 +32,29 @@
     } %}
     <span class="badge {{ variants.get(priority, 'text-bg-light border') }}">{{ priority }}</span>
 {% endmacro %}
+
+{% macro ticket_typeahead(field_name, field_id, value="", placeholder="Search for a ticket...", exclude_id="", form="", hx_post="", hx_trigger="", hx_target="") %}
+<div class="dropdown w-100 ticket-typeahead-container" data-field-name="{{ field_name }}">
+  <input
+    type="text"
+    class="form-control typeahead-input"
+    id="{{ field_id }}"
+    name="{{ field_name }}"
+    placeholder="{{ placeholder }}"
+    value="{{ value }}"
+    autocomplete="off"
+    data-bs-toggle="dropdown"
+    aria-expanded="false"
+    {% if form %}form="{{ form }}"{% endif %}
+    {% if hx_post %}hx-post="{{ hx_post }}"{% endif %}
+    hx-trigger="keyup changed delay:300ms, focus, click{% if hx_trigger %}, {{ hx_trigger }}{% endif %}"
+    {% if hx_target %}hx-target="{{ hx_target }}"{% endif %}
+    hx-get="/tickets/search_dropdown?exclude={{ exclude_id }}"
+    data-hx-target="next .typeahead-menu"
+    data-auto-submit-parent="{% if hx_post %}true{% endif %}"
+  >
+  <ul class="dropdown-menu w-100 typeahead-menu shadow-sm" style="max-height: 300px; overflow-y: auto;">
+    <!-- HTMX will inject options here -->
+  </ul>
+</div>
+{% endmacro %}
