@@ -52,7 +52,12 @@
             {% if ticket.labels %}
             <div class="mb-3 d-flex flex-wrap gap-1">
               {% for label in ticket.labels.split(',') %}
-              <span class="badge text-bg-light border text-secondary extra-small" style="font-size: 0.65rem;">{{ label.strip() }}</span>
+              {% set trimmed = label.strip() %}
+              {% if trimmed %}
+              <a href="/board?label={{ trimmed|urlencode }}" hx-get="/board?label={{ trimmed|urlencode }}" hx-target="body" hx-push-url="true" class="badge text-bg-light border text-secondary text-decoration-none label-pill-link" style="font-size: 0.65rem; transition: background-color 0.2s;">
+                {{ trimmed }}
+              </a>
+              {% endif %}
               {% endfor %}
             </div>
             {% endif %}

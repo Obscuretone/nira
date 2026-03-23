@@ -68,9 +68,14 @@
             <td>
               <a class="link-body-emphasis text-decoration-none d-block fw-medium" href="/tickets/{{ ticket.id }}">{{ ticket.title }}</a>
               {% if ticket.labels %}
-              <div class="mt-1">
+              <div class="mt-1 d-flex flex-wrap gap-1">
                 {% for label in ticket.labels.split(',') %}
-                <span class="badge text-bg-light border text-secondary extra-small" style="font-size: 0.7rem;">{{ label.strip() }}</span>
+                {% set trimmed = label.strip() %}
+                {% if trimmed %}
+                <a href="/?label={{ trimmed|urlencode }}" hx-get="/?label={{ trimmed|urlencode }}" hx-target="body" hx-push-url="true" class="badge text-bg-light border text-secondary text-decoration-none label-pill-link" style="font-size: 0.7rem; transition: background-color 0.2s;">
+                  {{ trimmed }}
+                </a>
+                {% endif %}
                 {% endfor %}
               </div>
               {% endif %}

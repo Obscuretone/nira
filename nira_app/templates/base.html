@@ -104,6 +104,63 @@
       .kanban-card:active {
         cursor: grabbing;
       }
+      .label-pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.15rem 0.5rem;
+        border-radius: 50rem;
+        background-color: var(--bs-primary-bg-subtle);
+        color: var(--bs-primary-text-emphasis);
+        font-size: 0.75rem;
+        font-weight: 600;
+        margin-right: 0.25rem;
+        margin-bottom: 0.25rem;
+        border: 1px solid var(--bs-primary-border-subtle);
+        cursor: pointer;
+        text-decoration: none;
+        transition: all 0.2s ease-in-out;
+      }
+      .label-pill:hover {
+        background-color: var(--bs-primary);
+        color: #fff;
+      }
+      .label-pill-remove {
+        margin-left: 0.35rem;
+        cursor: pointer;
+        opacity: 0.6;
+      }
+      .label-pill-remove:hover {
+        opacity: 1;
+      }
+      .label-input-container {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        padding: 0.375rem 0.75rem;
+        background-color: var(--bs-body-bg);
+        border: var(--bs-border-width) solid var(--bs-border-color);
+        border-radius: var(--bs-border-radius);
+        min-height: 38px;
+        transition: border-color .15s ease-in-out,box-shadow .15s ease-in-out;
+      }
+      .label-input-container:focus-within {
+        border-color: #86b7fe;
+        outline: 0;
+        box-shadow: 0 0 0 .25rem rgba(13,110,253,.25);
+      }
+      .label-hidden-input {
+        border: none;
+        outline: none;
+        background: transparent;
+        color: var(--bs-body-color);
+        flex-grow: 1;
+        min-width: 60px;
+        font-size: 1rem;
+        padding: 0;
+      }
+      a.label-pill-link:hover {
+        background-color: var(--bs-secondary-bg) !important;
+      }
     </style>
     <script>
       // Load theme early from server-side preference
@@ -313,6 +370,78 @@
           }
         });
       });
+      // Label interactive pills
+      document.querySelectorAll('.label-input-container').forEach(container => {
+        const input = container.querySelector('.label-hidden-input');
+        const hiddenRealInput = container.querySelector('.label-real-input');
+        
+        function updateRealInput() {
+            const labels = Array.from(container.querySelectorAll('.label-pill span'))
+                .map(span => span.textContent.trim());
+            hiddenRealInput.value = labels.join(', ');
+            // Trigger change event for HTMX auto-save if applicable
+            hiddenRealInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        function createPill(text) {
+            const pill = document.createElement('div');
+            pill.className = 'label-pill mb-0';
+            
+            const span = document.createElement('span');
+            span.textContent = text;
+            
+            const removeBtn = document.createElement('i');
+            removeBtn.className = 'label-pill-remove';
+            removeBtn.innerHTML = '&times;';
+            removeBtn.onclick = (e) => {
+                e.preventDefault();
+                pill.remove();
+                updateRealInput();
+                input.focus();
+            };
+            
+            pill.appendChild(span);
+            pill.appendChild(removeBtn);
+            
+            // Insert before the input field
+            container.insertBefore(pill, input);
+        }
+
+        // Initialize existing labels
+        if (hiddenRealInput.value) {
+            hiddenRealInput.value.split(',').forEach(lbl => {
+                const trimmed = lbl.trim();
+                if (trimmed) createPill(trimmed);
+            });
+        }
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === ',' || e.key === 'Enter') {
+                e.preventDefault();
+                const text = input.value.trim().replace(/,/g, '');
+                if (text) {
+                    createPill(text);
+                    updateRealInput();
+                    input.value = '';
+                }
+            } else if (e.key === 'Backspace' && input.value === '') {
+                // Remove the last pill if backspace is pressed on empty input
+                const pills = container.querySelectorAll('.label-pill');
+                if (pills.length > 0) {
+                    pills[pills.length - 1].remove();
+                    updateRealInput();
+                }
+            }
+        });
+
+        // Focus the input when clicking anywhere in the container
+        container.addEventListener('click', (e) => {
+            if (e.target === container) {
+                input.focus();
+            }
+        });
+      });
+
     </script>
   </body>
 </html>
