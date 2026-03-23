@@ -11,10 +11,10 @@
   <div class="text-body-secondary">SQLite-backed tickets for the current project.</div>
 </div>
 
-<form class="row g-3 mb-4" method="get" action="/">
+<form class="row g-3 mb-4" method="get" action="/" hx-get="/" hx-target="body" hx-push-url="true">
   <div class="col-md-3">
     <label class="form-label" for="status">Status</label>
-    <select class="form-select" id="status" name="status">
+    <select class="form-select" id="status" name="status" hx-get="/" hx-trigger="change" hx-target="body" hx-push-url="true">
       {% for value, label in status_options -%}
       <option value="{{ value }}"{% if value == selected_status %} selected{% endif %}>{{ label }}</option>
       {% endfor -%}
@@ -22,7 +22,7 @@
   </div>
   <div class="col-md-3">
     <label class="form-label" for="sort">Sort By</label>
-    <select class="form-select" id="sort" name="sort">
+    <select class="form-select" id="sort" name="sort" hx-get="/" hx-trigger="change" hx-target="body" hx-push-url="true">
       {% for value, label in sort_options -%}
       <option value="{{ value }}"{% if value == selected_sort %} selected{% endif %}>{{ label }}</option>
       {% endfor -%}
@@ -30,14 +30,14 @@
   </div>
   <div class="col-md-2">
     <label class="form-label" for="direction">Direction</label>
-    <select class="form-select" id="direction" name="direction">
+    <select class="form-select" id="direction" name="direction" hx-get="/" hx-trigger="change" hx-target="body" hx-push-url="true">
       {% for value, label in direction_options -%}
       <option value="{{ value }}"{% if value == selected_direction %} selected{% endif %}>{{ label }}</option>
       {% endfor -%}
     </select>
   </div>
   <div class="col-md-4 d-flex align-items-end gap-2">
-    <button class="btn btn-dark" type="submit">Filter</button>
+    <noscript><button class="btn btn-dark" type="submit">Filter</button></noscript>
     <a class="btn btn-outline-secondary" href="/">Reset</a>
     <a class="btn btn-primary ms-auto" href="/tickets/new">Create Ticket</a>
   </div>
