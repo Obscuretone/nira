@@ -31,16 +31,16 @@ def run_cli(args, cwd, env=None, input_text=None, timeout=20):
     original_cwd = os.getcwd()
     os.chdir(cwd)
     original_env = os.environ.copy()
-    
+
     os.environ["COLUMNS"] = "120"
     os.environ["TERMINAL_WIDTH"] = "120"
-    
+
     if env:
         os.environ.update(env)
 
     try:
         result = _typer_runner.invoke(app, args, input=input_text, env=env)
-        
+
         return subprocess.CompletedProcess(
             args=["nira", *args],
             returncode=result.exit_code,
