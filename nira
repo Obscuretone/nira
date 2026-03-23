@@ -1,0 +1,10 @@
+#!/usr/bin/env python3
+"""
+Nira runner shim.
+This script exists to allow running Nira directly from the source tree without installing it.
+For standard installation, use `pip install -e .` and run `nira` directly.
+"""
+from nira_app.cli import main
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -19,8 +19,26 @@ It is intentionally closer to "near Jira" than "mini Jira".
 ## Requirements
 
 - Python 3.13 or newer
+- Jinja2
+- SQLAlchemy 2.0+
 
-Nira has no runtime Python dependencies outside the standard library.
+## Installation
+
+Nira is a standard Python package. You can install it globally, with `pipx`, or into a virtual environment.
+
+```bash
+# Clone the repository
+git clone https://github.com/Obscuretone/nira.git
+cd nira
+
+# Install using pipx (recommended for CLIs)
+pipx install .
+
+# Or install in editable mode for development
+python3 -m pip install -e .
+```
+
+Alternatively, you can run the `./nira` shim script directly from the source directory without installing.
 
 ## Quick Start
 
@@ -225,7 +243,8 @@ Set up a local dev environment:
 
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install -r requirements-dev.txt
+source .venv/bin/activate
+pip install -e .[dev]
 ```
 
 Run the full integration suite:
@@ -239,13 +258,14 @@ This runs both the focused unit tests in `tests/test_unit.py` and the end-to-end
 Run static analysis:
 
 ```bash
-.venv/bin/ruff check nira nira_app tests
-.venv/bin/mypy --config-file mypy.ini nira_app tests
-.venv/bin/pyright
+ruff check .
+mypy --config-file mypy.ini nira_app tests
+pyright
 ```
 
 Configuration files:
 
+- `pyproject.toml`
 - `ruff.toml`
 - `mypy.ini`
 - `pyrightconfig.json`
@@ -255,11 +275,12 @@ The repo ignores workspace state and local tooling output through `.gitignore`, 
 ## Project Layout
 
 ```text
-nira                 CLI entrypoint
-nira_app/cli.py      CLI behavior
+pyproject.toml       Package definition and dependencies
+nira                 Optional CLI entrypoint shim
+nira_app/cli.py      CLI behavior and entrypoint
 nira_app/storage.py  SQLite storage and ticket operations
-nira_app/web.py      Local server-rendered web UI and template wiring
-nira_app/templates/  HTML templates for the web interface
+nira_app/web.py      Local server-rendered web UI and routing
+nira_app/templates/  Jinja2 HTML templates for the web interface
 nira_app/markdown.py Minimal Markdown renderer for previews
 tests/               Integration tests for CLI and HTTP flows
 ```
