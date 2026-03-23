@@ -121,7 +121,7 @@ def new_ticket(
     labels: Annotated[str, typer.Option(help="Comma-separated labels.")] = "",
     due: Annotated[Optional[str], typer.Option(help="Due date (YYYY-MM-DD).")] = None,
     parent: Annotated[Optional[str], typer.Option(help="Parent ticket ID (e.g. EMH-1).")] = None,
-    body: Annotated[Optional[str], typer.Option(help="Initial body content (Markdown).")] = None,
+    body: Annotated[Optional[str], typer.Option("--body", "-m", help="Initial body content (Markdown).")] = None,
     edit: Annotated[bool, typer.Option(help="Open $EDITOR to write the body.")] = False,
 ):
     """
@@ -141,7 +141,7 @@ def create_ticket_alias(
     labels: Annotated[str, typer.Option()] = "",
     due: Annotated[Optional[str], typer.Option()] = None,
     parent: Annotated[Optional[str], typer.Option()] = None,
-    body: Annotated[Optional[str], typer.Option()] = None,
+    body: Annotated[Optional[str], typer.Option("--body", "-m")] = None,
     edit: Annotated[bool, typer.Option()] = False,
 ):
     create_ticket_logic(ctx, title_parts, project, source, type, priority, labels, due, parent, body, edit)
@@ -312,7 +312,9 @@ def edit(
 def close(
     ctx: typer.Context,
     ticket_id: Annotated[str, typer.Argument(help="ID of the ticket to close.")],
-    notes: Annotated[Optional[str], typer.Option(help="Resolution notes (Markdown).")] = None,
+    notes: Annotated[
+        Optional[str], typer.Option("--notes", "-n", "--resolution", "-r", "-m", help="Resolution notes (Markdown).")
+    ] = None,
     edit: Annotated[bool, typer.Option(help="Open $EDITOR to write the resolution notes.")] = False,
 ):
     """
@@ -335,7 +337,7 @@ def close(
 def comment(
     ctx: typer.Context,
     ticket_id: Annotated[str, typer.Argument(help="ID of the ticket to comment on.")],
-    body: Annotated[Optional[str], typer.Option(help="Comment body text.")] = None,
+    body: Annotated[Optional[str], typer.Option("--body", "-m", help="Comment body text.")] = None,
     edit: Annotated[bool, typer.Option(help="Open $EDITOR to write the comment.")] = False,
 ):
     """
