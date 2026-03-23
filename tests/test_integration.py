@@ -222,7 +222,7 @@ class TestCliIntegration:
 
         assert run_cli(["init", "--project-key", "EMH"], cwd=temp_root).returncode == 0
         assert run_cli(["new", "Fix the awful login bug", "--type", "bug"], cwd=temp_root).returncode == 0
-        
+
         # Test full start with mocked git checkout
         start_result = run_cli(["start", "EMH-1"], cwd=temp_root)
         assert start_result.returncode == 0
@@ -231,11 +231,11 @@ class TestCliIntegration:
 
         show_result = run_cli(["show", "EMH-1"], cwd=temp_root)
         assert "in_progress" in show_result.stdout
-        
+
         # Call start again to hit the "already in progress" branch
         start_again_result = run_cli(["start", "EMH-1"], cwd=temp_root)
         assert "already" in start_again_result.stdout
-        
+
         # Test custom prefix
         assert run_cli(["new", "Some feature", "--type", "task"], cwd=temp_root).returncode == 0
         custom_result = run_cli(["start", "EMH-2", "--type", "custom"], cwd=temp_root)

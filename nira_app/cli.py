@@ -431,7 +431,9 @@ def unlink(
 def start(
     ctx: typer.Context,
     ticket_id: Annotated[str, typer.Argument(help="ID of the ticket to start working on.")],
-    branch_type: Annotated[str, typer.Option("--type", "-t", help="Branch prefix type (e.g. feature, bugfix, chore)")] = "",
+    branch_type: Annotated[
+        str, typer.Option("--type", "-t", help="Branch prefix type (e.g. feature, bugfix, chore)")
+    ] = "",
     no_git: Annotated[bool, typer.Option("--no-git", help="Do not create a git branch")] = False,
 ):
     """
@@ -440,14 +442,14 @@ def start(
     try:
         store = resolve_store(ctx.obj["root"], create=False)
         ticket = store.get_ticket(ticket_id)
-        
+
         # 1. Update status if needed
         if ticket["status"] != "in_progress":
             store.update_ticket(ticket_id, status="in_progress")
             console.print(f"Updated [bold blue]{ticket['id']}[/bold blue] status to [yellow]in_progress[/yellow]")
         else:
             console.print(f"Ticket [bold blue]{ticket['id']}[/bold blue] is already [yellow]in_progress[/yellow]")
-        
+
         if no_git:
             return
 
@@ -455,7 +457,7 @@ def start(
         title = ticket["title"].lower()
         slug = re.sub(r"[^a-z0-9\s-]", "", title)
         slug = re.sub(r"[\s-]+", "-", slug).strip("-")
-        
+
         # 3. Determine prefix
         prefix = branch_type
         if not prefix:
@@ -466,9 +468,9 @@ def start(
                 prefix = "feature"
             else:
                 prefix = "task"
-                
+
         branch_name = f"{prefix}/{ticket['id']}-{slug}"
-        
+
         # 4. Git checkout
         console.print(f"Checking out branch: [bold green]{branch_name}[/bold green]")
         result = subprocess.run(["git", "checkout", "-b", branch_name], capture_output=True, text=True)
@@ -480,7 +482,7 @@ def start(
                 subprocess.run(["git", "checkout", branch_name])
             else:
                 stderr_console.print(f"[red]Git error:[/red]\n{result.stderr}")
-        
+
     except NiraError as exc:
         stderr_console.print(f"[red]Error:[/red] {exc}")
         raise typer.Exit(1)

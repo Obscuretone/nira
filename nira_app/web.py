@@ -361,10 +361,10 @@ class NiraWebApp:
     def ticket_search_dropdown(self, query: dict[str, str], form: dict[str, str]) -> Response:
         search_term = (query.get("q") or query.get("parent") or query.get("other_ticket_id") or "").strip()
         exclude_id = query.get("exclude")
-        
+
         # When empty, show most recent 5
         tickets = self.store.list_tickets(search=search_term if search_term else None, limit=5, sort_by="updated")
-        
+
         if exclude_id:
             tickets = [t for t in tickets if t["id"] != exclude_id]
 
