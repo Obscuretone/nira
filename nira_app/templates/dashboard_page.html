@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+  <div>
+    <p class="text-uppercase text-body-secondary small mb-1">Local issue tracker</p>
+    <h1 class="h2 mb-0">Dashboard</h1>
+  </div>
+</div>
+
+<div class="row g-4 mb-4">
+  <div class="col-md-3">
+    <div class="card shadow-sm h-100 border-0">
+      <div class="card-body">
+        <h2 class="h6 text-uppercase text-body-secondary fw-bold">Total Tickets</h2>
+        <p class="display-5 mb-0 fw-bold">{{ stats.total_tickets }}</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card shadow-sm h-100 border-0">
+      <div class="card-body">
+        <h2 class="h6 text-uppercase text-body-secondary fw-bold">Total Points</h2>
+        <p class="display-5 mb-0 fw-bold text-primary">{{ stats.total_points }}</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card shadow-sm h-100 border-0">
+      <div class="card-body">
+        <h2 class="h6 text-uppercase text-body-secondary fw-bold">Open Points</h2>
+        <p class="display-5 mb-0 fw-bold text-warning">{{ stats.status_points.open }}</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card shadow-sm h-100 border-0">
+      <div class="card-body">
+        <h2 class="h6 text-uppercase text-body-secondary fw-bold">Closed Points</h2>
+        <p class="display-5 mb-0 fw-bold text-success">{{ stats.status_points.closed }}</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-8">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-transparent py-3">
+        <h2 class="h5 mb-0">Recent Activity</h2>
+      </div>
+      <div class="card-body p-0">
+        <div class="list-group list-group-flush">
+          {% for item in stats.recent_history %}
+          <div class="list-group-item py-3">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <a href="/tickets/{{ item.ticket_id }}" class="fw-bold link-body-emphasis text-decoration-none">{{ item.ticket_id }}</a>
+              <span class="text-body-secondary small">{{ format_time(item.created_at, relative=True) | safe }}</span>
+            </div>
+            <div>
+              Updated <span class="badge text-bg-light border">{{ item.field | replace('_', ' ') }}</span> to <span class="fw-medium">{{ item.new_value }}</span>
+            </div>
+          </div>
+          {% else %}
+          <div class="p-4 text-center text-body-secondary">No recent activity recorded.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card shadow-sm border-0 mb-4">
+      <div class="card-header bg-transparent py-3">
+        <h2 class="h5 mb-0">Status Distribution</h2>
+      </div>
+      <div class="card-body">
+        <div class="d-flex flex-column gap-3">
+          {% for status, count in stats.status_counts.items() %}
+          <div>
+            <div class="d-flex justify-content-between mb-1">
+              <span class="text-capitalize">{{ status | replace('_', ' ') }}</span>
+              <span class="fw-bold">{{ count }}</span>
+            </div>
+            <div class="progress" style="height: 8px;">
+              {% set percent = (count / stats.total_tickets * 100) if stats.total_tickets > 0 else 0 %}
+              {% set color = 'success' if status == 'closed' else ('primary' if status == 'in_progress' else 'secondary') %}
+              <div class="progress-bar bg-{{ color }}" style="width: {{ percent }}%"></div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

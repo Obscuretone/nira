@@ -773,6 +773,29 @@ class TestHttpIntegration:
         assert "In Progress" in body
         assert "Closed" in body
 
+    def test_dashboard(self):
+        self.request(
+            "POST",
+            "/tickets",
+            fields={
+                "project": "EMH",
+                "title": "Stats ticket",
+                "story_points": "5",
+            },
+        )
+        # Record some activity
+        self.request(
+            "POST",
+            "/tickets/EMH-1/edit",
+            fields={"status": "in_progress"},
+        )
+        status, _, body = self.request("GET", "/dashboard")
+        assert status == 200
+        assert "Dashboard" in body
+        assert "EMH-1" in body
+        assert "in_progress" in body
+        assert "5" in body
+
     def test_asset_endpoint_serves_logo_png(self):
         status, headers, body = self.request("GET", "/assets/nira.png", decode=False)
         assert status == 200

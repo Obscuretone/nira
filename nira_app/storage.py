@@ -153,6 +153,7 @@ class Ticket(Base):
     labels: Mapped[str] = mapped_column(String, nullable=False, default="")
     due_date: Mapped[str | None] = mapped_column(String, nullable=True)
     parent_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("tickets.id", ondelete="SET NULL"), nullable=True)
+    story_points: Mapped[int | None] = mapped_column(Integer, nullable=True)
     body_md: Mapped[str] = mapped_column(Text, nullable=False, default="")
     resolution_md: Mapped[str] = mapped_column(Text, nullable=False, default="")
     created_at: Mapped[str] = mapped_column(String, nullable=False)
@@ -538,6 +539,7 @@ class NiraStore:
             "due_date": ticket.due_date,
             "parent_id": ticket.parent_id,
             "parent_number": ticket.parent.number if ticket.parent else None,
+            "story_points": ticket.story_points,
             "body_md": ticket.body_md,
             "resolution_md": ticket.resolution_md,
             "created_at": ticket.created_at,
@@ -573,6 +575,7 @@ class NiraStore:
         labels: str = "",
         due_date: str | None = None,
         parent_id: int | None = None,
+        story_points: int | None = None,
         body_md: str = "",
         resolution_md: str = "",
     ) -> dict:
@@ -604,6 +607,7 @@ class NiraStore:
                 labels=(labels or "").strip(),
                 due_date=due_date,
                 parent_id=parent_id,
+                story_points=story_points,
                 body_md=body_md,
                 resolution_md=resolution_md,
                 created_at=now,
@@ -794,6 +798,7 @@ class NiraStore:
         labels: str | _UnsetType = UNSET,
         due_date: str | None | _UnsetType = UNSET,
         parent_id: int | None | _UnsetType = UNSET,
+        story_points: int | None | _UnsetType = UNSET,
         body_md: str | _UnsetType = UNSET,
         resolution_md: str | _UnsetType = UNSET,
     ) -> dict:
@@ -827,6 +832,9 @@ class NiraStore:
 
         if parent_id is not UNSET:
             updates["parent_id"] = parent_id
+
+        if story_points is not UNSET:
+            updates["story_points"] = story_points
 
         normalized_reason: str | _UnsetType = UNSET
         if isinstance(resolution_reason, str):
@@ -1050,6 +1058,46 @@ class NiraStore:
             "related": self.list_related_tickets(ticket["id"]),
             "sub_tasks": self.list_tickets(parent_id=ticket["db_id"]),
         }
+
+    def get_dashboard_stats(self) -> dict[str, Any]:
+        with self.session() as session:
+            # Count by status
+            status_counts = {}
+            for status in STATUS_VALUES:
+                status_counts[status] = (
+                    session.query(func.count(Ticket.id)).filter(Ticket.status == status).scalar() or 0
+                )
+
+            # Points by status
+            status_points = {}
+            for status in STATUS_VALUES:
+                status_points[status] = (
+                    session.query(func.sum(Ticket.story_points)).filter(Ticket.status == status).scalar() or 0
+                )
+
+            # Total tickets and points
+            total_tickets = session.query(func.count(Ticket.id)).scalar() or 0
+            total_points = session.query(func.sum(Ticket.story_points)).scalar() or 0
+
+            # Recent activity (history)
+            recent_history = session.query(History).order_by(History.created_at.desc()).limit(10).all()
+            history_list = [
+                {
+                    "ticket_id": format_ticket_id(self.current_project(session), item.ticket.number),
+                    "field": item.field,
+                    "new_value": item.new_value,
+                    "created_at": item.created_at,
+                }
+                for item in recent_history
+            ]
+
+            return {
+                "status_counts": status_counts,
+                "status_points": status_points,
+                "total_tickets": total_tickets,
+                "total_points": total_points,
+                "recent_history": history_list,
+            }
 
     def touch_tickets(
         self,

@@ -274,6 +274,20 @@
             >
           </div>
           <div class="col-12">
+            <label class="form-label" for="story_points">Story Points</label>
+            <input
+              type="number"
+              class="form-control"
+              id="story_points"
+              name="story_points"
+              value="{{ ticket.story_points or '' }}"
+              form="ticket-edit-form"
+              hx-post="/tickets/{{ ticket.id }}/edit"
+              hx-trigger="change"
+              hx-target="body"
+            >
+          </div>
+          <div class="col-12">
             <label class="form-label" for="source">Source</label>
             <input
               class="form-control"

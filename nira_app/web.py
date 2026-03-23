@@ -216,6 +216,7 @@ class NiraWebApp:
 
         # Main pages
         self.router.add("GET", "/", self.list_page)
+        self.router.add("GET", "/dashboard", self.dashboard_page)
         self.router.add("GET", "/board", self.board_page)
         self.router.add("GET", "/tickets/new", self.new_ticket_page)
         self.router.add("GET", "/settings", self.settings_page)
@@ -258,6 +259,11 @@ class NiraWebApp:
                 "500 Internal Server Error",
             )
         return response.to_wsgi(start_response)
+
+    def dashboard_page(self, query: dict[str, str], form: dict[str, str]) -> Response:
+        stats = self.store.get_dashboard_stats()
+        body = self.render("dashboard_page.html", stats=stats)
+        return Response("200 OK", body)
 
     def list_page(self, query: dict[str, str], form: dict[str, str]) -> Response:
         selected_status = query.get("status") or "not_closed"
@@ -367,6 +373,7 @@ class NiraWebApp:
             labels=form.get("labels", ""),
             due_date=form.get("due_date") or None,
             parent_id=parent_db_id,
+            story_points=int(form["story_points"]) if form.get("story_points") else None,
             body_md=form.get("body_md", ""),
             resolution_md=form.get("resolution_md", ""),
         )
@@ -407,6 +414,7 @@ class NiraWebApp:
             "source",
             "labels",
             "due_date",
+            "story_points",
             "resolution_reason",
             "body_md",
             "resolution_md",
@@ -415,8 +423,11 @@ class NiraWebApp:
                 val = form[field_name]
                 if field_name == "due_date" and not val:
                     updates[field_name] = None
+                elif field_name == "story_points":
+                    updates[field_name] = int(val) if val else None
                 else:
                     updates[field_name] = val
+
         if "type" in form:
             updates["ticket_type"] = form["type"]
         self.store.update_ticket(ticket_id, **updates)

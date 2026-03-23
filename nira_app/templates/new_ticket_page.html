@@ -41,6 +41,10 @@
           <input type="date" class="form-control" id="due_date" name="due_date">
         </div>
         <div class="mb-3">
+          <label class="form-label" for="story_points">Story Points</label>
+          <input type="number" class="form-control" id="story_points" name="story_points" placeholder="e.g. 5">
+        </div>
+        <div class="mb-3">
           <label class="form-label" for="parent">Parent Ticket (optional)</label>
           <input class="form-control" id="parent" name="parent" placeholder="EMH-1" value="{{ parent_id or '' }}">
         </div>
