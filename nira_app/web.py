@@ -141,12 +141,14 @@ class Router:
         def decorator(handler):
             self.add("GET", path_pattern, handler)
             return handler
+
         return decorator
 
     def post(self, path_pattern: str):
         def decorator(handler):
             self.add("POST", path_pattern, handler)
             return handler
+
         return decorator
 
     def match(self, method: str, path: str) -> tuple[Callable, dict[str, str]] | None:
@@ -300,7 +302,7 @@ class NiraWebApp:
         search_query = query.get("search")
         # Fetch a reasonable number of recent tickets for the board
         tickets = self.store.list_tickets(search=search_query, limit=100)
-        
+
         open_tickets = [t for t in tickets if t["status"] == "open"]
         in_progress_tickets = [t for t in tickets if t["status"] == "in_progress"]
         closed_tickets = [t for t in tickets if t["status"] == "closed"]

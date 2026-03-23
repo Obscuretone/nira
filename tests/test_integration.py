@@ -104,8 +104,13 @@ class TestCliIntegration:
         engine = create_engine(f"sqlite:///{db_path}")
         with engine.connect() as connection:
             connection.execute(text("CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)"))
-            connection.execute(text("CREATE TABLE projects (key TEXT PRIMARY KEY, next_number INTEGER NOT NULL, created_at TEXT NOT NULL)"))
-            connection.execute(text("""
+            connection.execute(
+                text(
+                    "CREATE TABLE projects (key TEXT PRIMARY KEY, next_number INTEGER NOT NULL, created_at TEXT NOT NULL)"
+                )
+            )
+            connection.execute(
+                text("""
                 CREATE TABLE tickets (
                     id TEXT PRIMARY KEY,
                     project TEXT NOT NULL,
@@ -122,18 +127,31 @@ class TestCliIntegration:
                     updated_at TEXT NOT NULL,
                     UNIQUE(project, number)
                 )
-            """))
-            connection.execute(text("CREATE TABLE comments (id INTEGER PRIMARY KEY AUTOINCREMENT, ticket_id TEXT NOT NULL REFERENCES tickets(id) ON DELETE CASCADE, body_md TEXT NOT NULL, created_at TEXT NOT NULL)"))
-            connection.execute(text("CREATE TABLE links (ticket_a TEXT NOT NULL REFERENCES tickets(id) ON DELETE CASCADE, ticket_b TEXT NOT NULL REFERENCES tickets(id) ON DELETE CASCADE, created_at TEXT NOT NULL, PRIMARY KEY(ticket_a, ticket_b), CHECK(ticket_a < ticket_b))"))
-            
+            """)
+            )
+            connection.execute(
+                text(
+                    "CREATE TABLE comments (id INTEGER PRIMARY KEY AUTOINCREMENT, ticket_id TEXT NOT NULL REFERENCES tickets(id) ON DELETE CASCADE, body_md TEXT NOT NULL, created_at TEXT NOT NULL)"
+                )
+            )
+            connection.execute(
+                text(
+                    "CREATE TABLE links (ticket_a TEXT NOT NULL REFERENCES tickets(id) ON DELETE CASCADE, ticket_b TEXT NOT NULL REFERENCES tickets(id) ON DELETE CASCADE, created_at TEXT NOT NULL, PRIMARY KEY(ticket_a, ticket_b), CHECK(ticket_a < ticket_b))"
+                )
+            )
+
             connection.execute(text("INSERT INTO settings (key, value) VALUES ('default_project', 'EMH')"))
-            connection.execute(text("INSERT INTO projects (key, next_number, created_at) VALUES ('EMH', 2, '2026-03-23T00:00:00Z')"))
-            connection.execute(text("""
+            connection.execute(
+                text("INSERT INTO projects (key, next_number, created_at) VALUES ('EMH', 2, '2026-03-23T00:00:00Z')")
+            )
+            connection.execute(
+                text("""
                 INSERT INTO tickets (
                     id, project, number, title, status, type, priority, source,
                     resolution_reason, body_md, resolution_md, created_at, updated_at
                 ) VALUES ('EMH-1', 'EMH', 1, 'Legacy ticket', 'open', 'task', 'medium', 'legacy import', '', 'Legacy body', '', '2026-03-23T00:00:00Z', '2026-03-23T00:00:00Z')
-            """))
+            """)
+            )
             connection.commit()
         engine.dispose()
 

@@ -213,7 +213,7 @@ class NiraStore:
         default_key = (
             normalize_project(default_project) if default_project else derive_default_project_key(self.root.name)
         )
-        
+
         stamp_revision: str | None = None
         with self.connect() as connection:
             if self.needs_legacy_migration(connection):
