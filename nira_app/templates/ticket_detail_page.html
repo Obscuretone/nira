@@ -1,0 +1,136 @@
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+  <div>
+    <p class="text-uppercase text-body-secondary small mb-1">${project}</p>
+    <h1 class="h2 mb-1">${ticket_id} ${title}</h1>
+    <div class="d-flex flex-wrap gap-2">
+      ${status_badge}
+      ${priority_badge}
+    </div>
+  </div>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-secondary" href="/">Back to Tickets</a>
+    <a class="btn btn-primary" href="/tickets/new">New Ticket</a>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-xl-8">
+    <form id="ticket-edit-form" method="post" action="/tickets/${ticket_id}/edit" class="mb-4">
+      <div class="card shadow-sm mb-4">
+        <div class="card-body">
+          <label class="form-label" for="title">Title</label>
+          <input
+            class="form-control form-control-lg mb-4"
+            id="title"
+            name="title"
+            value="${title}"
+            required
+          >
+          <h2 class="h5 mb-3">Body</h2>
+          ${body_editor}
+          <div class="d-flex justify-content-end mt-3">
+            <button class="btn btn-primary" type="submit">Save</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card shadow-sm mb-4">
+        <div class="card-body">
+          <h2 class="h5 mb-3">Resolution Notes</h2>
+          <textarea
+            class="form-control font-monospace"
+            id="resolution_md"
+            name="resolution_md"
+            rows="10"
+            placeholder="Optional closeout notes, decisions, or follow-up context."
+          >${resolution_md}</textarea>
+          <div class="d-flex justify-content-end mt-3">
+            <button class="btn btn-primary" type="submit">Save</button>
+          </div>
+        </div>
+      </div>
+    </form>
+
+    <div class="card shadow-sm mb-4">
+      <div class="card-body">
+        <h2 class="h5 mb-3">Related</h2>
+        <form method="post" action="/tickets/${ticket_id}/link" class="mb-3">
+          <div class="input-group">
+            <input class="form-control" type="text" name="other_ticket_id" placeholder="EMH-2" required>
+            <button class="btn btn-outline-dark" type="submit">Link</button>
+          </div>
+        </form>
+        <ul class="list-group list-group-flush">${related_items}</ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-4">
+    <div class="card shadow-sm mb-4">
+      <div class="card-body">
+        <h2 class="h5 mb-3">Status</h2>
+        <div class="row g-3 align-items-end">
+          <div class="col-12">
+            <label class="form-label" for="status">Status</label>
+            <select
+              class="${status_select_classes}"
+              id="status"
+              name="status"
+              form="ticket-edit-form"
+              data-status-select
+              data-auto-submit
+            >
+              ${ticket_status_options}
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="priority">Priority</label>
+            <select class="form-select" id="priority" name="priority" form="ticket-edit-form" data-auto-submit>
+              ${priority_options}
+            </select>
+          </div>
+          <div class="col-12">
+            <button class="btn btn-primary w-100" type="submit" form="ticket-edit-form">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+      <div class="card-body">
+        <h2 class="h5 mb-3">Details</h2>
+        <div class="row g-3">
+          <div class="col-12">
+            <label class="form-label" for="source">Source</label>
+            <input
+              class="form-control"
+              id="source"
+              name="source"
+              value="${source}"
+              form="ticket-edit-form"
+            >
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="type">Type</label>
+            <select class="form-select" id="type" name="type" form="ticket-edit-form" data-auto-submit>
+              ${ticket_type_options}
+            </select>
+          </div>
+          <div class="col-12">
+            <button class="btn btn-primary w-100" type="submit" form="ticket-edit-form">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+      <div class="card-body">
+        <h2 class="h5 mb-3">Metadata</h2>
+        <dl class="row mb-0">
+          <dt class="col-sm-4">Created</dt><dd class="col-sm-8">${created_time}</dd>
+          <dt class="col-sm-4">Updated</dt><dd class="col-sm-8">${updated_time}</dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+</div>

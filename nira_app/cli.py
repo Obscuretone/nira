@@ -6,10 +6,14 @@ import shlex
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 from .storage import NiraError, NiraStore, UNSET, ValidationError, find_root
 from .web import serve
+
+SOURCE_ROOT = Path(__file__).resolve().parents[1]
+RELOAD_POLL_SECONDS = 0.5
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -105,6 +109,12 @@ def build_parser() -> argparse.ArgumentParser:
     link_parser.add_argument("ticket_id")
     link_parser.add_argument("other_ticket_id")
 
+    links_parser = register_parser(
+        "links",
+        subparsers.add_parser("links", help="Show related ticket links."),
+    )
+    links_parser.add_argument("ticket_id", nargs="?")
+
     unlink_parser = register_parser(
         "unlink",
         subparsers.add_parser("unlink", help="Remove a relationship between two tickets."),
@@ -118,6 +128,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     serve_parser.add_argument("--host", default="127.0.0.1")
     serve_parser.add_argument("--port", type=int, default=8765)
+    serve_parser.add_argument(
+        "--reload",
+        action="store_true",
+        help="Restart the server when Nira source files change.",
+    )
 
     parser.set_defaults(command_parsers=command_parsers)
     return parser
@@ -137,6 +152,8 @@ def resolve_store(root_arg: str | None, *, create: bool) -> NiraStore:
     store = NiraStore(root)
     if not create and not store.state_dir.exists():
         raise ValidationError("No .nira directory found. Run `nira init` first.")
+    if store.state_dir.exists():
+        store.ensure_schema()
     return store
 
 
@@ -166,11 +183,7 @@ def read_markdown_input(*, body: str | None, edit: bool) -> str:
 
 
 def parse_new_command_parts(parts: list[str], explicit_project: str | None) -> tuple[str | None, str]:
-    if explicit_project:
-        return explicit_project, " ".join(parts).strip()
-    if len(parts) >= 2 and parts[0].upper() == parts[0]:
-        return parts[0], " ".join(parts[1:]).strip()
-    return None, " ".join(parts).strip()
+    return explicit_project, " ".join(parts).strip()
 
 
 def print_ticket(details: dict) -> None:
@@ -189,14 +202,16 @@ def print_ticket(details: dict) -> None:
         f"Resolution Reason: {ticket['resolution_reason']}",
     ]
 
-    for item in related:
-        lines.append(f"Related: {item['id']}")
-
     if ticket["body_md"].strip():
         lines.extend(["", "Body:", "", ticket["body_md"]])
 
     if ticket["resolution_md"].strip():
         lines.extend(["", "Resolution Notes:", "", ticket["resolution_md"]])
+
+    if related:
+        lines.append("")
+        for item in related:
+            lines.append(f"Related: {item['id']}")
 
     print("\n".join(lines))
 
@@ -214,6 +229,126 @@ def print_ticket_list(tickets: list[dict]) -> None:
             f"{ticket['id']:<10} {ticket['status']:<12} {ticket['priority']:<10} "
             f"{ticket['type']:<12} {ticket['title']}"
         )
+
+
+def print_links(links: list[dict], *, ticket_id: str | None = None) -> None:
+    if ticket_id:
+        if not links:
+            print(f"No related tickets found for {ticket_id}.")
+            return
+
+        print(f"Related tickets for {ticket_id}")
+        print("-" * (20 + len(ticket_id)))
+        for link in links:
+            if link["ticket_a"] == ticket_id:
+                print(f"{link['ticket_b']:<10} {link['ticket_b_title']}")
+            else:
+                print(f"{link['ticket_a']:<10} {link['ticket_a_title']}")
+        return
+
+    if not links:
+        print("No links found.")
+        return
+
+    print("Links")
+    print("-----")
+    for link in links:
+        print(f"{link['ticket_a']} <-> {link['ticket_b']}")
+
+
+def should_watch_reload_path(path: Path) -> bool:
+    if not path.is_file():
+        return False
+    if "__pycache__" in path.parts:
+        return False
+    return path.suffix in {".py", ".html"} or path.name == "nira"
+
+
+def build_reload_snapshot(source_root: Path | None = None) -> dict[str, tuple[int, int]]:
+    root = (source_root or SOURCE_ROOT).resolve()
+    snapshot: dict[str, tuple[int, int]] = {}
+    for path in sorted(root.rglob("*")):
+        if not should_watch_reload_path(path):
+            continue
+        try:
+            stat = path.stat()
+        except FileNotFoundError:
+            continue
+        snapshot[str(path.relative_to(root))] = (stat.st_mtime_ns, stat.st_size)
+    return snapshot
+
+
+def describe_reload_change(
+    previous: dict[str, tuple[int, int]],
+    current: dict[str, tuple[int, int]],
+) -> str:
+    previous_paths = set(previous)
+    current_paths = set(current)
+
+    added = sorted(current_paths - previous_paths)
+    if added:
+        return f"{added[0]} added"
+
+    removed = sorted(previous_paths - current_paths)
+    if removed:
+        return f"{removed[0]} removed"
+
+    for path in sorted(previous_paths & current_paths):
+        if previous[path] != current[path]:
+            return f"{path} changed"
+
+    return "files changed"
+
+
+def build_serve_command(root_arg: str | None, host: str, port: int) -> list[str]:
+    command = [sys.executable, str(SOURCE_ROOT / "nira")]
+    if root_arg:
+        command.extend(["--root", root_arg])
+    command.extend(["serve", "--host", host, "--port", str(port)])
+    return command
+
+
+def stop_process(process: subprocess.Popen[bytes]) -> None:
+    if process.poll() is not None:
+        return
+    process.terminate()
+    try:
+        process.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait()
+
+
+def serve_with_reload(root_arg: str | None, host: str, port: int) -> None:
+    snapshot = build_reload_snapshot()
+    command = build_serve_command(root_arg, host, port)
+    print(f"Watching {SOURCE_ROOT} for changes...", flush=True)
+    child = subprocess.Popen(command)
+    waiting_for_changes = False
+
+    try:
+        while True:
+            time.sleep(RELOAD_POLL_SECONDS)
+            current_snapshot = build_reload_snapshot()
+            if current_snapshot != snapshot:
+                change = describe_reload_change(snapshot, current_snapshot)
+                snapshot = current_snapshot
+                if child.poll() is None:
+                    print(f"Detected {change}; reloading Nira...", flush=True)
+                    stop_process(child)
+                else:
+                    print(f"Detected {change}; restarting Nira...", flush=True)
+                child = subprocess.Popen(command)
+                waiting_for_changes = False
+                continue
+
+            if child.poll() is not None and not waiting_for_changes:
+                print("Nira server exited. Waiting for changes to restart...", flush=True)
+                waiting_for_changes = True
+    except KeyboardInterrupt:
+        pass
+    finally:
+        stop_process(child)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -309,13 +444,21 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Linked {args.ticket_id} and {args.other_ticket_id}")
             return 0
 
+        if command == "links":
+            resolved_ticket_id = store.get_ticket(args.ticket_id)["id"] if args.ticket_id else None
+            print_links(store.list_links(args.ticket_id), ticket_id=resolved_ticket_id)
+            return 0
+
         if command == "unlink":
             store.unlink_tickets(args.ticket_id, args.other_ticket_id)
             print(f"Unlinked {args.ticket_id} and {args.other_ticket_id}")
             return 0
 
         if command == "serve":
-            serve(store, args.host, args.port)
+            if args.reload:
+                serve_with_reload(args.root, args.host, args.port)
+            else:
+                serve(store, args.host, args.port)
             return 0
 
         parser.error(f"Unknown command: {command}")

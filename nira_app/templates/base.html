@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>${title} · Nira</title>
+    <link rel="icon" type="image/png" href="${favicon_url}">
+    <link href="${bootstrap_css}" rel="stylesheet" integrity="${bootstrap_css_integrity}" crossorigin="anonymous">
+    <link href="${toast_ui_editor_css}" rel="stylesheet">
+    <style>
+      body {
+        background:
+          radial-gradient(circle at top left, rgba(13, 110, 253, 0.08), transparent 35%),
+          linear-gradient(180deg, #f8f9fa 0%, #eef1f4 100%);
+        min-height: 100vh;
+      }
+      .brand-shell {
+        background: rgba(255, 255, 255, 0.78);
+        backdrop-filter: blur(18px);
+        border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+      }
+      .brand-nav {
+        gap: 0.75rem 1.25rem;
+      }
+      .brand-mark {
+        height: 2.75rem;
+        width: auto;
+      }
+      .brand-wordmark {
+        font-size: 1.1rem;
+        font-weight: 800;
+        letter-spacing: 0.24rem;
+      }
+      .page-shell {
+        padding-block: 2.5rem 4rem;
+      }
+      .markdown-output h1,
+      .markdown-output h2,
+      .markdown-output h3 {
+        margin-top: 1rem;
+        margin-bottom: 0.75rem;
+      }
+      .markdown-output pre {
+        background: #111827;
+        color: #f8f9fa;
+        padding: 1rem;
+        border-radius: 0.75rem;
+        overflow-x: auto;
+      }
+      .rich-editor-source {
+        min-height: 12rem;
+      }
+      .toastui-editor-defaultUI {
+        border-radius: 0.75rem;
+      }
+      .toastui-editor-toolbar {
+        border-top-left-radius: 0.75rem;
+        border-top-right-radius: 0.75rem;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="brand-shell">
+      <div class="container py-3 d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <a class="d-inline-flex align-items-center gap-3 text-decoration-none text-dark" href="/">
+          <img class="brand-mark" src="${brand_logo_url}" alt="Nira logo">
+          <span class="brand-wordmark">NIRA</span>
+        </a>
+        <nav class="d-flex flex-wrap align-items-center brand-nav">
+          <a class="link-dark text-decoration-none fw-semibold" href="/">Ticket List</a>
+          <a class="link-dark text-decoration-none fw-semibold" href="/tickets/new">Create Ticket</a>
+          <a class="link-dark text-decoration-none fw-semibold" href="/settings">Settings</a>
+        </nav>
+      </div>
+    </header>
+    <main class="container page-shell">
+      ${content}
+    </main>
+    <script src="${bootstrap_js}" integrity="${bootstrap_js_integrity}" crossorigin="anonymous"></script>
+    <script src="${toast_ui_editor_js}"></script>
+    <script>
+      const statusSelectClasses = {
+        open: "form-select form-select-lg fw-semibold border-secondary bg-secondary-subtle text-secondary-emphasis",
+        in_progress: "form-select form-select-lg fw-semibold border-primary bg-primary-subtle text-primary-emphasis",
+        closed: "form-select form-select-lg fw-semibold border-success bg-success-subtle text-success-emphasis",
+      };
+
+      document.querySelectorAll(".rich-editor-shell").forEach((shell) => {
+        const source = shell.querySelector(".rich-editor-source");
+        const target = shell.querySelector(".rich-editor-target");
+        const form = shell.closest("form");
+        if (!window.toastui || !window.toastui.Editor) {
+          return;
+        }
+
+        const editor = new window.toastui.Editor({
+          el: target,
+          height: shell.dataset.editorHeight || "320px",
+          initialEditType: "wysiwyg",
+          initialValue: source.value,
+          previewStyle: "vertical",
+          usageStatistics: false,
+        });
+
+        target.classList.remove("d-none");
+        source.classList.add("d-none");
+
+        const syncEditor = () => {
+          source.value = editor.getMarkdown();
+        };
+
+        form?.addEventListener("submit", syncEditor);
+      });
+
+      document.querySelectorAll("[data-status-select]").forEach((select) => {
+        const applyStatusClass = () => {
+          select.className = statusSelectClasses[select.value] || statusSelectClasses.open;
+        };
+
+        applyStatusClass();
+        select.addEventListener("change", applyStatusClass);
+      });
+
+      document.querySelectorAll("[data-auto-submit]").forEach((input) => {
+        input.addEventListener("change", () => {
+          input.form?.requestSubmit();
+        });
+      });
+    </script>
+  </body>
+</html>

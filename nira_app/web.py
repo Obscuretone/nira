@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import html
-from datetime import UTC, datetime
+import mimetypes
 from dataclasses import dataclass
+from datetime import UTC, datetime
+from functools import lru_cache
+from pathlib import Path
+from string import Template
 from urllib.parse import parse_qs, urlencode
 from wsgiref.simple_server import WSGIRequestHandler, make_server
 
@@ -23,6 +27,8 @@ BOOTSTRAP_CSS_INTEGRITY = "sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvN
 BOOTSTRAP_JS_INTEGRITY = "sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
 TOAST_UI_EDITOR_CSS = "https://uicdn.toast.com/editor/3.2.2/toastui-editor.min.css"
 TOAST_UI_EDITOR_JS = "https://uicdn.toast.com/editor/3.2.2/toastui-editor-all.min.js"
+TEMPLATES_DIR = Path(__file__).with_name("templates")
+ASSETS_DIR = Path(__file__).with_name("assets")
 
 
 def h(value: str | None) -> str:
@@ -98,10 +104,21 @@ def priority_badge(priority: str) -> str:
     return f'<span class="badge {variants.get(priority, "text-bg-light border")}">{h(priority)}</span>'
 
 
+@lru_cache(maxsize=None)
+def load_template(name: str) -> Template:
+    path = TEMPLATES_DIR / name
+    return Template(path.read_text(encoding="utf-8"))
+
+
+def render_template(name: str, **context: object) -> str:
+    normalized_context = {key: "" if value is None else str(value) for key, value in context.items()}
+    return load_template(name).substitute(normalized_context)
+
+
 @dataclass
 class Response:
     status: str
-    body: str
+    body: str | bytes
     content_type: str = "text/html; charset=utf-8"
     headers: list[tuple[str, str]] | None = None
 
@@ -109,7 +126,7 @@ class Response:
         response_headers = [("Content-Type", self.content_type)]
         if self.headers:
             response_headers.extend(self.headers)
-        payload = self.body.encode("utf-8")
+        payload = self.body.encode("utf-8") if isinstance(self.body, str) else self.body
         response_headers.append(("Content-Length", str(len(payload))))
         start_response(self.status, response_headers)
         return [payload]
@@ -149,11 +166,17 @@ class NiraWebApp:
     def route(self, method: str, path: str, query: dict[str, str], form: dict[str, str]) -> Response:
         parts = [part for part in path.split("/") if part]
 
+        if method == "GET" and parts[:1] == ["assets"]:
+            return self.asset_response(parts[1:])
+
         if method == "GET" and path == "/":
             return self.list_page(query)
 
         if method == "GET" and path == "/tickets/new":
             return self.new_ticket_page(query)
+
+        if method == "GET" and path == "/settings":
+            return self.settings_page(query)
 
         if method == "POST" and path == "/tickets":
             ticket = self.store.create_ticket(
@@ -166,6 +189,10 @@ class NiraWebApp:
                 resolution_md=form.get("resolution_md", ""),
             )
             return self.redirect(f"/tickets/{ticket['id']}")
+
+        if method == "POST" and path == "/settings":
+            self.store.rename_default_project(form.get("default_project", ""))
+            return self.redirect("/settings?saved=1")
 
         if method == "POST" and path == "/preview":
             return Response(
@@ -223,150 +250,75 @@ class NiraWebApp:
             sort_by=selected_sort,
             direction=selected_direction,
         )
-        rows = []
-        for ticket in tickets:
-            rows.append(
-                f"""
-                <tr>
-                  <td><a class="link-dark fw-semibold" href="/tickets/{h(ticket['id'])}">{h(ticket['id'])}</a></td>
-                  <td>{h(ticket['title'])}</td>
-                  <td>{status_badge(ticket['status'])}</td>
-                  <td>{priority_badge(ticket['priority'])}</td>
-                  <td>{format_time(ticket['updated_at'], relative=True)}</td>
-                </tr>
-                """
+        rows = "".join(
+            render_template(
+                "ticket_table_row.html",
+                ticket_id=h(ticket["id"]),
+                title=h(ticket["title"]),
+                status_badge=status_badge(ticket["status"]),
+                priority_badge=priority_badge(ticket["priority"]),
+                updated_time=format_time(ticket["updated_at"], relative=True),
             )
+            for ticket in tickets
+        )
+        if not rows:
+            rows = render_template("ticket_table_empty_row.html")
 
-        table = (
-            """
-            <div class="card shadow-sm">
-              <div class="card-body p-0">
-                <div class="table-responsive">
-                  <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light">
-                      <tr>
-                        <th scope="col">"""
-            + self.sort_header_link("Ticket", "ticket_id", selected_sort, selected_direction, selected_status)
-            + """</th>
-                        <th scope="col">Title</th>
-                        <th scope="col">"""
-            + self.sort_header_link("Status", "status", selected_sort, selected_direction, selected_status)
-            + """</th>
-                        <th scope="col">"""
-            + self.sort_header_link("Priority", "priority", selected_sort, selected_direction, selected_status)
-            + """</th>
-                        <th scope="col">"""
-            + self.sort_header_link("Updated", "updated", selected_sort, selected_direction, selected_status)
-            + """</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-            """
-            + "".join(rows or ['<tr><td colspan="5" class="text-body-secondary p-4">No tickets yet.</td></tr>'])
-            + """
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-            """
+        table = render_template(
+            "ticket_table.html",
+            ticket_header=self.sort_header_link(
+                "Ticket", "ticket_id", selected_sort, selected_direction, selected_status
+            ),
+            status_header=self.sort_header_link(
+                "Status", "status", selected_sort, selected_direction, selected_status
+            ),
+            priority_header=self.sort_header_link(
+                "Priority", "priority", selected_sort, selected_direction, selected_status
+            ),
+            updated_header=self.sort_header_link(
+                "Updated", "updated", selected_sort, selected_direction, selected_status
+            ),
+            rows=rows,
         )
 
-        filters = f"""
-        <form class="row g-3 mb-4" method="get" action="/">
-          <div class="col-md-3">
-            <label class="form-label" for="status">Status</label>
-            <select class="form-select" id="status" name="status">
-              {self.status_filter_options(selected_status)}
-            </select>
-          </div>
-          <div class="col-md-3">
-            <label class="form-label" for="sort">Sort By</label>
-            <select class="form-select" id="sort" name="sort">
-              {self.list_sort_options(selected_sort)}
-            </select>
-          </div>
-          <div class="col-md-2">
-            <label class="form-label" for="direction">Direction</label>
-            <select class="form-select" id="direction" name="direction">
-              {self.sort_direction_options(selected_direction)}
-            </select>
-          </div>
-          <div class="col-md-4 d-flex align-items-end gap-2">
-            <button class="btn btn-dark" type="submit">Filter</button>
-            <a class="btn btn-outline-secondary" href="/">Reset</a>
-            <a class="btn btn-primary ms-auto" href="/tickets/new">Create Ticket</a>
-          </div>
-        </form>
-        """
+        filters = render_template(
+            "list_filters.html",
+            status_options=self.status_filter_options(selected_status),
+            sort_options=self.list_sort_options(selected_sort),
+            direction_options=self.sort_direction_options(selected_direction),
+        )
 
-        content = f"""
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
-          <div>
-            <p class="text-uppercase text-body-secondary small mb-1">Local issue tracker</p>
-            <h1 class="h2 mb-0">Nira</h1>
-          </div>
-          <div class="text-body-secondary">SQLite-backed tickets for the current project.</div>
-        </div>
-        {filters}
-        {table}
-        """
+        content = render_template("list_page.html", filters=filters, table=table)
         return self.page("Nira", content)
 
     def new_ticket_page(self, query: dict[str, str]) -> Response:
         default_project = query.get("project", "") or self.store.get_default_project()
-        content = f"""
-        <div class="d-flex justify-content-between align-items-center mb-4">
-          <div>
-            <p class="text-uppercase text-body-secondary small mb-1">New Ticket</p>
-            <h1 class="h2 mb-0">Create Ticket</h1>
-          </div>
-          <a class="btn btn-outline-secondary" href="/">Back to Tickets</a>
-        </div>
-        <form method="post" action="/tickets" class="row g-4">
-          <div class="col-lg-8">
-            <div class="card shadow-sm">
-              <div class="card-body">
-                <div class="mb-3">
-                  <label class="form-label" for="title">Title</label>
-                  <input class="form-control" id="title" name="title" required>
-                </div>
-                <h2 class="h5 mb-3">Body</h2>
-                {self.rich_editor("body_md", "", height_px=380)}
-              </div>
-            </div>
-          </div>
-          <div class="col-lg-4">
-            <div class="card shadow-sm h-100">
-              <div class="card-body">
-                <div class="mb-3">
-                  <label class="form-label" for="project_display">Ticket Prefix</label>
-                  <input class="form-control" id="project_display" value="{h(default_project)}-" readonly>
-                  <input type="hidden" name="project" value="{h(default_project)}">
-                </div>
-                <div class="mb-3">
-                  <label class="form-label" for="source">Source</label>
-                  <input class="form-control" id="source" name="source" placeholder="why this ticket exists">
-                </div>
-                <div class="mb-3">
-                  <label class="form-label" for="type">Type</label>
-                  <select class="form-select" id="type" name="type">
-                    {self.ticket_type_options("task", include_existing=False)}
-                  </select>
-                </div>
-                <div class="mb-3">
-                  <label class="form-label" for="priority">Priority</label>
-                  <select class="form-select" id="priority" name="priority">
-                    {self.priority_options("medium")}
-                  </select>
-                </div>
-                <button class="btn btn-primary w-100" type="submit">Create Ticket</button>
-              </div>
-            </div>
-          </div>
-        </form>
-        """
+        content = render_template(
+            "new_ticket_page.html",
+            default_project=h(default_project),
+            body_editor=self.rich_editor("body_md", "", height_px=380),
+            ticket_type_options=self.ticket_type_options("task", include_existing=False),
+            priority_options=self.priority_options("medium"),
+        )
         return self.page("Create Ticket", content)
+
+    def settings_page(self, query: dict[str, str]) -> Response:
+        settings = self.store.get_settings()
+        save_notice = ""
+        if query.get("saved") == "1":
+            save_notice = (
+                '<div class="alert alert-success" role="alert">'
+                "Workspace settings updated."
+                "</div>"
+            )
+
+        content = render_template(
+            "settings_page.html",
+            save_notice=save_notice,
+            default_project=h(str(settings["default_project"])),
+            ticket_count=str(settings["ticket_count"]),
+        )
+        return self.page("Settings", content)
 
     def ticket_detail_page(self, ticket_id: str) -> Response:
         details = self.store.ticket_details(ticket_id)
@@ -374,159 +326,34 @@ class NiraWebApp:
         related = details["related"]
 
         related_items = "".join(
-            f"""
-            <li class="list-group-item d-flex justify-content-between align-items-center">
-              <a class="link-dark fw-semibold" href="/tickets/{h(item['id'])}">{h(item['id'])}</a>
-              <form method="post" action="/tickets/{h(ticket['id'])}/unlink" class="m-0">
-                <input type="hidden" name="other_ticket_id" value="{h(item['id'])}">
-                <button class="btn btn-sm btn-outline-danger" type="submit">Remove</button>
-              </form>
-            </li>
-            """
+            render_template(
+                "related_item.html",
+                ticket_id=h(ticket["id"]),
+                related_ticket_id=h(item["id"]),
+            )
             for item in related
         )
         if not related_items:
             related_items = '<li class="list-group-item text-body-secondary">No related tickets yet.</li>'
 
-        content = f"""
-        <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
-          <div>
-            <p class="text-uppercase text-body-secondary small mb-1">{h(ticket['project'])}</p>
-            <h1 class="h2 mb-1">{h(ticket['id'])} {h(ticket['title'])}</h1>
-            <div class="d-flex flex-wrap gap-2">
-              {status_badge(ticket['status'])}
-              {priority_badge(ticket['priority'])}
-            </div>
-          </div>
-          <div class="d-flex gap-2">
-            <a class="btn btn-outline-secondary" href="/">Back to Tickets</a>
-            <a class="btn btn-primary" href="/tickets/new">New Ticket</a>
-          </div>
-        </div>
-
-        <div class="row g-4">
-          <div class="col-xl-8">
-            <form id="ticket-edit-form" method="post" action="/tickets/{h(ticket['id'])}/edit" class="mb-4">
-              <div class="card shadow-sm mb-4">
-                <div class="card-body">
-                  <label class="form-label" for="title">Title</label>
-                  <input
-                    class="form-control form-control-lg mb-4"
-                    id="title"
-                    name="title"
-                    value="{h(ticket['title'])}"
-                    required
-                  >
-                  <h2 class="h5 mb-3">Body</h2>
-                  {self.rich_editor("body_md", ticket["body_md"], height_px=420)}
-                  <div class="d-flex justify-content-end mt-3">
-                    <button class="btn btn-primary" type="submit">Save</button>
-                  </div>
-                </div>
-              </div>
-
-              <div class="card shadow-sm mb-4">
-              <div class="card-body">
-                <h2 class="h5 mb-3">Resolution Notes</h2>
-                  <textarea
-                    class="form-control font-monospace"
-                    id="resolution_md"
-                    name="resolution_md"
-                    rows="10"
-                    placeholder="Optional closeout notes, decisions, or follow-up context."
-                  >{h(ticket['resolution_md'])}</textarea>
-                  <div class="d-flex justify-content-end mt-3">
-                    <button class="btn btn-primary" type="submit">Save</button>
-                  </div>
-                </div>
-              </div>
-            </form>
-
-            <div class="card shadow-sm mb-4">
-              <div class="card-body">
-                <h2 class="h5 mb-3">Related</h2>
-                <form method="post" action="/tickets/{h(ticket['id'])}/link" class="mb-3">
-                  <div class="input-group">
-                    <input class="form-control" type="text" name="other_ticket_id" placeholder="EMH-2" required>
-                    <button class="btn btn-outline-dark" type="submit">Link</button>
-                  </div>
-                </form>
-                <ul class="list-group list-group-flush">{related_items}</ul>
-              </div>
-            </div>
-          </div>
-
-          <div class="col-xl-4">
-            <div class="card shadow-sm mb-4">
-              <div class="card-body">
-                <h2 class="h5 mb-3">Status</h2>
-                <div class="row g-3 align-items-end">
-                  <div class="col-12">
-                    <label class="form-label" for="status">Status</label>
-                    <select
-                      class="{status_select_classes(ticket['status'])}"
-                      id="status"
-                      name="status"
-                      form="ticket-edit-form"
-                      data-status-select
-                      data-auto-submit
-                    >
-                      {self.ticket_status_options(ticket['status'])}
-                    </select>
-                  </div>
-                  <div class="col-12">
-                    <label class="form-label" for="priority">Priority</label>
-                    <select class="form-select" id="priority" name="priority" form="ticket-edit-form" data-auto-submit>
-                      {self.priority_options(ticket['priority'])}
-                    </select>
-                  </div>
-                  <div class="col-12">
-                    <button class="btn btn-primary w-100" type="submit" form="ticket-edit-form">Save</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="card shadow-sm mb-4">
-              <div class="card-body">
-                <h2 class="h5 mb-3">Details</h2>
-                <div class="row g-3">
-                  <div class="col-12">
-                    <label class="form-label" for="source">Source</label>
-                    <input
-                      class="form-control"
-                      id="source"
-                      name="source"
-                      value="{h(ticket['source'])}"
-                      form="ticket-edit-form"
-                    >
-                  </div>
-                  <div class="col-12">
-                    <label class="form-label" for="type">Type</label>
-                    <select class="form-select" id="type" name="type" form="ticket-edit-form" data-auto-submit>
-                      {self.ticket_type_options(ticket['type'])}
-                    </select>
-                  </div>
-                  <div class="col-12">
-                    <button class="btn btn-primary w-100" type="submit" form="ticket-edit-form">Save</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="card shadow-sm mb-4">
-              <div class="card-body">
-                <h2 class="h5 mb-3">Metadata</h2>
-                <dl class="row mb-0">
-                  <dt class="col-sm-4">Created</dt><dd class="col-sm-8">{format_time(ticket['created_at'])}</dd>
-                  <dt class="col-sm-4">Updated</dt>
-                  <dd class="col-sm-8">{format_time(ticket['updated_at'], relative=True)}</dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
-        """
+        content = render_template(
+            "ticket_detail_page.html",
+            project=h(ticket["project"]),
+            ticket_id=h(ticket["id"]),
+            title=h(ticket["title"]),
+            status_badge=status_badge(ticket["status"]),
+            priority_badge=priority_badge(ticket["priority"]),
+            body_editor=self.rich_editor("body_md", ticket["body_md"], height_px=420),
+            resolution_md=h(ticket["resolution_md"]),
+            related_items=related_items,
+            status_select_classes=status_select_classes(ticket["status"]),
+            ticket_status_options=self.ticket_status_options(ticket["status"]),
+            priority_options=self.priority_options(ticket["priority"]),
+            source=h(ticket["source"]),
+            ticket_type_options=self.ticket_type_options(ticket["type"]),
+            created_time=format_time(ticket["created_at"]),
+            updated_time=format_time(ticket["updated_at"], relative=True),
+        )
         return self.page(ticket["id"], content)
 
     def status_filter_options(self, selected: str) -> str:
@@ -612,141 +439,57 @@ class NiraWebApp:
         )
 
     def rich_editor(self, field_name: str, value: str, *, height_px: int) -> str:
-        return f"""
-        <div class="rich-editor-shell" data-rich-editor="{h(field_name)}" data-editor-height="{height_px}px">
-          <textarea
-            class="form-control font-monospace rich-editor-source"
-            name="{h(field_name)}"
-            rows="12"
-          >{h(value)}</textarea>
-          <div class="rich-editor-target d-none"></div>
-        </div>
-        """
+        return render_template(
+            "rich_editor.html",
+            field_name=h(field_name),
+            height_px=height_px,
+            value=h(value),
+        )
 
     def page(self, title: str, content: str) -> Response:
         return Response(
             "200 OK",
-            f"""<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{h(title)} · Nira</title>
-    <link href="{BOOTSTRAP_CSS}" rel="stylesheet" integrity="{BOOTSTRAP_CSS_INTEGRITY}" crossorigin="anonymous">
-    <link href="{TOAST_UI_EDITOR_CSS}" rel="stylesheet">
-    <style>
-      body {{
-        background:
-          radial-gradient(circle at top left, rgba(13, 110, 253, 0.08), transparent 35%),
-          linear-gradient(180deg, #f8f9fa 0%, #eef1f4 100%);
-        min-height: 100vh;
-      }}
-      .page-shell {{
-        padding-block: 2.5rem 4rem;
-      }}
-      .markdown-output h1,
-      .markdown-output h2,
-      .markdown-output h3 {{
-        margin-top: 1rem;
-        margin-bottom: 0.75rem;
-      }}
-      .markdown-output pre {{
-        background: #111827;
-        color: #f8f9fa;
-        padding: 1rem;
-        border-radius: 0.75rem;
-        overflow-x: auto;
-      }}
-      .rich-editor-source {{
-        min-height: 12rem;
-      }}
-      .toastui-editor-defaultUI {{
-        border-radius: 0.75rem;
-      }}
-      .toastui-editor-toolbar {{
-        border-top-left-radius: 0.75rem;
-        border-top-right-radius: 0.75rem;
-      }}
-    </style>
-  </head>
-  <body>
-    <main class="container page-shell">
-      {content}
-    </main>
-    <script src="{BOOTSTRAP_JS}" integrity="{BOOTSTRAP_JS_INTEGRITY}" crossorigin="anonymous"></script>
-    <script src="{TOAST_UI_EDITOR_JS}"></script>
-    <script>
-      const statusSelectClasses = {{
-        open: "form-select form-select-lg fw-semibold border-secondary bg-secondary-subtle text-secondary-emphasis",
-        in_progress: "form-select form-select-lg fw-semibold border-primary bg-primary-subtle text-primary-emphasis",
-        closed: "form-select form-select-lg fw-semibold border-success bg-success-subtle text-success-emphasis",
-      }};
-
-      document.querySelectorAll(".rich-editor-shell").forEach((shell) => {{
-        const source = shell.querySelector(".rich-editor-source");
-        const target = shell.querySelector(".rich-editor-target");
-        const form = shell.closest("form");
-        if (!window.toastui || !window.toastui.Editor) {{
-          return;
-        }}
-
-        const editor = new window.toastui.Editor({{
-          el: target,
-          height: shell.dataset.editorHeight || "320px",
-          initialEditType: "wysiwyg",
-          initialValue: source.value,
-          previewStyle: "vertical",
-          usageStatistics: false,
-        }});
-
-        target.classList.remove("d-none");
-        source.classList.add("d-none");
-
-        const syncEditor = () => {{
-          source.value = editor.getMarkdown();
-        }};
-
-        form?.addEventListener("submit", syncEditor);
-      }});
-
-      document.querySelectorAll("[data-status-select]").forEach((select) => {{
-        const applyStatusClass = () => {{
-          select.className = statusSelectClasses[select.value] || statusSelectClasses.open;
-        }};
-
-        applyStatusClass();
-        select.addEventListener("change", applyStatusClass);
-      }});
-
-      document.querySelectorAll("[data-auto-submit]").forEach((input) => {{
-        input.addEventListener("change", () => {{
-          input.form?.requestSubmit();
-        }});
-      }});
-    </script>
-  </body>
-</html>""",
+            render_template(
+                "base.html",
+                title=h(title),
+                brand_logo_url="/assets/nira.png",
+                favicon_url="/assets/nira.png",
+                bootstrap_css=BOOTSTRAP_CSS,
+                bootstrap_css_integrity=BOOTSTRAP_CSS_INTEGRITY,
+                toast_ui_editor_css=TOAST_UI_EDITOR_CSS,
+                bootstrap_js=BOOTSTRAP_JS,
+                bootstrap_js_integrity=BOOTSTRAP_JS_INTEGRITY,
+                toast_ui_editor_js=TOAST_UI_EDITOR_JS,
+                content=content,
+            ),
         )
 
     def redirect(self, location: str) -> Response:
         return Response("303 See Other", "", headers=[("Location", location)])
 
     def error_page(self, title: str, message: str, status: str) -> Response:
-        content = f"""
-        <div class="row justify-content-center">
-          <div class="col-lg-8">
-            <div class="card shadow-sm">
-              <div class="card-body p-5 text-center">
-                <p class="text-uppercase text-body-secondary small mb-2">Nira</p>
-                <h1 class="h3 mb-3">{h(title)}</h1>
-                <p class="text-body-secondary mb-4">{h(message)}</p>
-                <a class="btn btn-primary" href="/">Back to Tickets</a>
-              </div>
-            </div>
-          </div>
-        </div>
-        """
+        content = render_template("error_page.html", title=h(title), message=h(message))
         return Response(status, self.page(title, content).body)
+
+    def asset_response(self, asset_parts: list[str]) -> Response:
+        if not asset_parts:
+            return Response("404 Not Found", "Asset not found.", content_type="text/plain; charset=utf-8")
+
+        asset_path = (ASSETS_DIR / Path(*asset_parts)).resolve()
+        try:
+            asset_path.relative_to(ASSETS_DIR.resolve())
+        except ValueError:
+            return Response("404 Not Found", "Asset not found.", content_type="text/plain; charset=utf-8")
+
+        if not asset_path.is_file():
+            return Response("404 Not Found", "Asset not found.", content_type="text/plain; charset=utf-8")
+
+        content_type, _ = mimetypes.guess_type(asset_path.name)
+        return Response(
+            "200 OK",
+            asset_path.read_bytes(),
+            content_type=content_type or "application/octet-stream",
+        )
 
     def parse_form(self, environ) -> dict[str, str]:
         content_length = environ.get("CONTENT_LENGTH", "") or "0"
@@ -762,6 +505,15 @@ class NiraWebApp:
 
 def serve(store: NiraStore, host: str, port: int) -> None:
     app = NiraWebApp(store)
-    with make_server(host, port, app, handler_class=QuietRequestHandler) as server:
-        print(f"Serving Nira on http://{host}:{port}", flush=True)
-        server.serve_forever()
+    try:
+        with make_server(host, port, app, handler_class=QuietRequestHandler) as server:
+            print(f"Serving Nira on http://{host}:{port}", flush=True)
+            try:
+                server.serve_forever()
+            except KeyboardInterrupt:
+                return
+    except OSError as exc:
+        reason = exc.strerror or str(exc)
+        raise ValidationError(
+            f"Could not start Nira server on http://{host}:{port}: {reason}."
+        ) from exc

@@ -1,0 +1,48 @@
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <p class="text-uppercase text-body-secondary small mb-1">Workspace</p>
+    <h1 class="h2 mb-0">Settings</h1>
+  </div>
+  <a class="btn btn-outline-secondary" href="/">Back to Tickets</a>
+</div>
+
+${save_notice}
+
+<div class="row g-4">
+  <div class="col-lg-7">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h2 class="h5 mb-3">Ticket Prefix</h2>
+        <p class="text-body-secondary">
+          Ticket labels are derived from the current workspace prefix and ticket number. Changing the prefix updates
+          labels like <code>EMH-4</code> across the UI without changing the internal ticket record.
+        </p>
+        <form method="post" action="/settings">
+          <div class="mb-3">
+            <label class="form-label" for="default_project">Workspace Prefix</label>
+            <input
+              class="form-control"
+              id="default_project"
+              name="default_project"
+              value="${default_project}"
+              required
+            >
+          </div>
+          <button class="btn btn-primary" type="submit">Save Settings</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h2 class="h5 mb-3">Current State</h2>
+        <dl class="row mb-0">
+          <dt class="col-sm-5">Prefix</dt><dd class="col-sm-7">${default_project}</dd>
+          <dt class="col-sm-5">Tickets</dt><dd class="col-sm-7">${ticket_count}</dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+</div>
