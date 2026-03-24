@@ -73,7 +73,7 @@ def temp_root():
 
 class TestCliIntegration:
     def test_cli_init_new_show_list_and_aliases(self, temp_root):
-        init_result = run_cli(["init", "--project-key", "EMH"], cwd=temp_root)
+        init_result = run_cli(["init", "--project-key", "NIRA"], cwd=temp_root)
         assert init_result.returncode == 0
         assert (temp_root / ".nira" / "nira.db").exists()
 
@@ -82,7 +82,7 @@ class TestCliIntegration:
                 "create",
                 "Evaluate Tortoise alternatives",
                 "--source",
-                "EMH-16 architecture review",
+                "NIRA-16 architecture review",
                 "--type",
                 "decision",
                 "--priority",
@@ -93,36 +93,36 @@ class TestCliIntegration:
             cwd=temp_root,
         )
         assert create_result.returncode == 0
-        assert "EMH-1" in create_result.stdout
+        assert "NIRA-1" in create_result.stdout
 
-        show_result = run_cli(["get", "EMH-1"], cwd=temp_root)
+        show_result = run_cli(["get", "NIRA-1"], cwd=temp_root)
         assert show_result.returncode == 0
-        assert "EMH-1" in show_result.stdout
+        assert "NIRA-1" in show_result.stdout
         assert "open" in show_result.stdout
         assert "decision" in show_result.stdout
         assert "medium" in show_result.stdout
-        assert "EMH-16 architecture review" in show_result.stdout
+        assert "NIRA-16 architecture review" in show_result.stdout
         assert "Summary" in show_result.stdout
 
         list_result = run_cli(["list"], cwd=temp_root)
         assert list_result.returncode == 0
-        assert "EMH-1" in list_result.stdout
+        assert "NIRA-1" in list_result.stdout
         assert "Evaluate Tortoise alternatives" in list_result.stdout
 
     def test_cli_new_does_not_treat_uppercase_title_words_as_project_keys(self, temp_root):
-        init_result = run_cli(["init", "--project-key", "EMH"], cwd=temp_root)
+        init_result = run_cli(["init", "--project-key", "NIRA"], cwd=temp_root)
         assert init_result.returncode == 0
 
         create_result = run_cli(["new", "HTTP 500 on login"], cwd=temp_root)
         assert create_result.returncode == 0
-        assert "EMH-1" in create_result.stdout
+        assert "NIRA-1" in create_result.stdout
 
-        show_result = run_cli(["show", "EMH-1"], cwd=temp_root)
+        show_result = run_cli(["show", "NIRA-1"], cwd=temp_root)
         assert show_result.returncode == 0
         assert "HTTP 500 on login" in show_result.stdout
 
     def test_cli_init_uses_folder_name_as_default_project_key(self, temp_root):
-        workspace = temp_root / "emh"
+        workspace = temp_root / "nira"
         workspace.mkdir()
 
         init_result = run_cli(["init"], cwd=workspace)
@@ -133,13 +133,13 @@ class TestCliIntegration:
             cwd=workspace,
         )
         assert new_result.returncode == 0
-        assert "EMH-1" in new_result.stdout
+        assert "NIRA-1" in new_result.stdout
 
     def test_cli_init_uses_acronym_for_multi_word_folder_names(self, temp_root):
         workspaces = [
-            temp_root / "employment-matching-hub",
-            temp_root / "employment matching hub",
-            temp_root / "EmploymentMatchingHub",
+            temp_root / "new-issue-reporting-app",
+            temp_root / "new issue reporting app",
+            temp_root / "NewIssueReportingApp",
         ]
 
         for workspace in workspaces:
@@ -149,42 +149,42 @@ class TestCliIntegration:
 
             new_result = run_cli(["new", "Ticket created from workspace acronym"], cwd=workspace)
             assert new_result.returncode == 0
-            assert "EMH-1" in new_result.stdout
+            assert "NIRA-1" in new_result.stdout
 
     @mock.patch("nira_app.cli.subprocess.run")
     def test_cli_start_command(self, mock_run, temp_root):
         mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
 
-        assert run_cli(["init", "--project-key", "EMH"], cwd=temp_root).returncode == 0
+        assert run_cli(["init", "--project-key", "NIRA"], cwd=temp_root).returncode == 0
         assert run_cli(["new", "Fix the awful login bug", "--type", "bug"], cwd=temp_root).returncode == 0
 
         # Test full start with mocked git checkout
-        start_result = run_cli(["start", "EMH-1"], cwd=temp_root)
+        start_result = run_cli(["start", "NIRA-1"], cwd=temp_root)
         assert start_result.returncode == 0
         assert "in_progress" in start_result.stdout
-        assert "bugfix/EMH-1-fix-the-awful-login-bug" in start_result.stdout
+        assert "bugfix/NIRA-1-fix-the-awful-login-bug" in start_result.stdout
 
-        show_result = run_cli(["show", "EMH-1"], cwd=temp_root)
+        show_result = run_cli(["show", "NIRA-1"], cwd=temp_root)
         assert "in_progress" in show_result.stdout
 
         # Call start again to hit the "already in progress" branch
-        start_again_result = run_cli(["start", "EMH-1"], cwd=temp_root)
+        start_again_result = run_cli(["start", "NIRA-1"], cwd=temp_root)
         assert "already" in start_again_result.stdout
 
         # Test custom prefix
         assert run_cli(["new", "Some feature", "--type", "task"], cwd=temp_root).returncode == 0
-        custom_result = run_cli(["start", "EMH-2", "--type", "custom"], cwd=temp_root)
-        assert "custom/EMH-2-some-feature" in custom_result.stdout
+        custom_result = run_cli(["start", "NIRA-2", "--type", "custom"], cwd=temp_root)
+        assert "custom/NIRA-2-some-feature" in custom_result.stdout
 
     def test_cli_update_link_close_and_reopen(self, temp_root):
-        assert run_cli(["init", "--project-key", "EMH"], cwd=temp_root).returncode == 0
+        assert run_cli(["init", "--project-key", "NIRA"], cwd=temp_root).returncode == 0
         assert run_cli(["new", "First ticket", "--source", "user"], cwd=temp_root).returncode == 0
         assert run_cli(["new", "Second ticket", "--source", "user"], cwd=temp_root).returncode == 0
 
         update_result = run_cli(
             [
                 "update",
-                "EMH-1",
+                "NIRA-1",
                 "--title",
                 "Updated first ticket",
                 "--status",
@@ -200,42 +200,42 @@ class TestCliIntegration:
         )
         assert update_result.returncode == 0
 
-        link_result = run_cli(["link", "EMH-1", "EMH-2"], cwd=temp_root)
+        link_result = run_cli(["link", "NIRA-1", "NIRA-2"], cwd=temp_root)
         assert link_result.returncode == 0
 
         links_result = run_cli(["links"], cwd=temp_root)
         assert links_result.returncode == 0
-        assert "EMH-1" in links_result.stdout
-        assert "EMH-2" in links_result.stdout
+        assert "NIRA-1" in links_result.stdout
+        assert "NIRA-2" in links_result.stdout
 
-        scoped_links_result = run_cli(["links", "emh-1"], cwd=temp_root)
+        scoped_links_result = run_cli(["links", "nira-1"], cwd=temp_root)
         assert scoped_links_result.returncode == 0
         assert "Related tickets for" in scoped_links_result.stdout
-        assert "EMH-1" in scoped_links_result.stdout
-        assert "EMH-2" in scoped_links_result.stdout
+        assert "NIRA-1" in scoped_links_result.stdout
+        assert "NIRA-2" in scoped_links_result.stdout
         assert "Second ticket" in scoped_links_result.stdout
-        assert "EMH-1      First ticket" not in scoped_links_result.stdout
+        assert "NIRA-1      First ticket" not in scoped_links_result.stdout
 
-        show_linked = run_cli(["show", "EMH-1"], cwd=temp_root)
+        show_linked = run_cli(["show", "NIRA-1"], cwd=temp_root)
         assert show_linked.returncode == 0
         assert "Updated first ticket" in show_linked.stdout
         assert "in_progress" in show_linked.stdout
         assert "high" in show_linked.stdout
         assert "customer report" in show_linked.stdout
         assert "Related" in show_linked.stdout
-        assert "EMH-2" in show_linked.stdout
+        assert "NIRA-2" in show_linked.stdout
 
         close_result = run_cli(
-            ["close", "EMH-1", "--notes", "## Resolution\ndecided"],
+            ["close", "NIRA-1", "--notes", "## Resolution\ndecided"],
             cwd=temp_root,
         )
         assert close_result.returncode == 0
 
-        show_closed = run_cli(["show", "EMH-1"], cwd=temp_root)
+        show_closed = run_cli(["show", "NIRA-1"], cwd=temp_root)
         assert show_closed.returncode == 0
         assert "closed" in show_closed.stdout
         assert "decided" in show_closed.stdout
-        assert "EMH-2" in show_closed.stdout
+        assert "NIRA-2" in show_closed.stdout
 
         with closing(sqlite3.connect(temp_root / ".nira" / "nira.db")) as connection:
             row = connection.execute(
@@ -244,20 +244,20 @@ class TestCliIntegration:
             ).fetchone()
         assert row == ("closed", "completed", "## Resolution\ndecided")
 
-        reopen_result = run_cli(["reopen", "EMH-1"], cwd=temp_root)
+        reopen_result = run_cli(["reopen", "NIRA-1"], cwd=temp_root)
         assert reopen_result.returncode == 0
 
-        unlink_result = run_cli(["unlink", "EMH-1", "EMH-2"], cwd=temp_root)
+        unlink_result = run_cli(["unlink", "NIRA-1", "NIRA-2"], cwd=temp_root)
         assert unlink_result.returncode == 0
 
-        no_links_result = run_cli(["links", "emh-1"], cwd=temp_root)
+        no_links_result = run_cli(["links", "nira-1"], cwd=temp_root)
         assert no_links_result.returncode == 0
         assert "No related tickets found" in no_links_result.stdout
 
-        show_reopened = run_cli(["show", "EMH-1"], cwd=temp_root)
+        show_reopened = run_cli(["show", "NIRA-1"], cwd=temp_root)
         assert show_reopened.returncode == 0
         assert "open" in show_reopened.stdout
-        assert "EMH-2" not in show_reopened.stdout
+        assert "NIRA-2" not in show_reopened.stdout
 
         with closing(sqlite3.connect(temp_root / ".nira" / "nira.db")) as connection:
             reopened_row = connection.execute(
@@ -267,7 +267,7 @@ class TestCliIntegration:
         assert reopened_row == ("open", "")
 
     def test_cli_edit_updates_body_and_resolution_with_editor(self, temp_root):
-        assert run_cli(["init", "--project-key", "EMH"], cwd=temp_root).returncode == 0
+        assert run_cli(["init", "--project-key", "NIRA"], cwd=temp_root).returncode == 0
         assert run_cli(["new", "Editable ticket"], cwd=temp_root).returncode == 0
 
         body_editor = temp_root / "body_editor.py"
@@ -287,20 +287,20 @@ class TestCliIntegration:
         )
 
         edit_body_result = run_cli(
-            ["edit", "EMH-1"],
+            ["edit", "NIRA-1"],
             cwd=temp_root,
             env={"EDITOR": f"{sys.executable} {body_editor}"},
         )
         assert edit_body_result.returncode == 0
 
         edit_resolution_result = run_cli(
-            ["edit", "EMH-1", "--field", "resolution"],
+            ["edit", "NIRA-1", "--field", "resolution"],
             cwd=temp_root,
             env={"EDITOR": f"{sys.executable} {resolution_editor}"},
         )
         assert edit_resolution_result.returncode == 0
 
-        show_result = run_cli(["show", "EMH-1"], cwd=temp_root)
+        show_result = run_cli(["show", "NIRA-1"], cwd=temp_root)
         assert show_result.returncode == 0
         assert "Edited body from test." in show_result.stdout
         assert "Resolution notes from test." in show_result.stdout
@@ -472,7 +472,7 @@ class TestHttpIntegration:
     def setup(self, temp_root):
         self.root = temp_root
         self.store = NiraStore(self.root)
-        self.store.initialize(default_project="EMH")
+        self.store.initialize(default_project="NIRA")
         self.app = NiraWebApp(self.store)
 
     @overload
@@ -564,14 +564,14 @@ class TestHttpIntegration:
         status, _, settings_page = self.request("GET", "/settings")
         assert status == 200
         assert "Workspace Prefix" in settings_page
-        assert 'value="EMH"' in settings_page
+        assert 'value="NIRA"' in settings_page
         assert "Ticket labels are derived" in settings_page
 
         status, headers, _ = self.request(
             "POST",
             "/tickets",
             fields={
-                "project": "EMH",
+                "project": "NIRA",
                 "title": "First HTTP ticket",
                 "source": "user",
                 "type": "bug",
@@ -580,9 +580,9 @@ class TestHttpIntegration:
             },
         )
         assert status == 303
-        assert headers["Location"] == "/tickets/EMH-1"
+        assert headers["Location"] == "/tickets/NIRA-1"
 
-        status, _, detail = self.request("GET", "/tickets/EMH-1")
+        status, _, detail = self.request("GET", "/tickets/NIRA-1")
         assert status == 200
         assert "First HTTP ticket" in detail
         assert 'href="/"' in detail
@@ -604,7 +604,7 @@ class TestHttpIntegration:
 
         status, headers, _ = self.request(
             "POST",
-            "/tickets/EMH-1/edit",
+            "/tickets/NIRA-1/edit",
             fields={
                 "title": "First HTTP ticket updated",
                 "source": "docs/architecture/data-stack.md",
@@ -616,9 +616,9 @@ class TestHttpIntegration:
             },
         )
         assert status == 303
-        assert headers["Location"] == "/tickets/EMH-1"
+        assert headers["Location"] == "/tickets/NIRA-1"
 
-        status, _, detail = self.request("GET", "/tickets/EMH-1")
+        status, _, detail = self.request("GET", "/tickets/NIRA-1")
         assert status == 200
         assert "First HTTP ticket updated" in detail
         assert "docs/architecture/data-stack.md" in detail
@@ -644,14 +644,14 @@ class TestHttpIntegration:
         assert 'name="resolution_reason"' not in detail
         assert "Resolution</dt>" not in detail
 
-        ticket = self.store.get_ticket("EMH-1")
+        ticket = self.store.get_ticket("NIRA-1")
         assert ticket["type"] == "bug"
 
         status, headers, _ = self.request(
             "POST",
             "/tickets",
             fields={
-                "project": "EMH",
+                "project": "NIRA",
                 "title": "Second HTTP ticket",
                 "source": "user",
                 "type": "task",
@@ -661,33 +661,33 @@ class TestHttpIntegration:
             },
         )
         assert status == 303
-        assert headers["Location"] == "/tickets/EMH-2"
+        assert headers["Location"] == "/tickets/NIRA-2"
 
         status, headers, _ = self.request(
             "POST",
-            "/tickets/EMH-1/link",
-            fields={"other_ticket_id": "EMH-2"},
+            "/tickets/NIRA-1/link",
+            fields={"other_ticket_id": "NIRA-2"},
         )
         assert status == 303
-        assert headers["Location"] == "/tickets/EMH-1"
+        assert headers["Location"] == "/tickets/NIRA-1"
 
-        status, _, detail = self.request("GET", "/tickets/EMH-1")
+        status, _, detail = self.request("GET", "/tickets/NIRA-1")
         assert status == 200
-        assert "/tickets/EMH-2" in detail
+        assert "/tickets/NIRA-2" in detail
 
         status, _, list_page = self.request("GET", "/list")
         assert status == 200
-        assert 'href="/tickets/EMH-1"' in list_page
-        assert 'href="/tickets/EMH-2"' in list_page
+        assert 'href="/tickets/NIRA-1"' in list_page
+        assert 'href="/tickets/NIRA-2"' in list_page
         assert "just now" in list_page
 
         status, _, priority_sorted = self.request("GET", "/list?status=all&sort=priority&direction=desc")
         assert status == 200
-        assert priority_sorted.index('href="/tickets/EMH-1"') < priority_sorted.index('href="/tickets/EMH-2"')
+        assert priority_sorted.index('href="/tickets/NIRA-1"') < priority_sorted.index('href="/tickets/NIRA-2"')
 
         status, _, id_sorted = self.request("GET", "/list?status=all&sort=ticket_id&direction=desc")
         assert status == 200
-        assert id_sorted.index('href="/tickets/EMH-2"') < id_sorted.index('href="/tickets/EMH-1"')
+        assert id_sorted.index('href="/tickets/NIRA-2"') < id_sorted.index('href="/tickets/NIRA-1"')
 
         status, headers, _ = self.request(
             "POST",
@@ -703,7 +703,7 @@ class TestHttpIntegration:
         assert 'value="NIRA"' in settings_page
         assert self.store.get_default_project() == "NIRA"
 
-        status, _, renamed_detail = self.request("GET", "/tickets/EMH-1")
+        status, _, renamed_detail = self.request("GET", "/tickets/NIRA-1")
         assert status == 200
         assert "NIRA-1 First HTTP ticket updated" in renamed_detail
 
@@ -718,25 +718,25 @@ class TestHttpIntegration:
 
         status, headers, _ = self.request(
             "POST",
-            "/tickets/EMH-1/comment",
+            "/tickets/NIRA-1/comment",
             fields={"body_md": "Browser comment body."},
         )
         assert status == 303
-        assert headers["Location"] == "/tickets/EMH-1"
+        assert headers["Location"] == "/tickets/NIRA-1"
 
-        status, _, detail = self.request("GET", "/tickets/EMH-1")
+        status, _, detail = self.request("GET", "/tickets/NIRA-1")
         assert status == 200
         assert "Browser comment body." in detail
 
         status, headers, _ = self.request(
             "POST",
-            "/tickets/EMH-1/close",
+            "/tickets/NIRA-1/close",
             fields={"resolution_md": "Closed via test"},
         )
         assert status == 303
-        assert headers["Location"] == "/tickets/EMH-1"
+        assert headers["Location"] == "/tickets/NIRA-1"
 
-        status, _, detail = self.request("GET", "/tickets/EMH-1")
+        status, _, detail = self.request("GET", "/tickets/NIRA-1")
         assert status == 200
         assert "closed" in detail
         assert "completed" in detail
@@ -748,32 +748,32 @@ class TestHttpIntegration:
         assert 'href="/tickets/NIRA-1"' in closed_list_page
         assert 'href="/tickets/NIRA-2"' not in closed_list_page
 
-        status, headers, _ = self.request("POST", "/tickets/EMH-1/reopen", fields={})
+        status, headers, _ = self.request("POST", "/tickets/NIRA-1/reopen", fields={})
         assert status == 303
-        assert headers["Location"] == "/tickets/EMH-1"
+        assert headers["Location"] == "/tickets/NIRA-1"
 
-        status, _, detail = self.request("GET", "/tickets/EMH-1")
+        status, _, detail = self.request("GET", "/tickets/NIRA-1")
         assert status == 200
         assert "open" in detail
 
         status, headers, _ = self.request(
             "POST",
-            "/tickets/EMH-1/unlink",
-            fields={"other_ticket_id": "EMH-2"},
+            "/tickets/NIRA-1/unlink",
+            fields={"other_ticket_id": "NIRA-2"},
         )
         assert status == 303
-        assert headers["Location"] == "/tickets/EMH-1"
+        assert headers["Location"] == "/tickets/NIRA-1"
 
-        status, _, detail = self.request("GET", "/tickets/EMH-1")
+        status, _, detail = self.request("GET", "/tickets/NIRA-1")
         assert status == 200
-        assert 'href="/tickets/EMH-2"' not in detail
+        assert 'href="/tickets/NIRA-2"' not in detail
 
     def test_kanban_board(self):
         self.request(
             "POST",
             "/tickets",
             fields={
-                "project": "EMH",
+                "project": "NIRA",
                 "title": "Open ticket",
             },
         )
@@ -781,7 +781,7 @@ class TestHttpIntegration:
             "POST",
             "/tickets",
             fields={
-                "project": "EMH",
+                "project": "NIRA",
                 "title": "In progress ticket",
                 "status": "in_progress",
             },
@@ -794,7 +794,7 @@ class TestHttpIntegration:
         assert "In progress ticket" in body
 
     def test_editor_autocomplete(self):
-        self.store.create_ticket("EMH", "Some ticket")
+        self.store.create_ticket("NIRA", "Some ticket")
         status, headers, body = self.request("GET", "/tickets/editor_autocomplete?q=Some")
         assert status == 200
         assert "Some ticket" in body

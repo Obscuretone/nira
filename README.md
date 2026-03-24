@@ -48,20 +48,20 @@ Alternatively, you can run the `./nira` shim script directly from the source dir
 Initialize Nira inside the repo or project directory you want to track:
 
 ```bash
-cd ~/Code/emh
+cd ~/Code/nira
 ~/Code/nira/nira init
 ```
 
 By default, `init` derives the ticket prefix from the folder name. Single-word folders stay uppercased, and multi-word folder names collapse into an acronym. For example:
 
-- `~/Code/emh` becomes `EMH`
-- `~/Code/employment-matching-hub` becomes `EMH`
-- `~/Code/EmploymentMatchingHub` becomes `EMH`
+- `~/Code/nira` becomes `NIRA`
+- `~/Code/employment-matching-hub` becomes `NIRA`
+- `~/Code/EmploymentMatchingHub` becomes `NIRA`
 
 You can override that at init time:
 
 ```bash
-~/Code/nira/nira init --project-key EMH
+~/Code/nira/nira init --project-key NIRA
 ```
 
 Create and inspect a ticket:
@@ -69,7 +69,7 @@ Create and inspect a ticket:
 ```bash
 ~/Code/nira/nira new "Evaluate Tortoise alternatives" --source "architecture review"
 ~/Code/nira/nira list
-~/Code/nira/nira show EMH-1
+~/Code/nira/nira show NIRA-1
 ```
 
 Start the web UI:
@@ -80,7 +80,7 @@ Start the web UI:
 
 Then open `http://127.0.0.1:8765`.
 
-Ticket labels like `EMH-1` are display keys derived from the current workspace prefix and ticket number. Internally, tickets use integer primary keys in SQLite.
+Ticket labels like `NIRA-1` are display keys derived from the current workspace prefix and ticket number. Internally, tickets use integer primary keys in SQLite.
 
 ## How Nira Finds Your Workspace
 
@@ -91,19 +91,19 @@ Nira walks upward until it finds `.nira/`.
 That means these both work:
 
 ```bash
-cd ~/Code/emh
+cd ~/Code/nira
 ~/Code/nira/nira list
 ```
 
 ```bash
-cd ~/Code/emh/app/services
+cd ~/Code/nira/app/services
 ~/Code/nira/nira list
 ```
 
 If you want to point at a different workspace explicitly, use `--root`:
 
 ```bash
-~/Code/nira/nira --root ~/Code/emh list
+~/Code/nira/nira --root ~/Code/nira list
 ```
 
 ## CLI Reference
@@ -119,7 +119,7 @@ Initialize a workspace:
 
 ```bash
 ./nira init
-./nira init --project-key EMH
+./nira init --project-key NIRA
 ```
 
 Create tickets:
@@ -138,38 +138,38 @@ List and show tickets:
 ./nira list --status open
 ./nira list --status in_progress --priority high
 ./nira list --type bug
-./nira show EMH-1
+./nira show NIRA-1
 ```
 
 Update tickets:
 
 ```bash
-./nira update EMH-1 --status in_progress
-./nira update EMH-1 --priority critical --type bug
-./nira update EMH-1 --source "architecture review"
+./nira update NIRA-1 --status in_progress
+./nira update NIRA-1 --priority critical --type bug
+./nira update NIRA-1 --source "architecture review"
 ```
 
 Edit long-form content in `$EDITOR`:
 
 ```bash
-./nira edit EMH-1
-./nira edit EMH-1 --field resolution
+./nira edit NIRA-1
+./nira edit NIRA-1 --field resolution
 ```
 
 Close and reopen:
 
 ```bash
-./nira close EMH-1 --reason completed
-./nira reopen EMH-1
+./nira close NIRA-1 --reason completed
+./nira reopen NIRA-1
 ```
 
 Link related tickets:
 
 ```bash
-./nira link EMH-1 EMH-2
+./nira link NIRA-1 NIRA-2
 ./nira links
-./nira links EMH-1
-./nira unlink EMH-1 EMH-2
+./nira links NIRA-1
+./nira unlink NIRA-1 NIRA-2
 ```
 
 Aliases:
@@ -201,7 +201,7 @@ The interface includes:
 - related-ticket linking
 - a WYSIWYG Markdown editor for ticket bodies
 
-Changing the workspace prefix updates displayed ticket labels everywhere. For example, renaming the prefix from `EMH` to `NIRA` turns `EMH-4` into `NIRA-4` without changing the underlying ticket record.
+Changing the workspace prefix updates displayed ticket labels everywhere. For example, renaming the prefix from `NIRA` to `NIRA` turns `NIRA-4` into `NIRA-4` without changing the underlying ticket record.
 
 Current browser-supported ticket types:
 

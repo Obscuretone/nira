@@ -122,7 +122,7 @@ def normalize_ticket_id(ticket_id: str) -> str:
     ticket_id = (ticket_id or "").strip().upper()
     match = TICKET_ID_RE.fullmatch(ticket_id)
     if not match:
-        raise ValidationError("Ticket IDs must look like EMH-1.")
+        raise ValidationError("Ticket IDs must look like NIRA-1.")
     return f"{match.group(1).upper()}-{int(match.group(2))}"
 
 

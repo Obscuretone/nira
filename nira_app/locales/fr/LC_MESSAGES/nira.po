@@ -188,8 +188,8 @@ msgstr "Espagnol"
 msgid "German"
 msgstr "Allemand"
 
-msgid "Ticket labels are derived from the current workspace prefix and ticket number. Changing the prefix updates labels like <code>EMH-4</code> across the UI without changing the internal ticket record."
-msgstr "Les étiquettes de tickets sont dérivées du préfixe de l'espace de travail actuel et du numéro de ticket. Changer le préfixe met à jour les étiquettes comme <code>EMH-4</code> dans l'interface sans modifier l'enregistrement interne du ticket."
+msgid "Ticket labels are derived from the current workspace prefix and ticket number. Changing the prefix updates labels like <code>NIRA-4</code> across the UI without changing the internal ticket record."
+msgstr "Les étiquettes de tickets sont dérivées du préfixe de l'espace de travail actuel et du numéro de ticket. Changer le préfixe met à jour les étiquettes comme <code>NIRA-4</code> dans l'interface sans modifier l'enregistrement interne du ticket."
 
 msgid "Define the list of workflow statuses for this workspace. These form the columns on your Kanban board. Statuses must be comma-separated. The first and last are treated as 'open' and 'completed'."
 msgstr "Définissez la liste des statuts du flux de travail pour cet espace de travail. Ceux-ci forment les colonnes de votre tableau Kanban. Les statuts doivent être séparés par des virgules. Le premier et le dernier sont traités comme 'ouvert' et 'terminé'."

@@ -5,13 +5,13 @@ from nira_app.web import NiraWebApp
 
 def test_web_errors(temp_root):
     store = NiraStore(temp_root / "errors")
-    store.initialize("EMH")
+    store.initialize("NIRA")
 
     # Web errors
     app = NiraWebApp(store)
 
     # search_dropdown
-    store.create_ticket("EMH", "T1")
+    store.create_ticket("NIRA", "T1")
     app.ticket_search_dropdown({"q": "T1"}, {})
     app.ticket_search_dropdown({"parent": "T1"}, {})
 
@@ -21,11 +21,11 @@ def test_web_errors(temp_root):
 
     # create_ticket action error
     with pytest.raises(NiraError):
-        app.create_ticket_action({}, {"title": "X", "parent": "EMH-999"})
+        app.create_ticket_action({}, {"title": "X", "parent": "NIRA-999"})
 
     # edit_ticket action error
     with pytest.raises(NiraError):
-        app.edit_ticket_action({}, {"parent": "EMH-999"}, "EMH-1")
+        app.edit_ticket_action({}, {"parent": "NIRA-999"}, "NIRA-1")
 
 
 def test_web_misc(temp_root):
@@ -62,7 +62,7 @@ def test_web_misc(temp_root):
 
 def test_web_coverage_remaining(temp_root):
     store = NiraStore(temp_root / "web")
-    store.initialize("EMH")
+    store.initialize("NIRA")
     app = NiraWebApp(store)
 
     # pagination 252-254
@@ -70,21 +70,21 @@ def test_web_coverage_remaining(temp_root):
 
     # create ticket parent not found
     try:
-        app.create_ticket_action({}, {"title": "A", "parent": "EMH-999"})
+        app.create_ticket_action({}, {"title": "A", "parent": "NIRA-999"})
     except Exception:
         pass
 
     # edit ticket parent not found
-    store.create_ticket("EMH", "T1")
+    store.create_ticket("NIRA", "T1")
     try:
-        app.edit_ticket_action({}, {"parent": "EMH-999"}, "EMH-1")
+        app.edit_ticket_action({}, {"parent": "NIRA-999"}, "NIRA-1")
     except Exception:
         pass
 
 
 def test_settings_coverage(temp_root):
     store = NiraStore(temp_root / "settings")
-    store.initialize("EMH")
+    store.initialize("NIRA")
 
     store.update_settings({"theme": "dark", "language": "en", "statuses": "todo,done"})
     store.update_settings({"theme": "invalid", "language": "zz"})

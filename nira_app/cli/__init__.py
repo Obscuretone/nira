@@ -120,7 +120,7 @@ def new_ticket(
     priority: Annotated[str, typer.Option(help="Priority level.")] = "medium",
     labels: Annotated[str, typer.Option(help="Comma-separated labels.")] = "",
     due: Annotated[Optional[str], typer.Option(help="Due date (YYYY-MM-DD).")] = None,
-    parent: Annotated[Optional[str], typer.Option(help="Parent ticket ID (e.g. EMH-1).")] = None,
+    parent: Annotated[Optional[str], typer.Option(help="Parent ticket ID (e.g. NIRA-1).")] = None,
     body: Annotated[Optional[str], typer.Option("--body", "-m", help="Initial body content (Markdown).")] = None,
     edit: Annotated[bool, typer.Option(help="Open $EDITOR to write the body.")] = False,
 ):

@@ -326,7 +326,7 @@
             
             button.addEventListener('click', () => {
               // Create a tiny modal or just prompt for now
-              const search = window.prompt("Enter ticket ID to link (e.g. EMH-1):");
+              const search = window.prompt("Enter ticket ID to link (e.g. NIRA-1):");
               if (search) {
                  const link = `[${search}](/tickets/${search})`;
                  editor.insertText(link);

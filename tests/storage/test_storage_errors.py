@@ -5,30 +5,30 @@ from nira_app.storage import NiraStore, ValidationError, NiraError
 def test_storage_errors(temp_root):
     store = NiraStore(temp_root / "errors")
 
-    store.initialize("EMH")
-    store.initialize("EMH")  # Should not raise if already initialized with same key
+    store.initialize("NIRA")
+    store.initialize("NIRA")  # Should not raise if already initialized with same key
 
     store = NiraStore(temp_root / "err2")
-    store.initialize("EMH")
+    store.initialize("NIRA")
 
     # Missing tickets
     with pytest.raises(NiraError):
-        store.get_ticket("EMH-999")
+        store.get_ticket("NIRA-999")
     with pytest.raises(NiraError):
-        store.update_ticket("EMH-999", status="open")
+        store.update_ticket("NIRA-999", status="open")
     with pytest.raises(NiraError):
-        store.add_comment("EMH-999", "b")
+        store.add_comment("NIRA-999", "b")
     with pytest.raises(NiraError):
-        store.link_tickets("EMH-999", "EMH-1")
+        store.link_tickets("NIRA-999", "NIRA-1")
     with pytest.raises(NiraError):
-        store.unlink_tickets("EMH-999", "EMH-1")
+        store.unlink_tickets("NIRA-999", "NIRA-1")
 
     # Validation
-    store.create_ticket("EMH", "T1")
+    store.create_ticket("NIRA", "T1")
     with pytest.raises(ValidationError):
-        store.link_tickets("EMH-1", "EMH-1")
+        store.link_tickets("NIRA-1", "NIRA-1")
     with pytest.raises(ValidationError):
-        store.unlink_tickets("EMH-1", "EMH-1")
+        store.unlink_tickets("NIRA-1", "NIRA-1")
 
 
 def test_legacy_migration_coverage(temp_root):
@@ -57,14 +57,14 @@ def test_storage_misc_and_legacy(temp_root):
     assert derive_default_project_key("123 name") == "N1N"
 
     store = NiraStore(temp_root / "t1")
-    store.initialize("EMH")
-    store.create_ticket("EMH", "T1", labels="tag")
+    store.initialize("NIRA")
+    store.create_ticket("NIRA", "T1", labels="tag")
     assert store.count_tickets(project="MISSING") == 0
     assert store.count_tickets(label="tag") == 1
 
     # reset reason
-    store.update_ticket("EMH-1", status="closed")
-    store.update_ticket("EMH-1", status="open")
+    store.update_ticket("NIRA-1", status="closed")
+    store.update_ticket("NIRA-1", status="open")
 
     with store.session() as session:
         store.touch_tickets(session, [1])
@@ -73,34 +73,34 @@ def test_storage_misc_and_legacy(temp_root):
 
 def test_storage_coverage_remaining(temp_root):
     store = NiraStore(temp_root / "final")
-    store.initialize("EMH")
+    store.initialize("NIRA")
 
-    store.create_ticket("EMH", "T1")
-    store.create_ticket("EMH", "T2")
+    store.create_ticket("NIRA", "T1")
+    store.create_ticket("NIRA", "T2")
 
     # Missing link targets
     try:
-        store.link_tickets("EMH-999", "EMH-1")
+        store.link_tickets("NIRA-999", "NIRA-1")
     except Exception:
         pass
 
     try:
-        store.link_tickets("EMH-1", "EMH-999")
+        store.link_tickets("NIRA-1", "NIRA-999")
     except Exception:
         pass
 
     try:
-        store.unlink_tickets("EMH-999", "EMH-1")
+        store.unlink_tickets("NIRA-999", "NIRA-1")
     except Exception:
         pass
 
     try:
-        store.unlink_tickets("EMH-1", "EMH-999")
+        store.unlink_tickets("NIRA-1", "NIRA-999")
     except Exception:
         pass
 
     try:
-        store.add_comment("EMH-999", "b")
+        store.add_comment("NIRA-999", "b")
     except Exception:
         pass
 
@@ -120,10 +120,10 @@ def test_storage_coverage_remaining(temp_root):
 
 def test_list_ticket_filters(temp_root):
     store = NiraStore(temp_root / "filters")
-    store.initialize("EMH")
+    store.initialize("NIRA")
 
     store.list_tickets(
-        project="EMH",
+        project="NIRA",
         label="none",
         overdue=True,
         parent_id=1,
@@ -133,5 +133,5 @@ def test_list_ticket_filters(temp_root):
         sort_by="updated",
     )
     store.count_tickets(
-        project="EMH", label="none", overdue=True, parent_id=1, ticket_type="task", priority="high", status="open"
+        project="NIRA", label="none", overdue=True, parent_id=1, ticket_type="task", priority="high", status="open"
     )
