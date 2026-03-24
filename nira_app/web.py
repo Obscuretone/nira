@@ -228,7 +228,7 @@ class NiraWebApp:
         except Exception as exc:  # pragma: no cover
             response = self.error_page(
                 "500 Internal Server Error",
-                f"Unexpected error: {exc.__class__.__name__} {exc}. {__import__("traceback").format_exc()}",
+                f"Unexpected error: {exc.__class__.__name__} {exc}. {__import__('traceback').format_exc()}",
                 "500 Internal Server Error",
             )
         return response.to_wsgi(start_response)
