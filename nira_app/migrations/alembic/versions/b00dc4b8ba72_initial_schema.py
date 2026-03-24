@@ -62,7 +62,7 @@ def upgrade() -> None:
         sa.Column("ticket_a_id", sa.Integer(), nullable=False),
         sa.Column("ticket_b_id", sa.Integer(), nullable=False),
         sa.Column("created_at", sa.String(), nullable=False),
-        sa.CheckConstraint("ticket_a_id < ticket_b_id"),
+        sa.CheckConstraint("ticket_a_id < ticket_b_id", name="ck_links_order"),
         sa.ForeignKeyConstraint(["ticket_a_id"], ["tickets.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["ticket_b_id"], ["tickets.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("ticket_a_id", "ticket_b_id"),

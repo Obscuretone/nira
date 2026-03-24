@@ -1,3 +1,10 @@
+import pytest
+from pathlib import Path
+import tempfile
+from nira_app.storage import SOURCE_ROOT
+from sqlalchemy import inspect
+from alembic import command
+from alembic.config import Config
 from nira_app.i18n import get_translator
 import io
 import os
@@ -6,12 +13,10 @@ import sqlite3
 import subprocess
 import sys
 from contextlib import closing, redirect_stderr, redirect_stdout
-from pathlib import Path
 from typing import Literal, TypedDict, overload
 from unittest import mock
 from urllib.parse import urlencode, urlsplit
 
-import pytest
 from sqlalchemy import create_engine, text
 from wsgiref.util import setup_testing_defaults
 
@@ -883,3 +888,43 @@ def test_missing_language():
 def test_regional_language():
     _ = get_translator("es-MX")
     assert _("Title") == "Título"
+
+
+
+
+def test_run_migrations():
+    with tempfile.TemporaryDirectory() as td:
+        db_path = Path(td) / "test.db"
+        engine = create_engine(f"sqlite:///{db_path}")
+
+        # Test running all upgrades
+        alembic_cfg = Config()
+        alembic_cfg.set_main_option("script_location", str(SOURCE_ROOT / "nira_app" / "migrations" / "alembic"))
+        alembic_cfg.set_main_option("sqlalchemy.url", f"sqlite:///{db_path}")
+
+        # Suppress logging slightly
+        import logging
+
+        logging.getLogger("alembic").setLevel(logging.WARNING)
+
+        command.upgrade(alembic_cfg, "head")
+
+        # Verify tables created
+        inspector = inspect(engine)
+        tables = inspector.get_table_names()
+        assert "tickets" in tables
+        assert "comments" in tables
+        assert "links" in tables
+        assert "history" in tables
+        assert "settings" in tables
+
+        # Now test downgrade
+        command.downgrade(alembic_cfg, "base")
+
+        inspector = inspect(engine)
+        tables = inspector.get_table_names()
+        assert "tickets" not in tables
+        assert "comments" not in tables
+        assert "links" not in tables
+        assert "history" not in tables
+        assert "settings" not in tables
