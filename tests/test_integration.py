@@ -890,8 +890,6 @@ def test_regional_language():
     assert _("Title") == "Título"
 
 
-
-
 def test_run_migrations():
     with tempfile.TemporaryDirectory() as td:
         db_path = Path(td) / "test.db"
