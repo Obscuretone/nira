@@ -6,7 +6,7 @@
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
   <div>
-    <h1 class="h2 mb-0">Kanban Board</h1>
+    <h1 class="h2 mb-0">{{ _("Kanban Board") }}</h1>
   </div>
   <div class="d-flex align-items-center gap-3">
     <form id="filter-form" method="get" action="/board" hx-get="/board" hx-target="body" hx-push-url="true" hx-include="#global-search-input">
@@ -24,7 +24,7 @@
       >
     </form>
     {% if search_query or label_filter %}
-    <a href="/board" class="btn btn-sm btn-outline-secondary">Clear Filters</a>
+    <a href="/board" class="btn btn-sm btn-outline-secondary">{{ _("Clear Filters") }}</a>
     {% endif %}
   </div>
 </div>

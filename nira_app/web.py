@@ -52,7 +52,7 @@ def parse_timestamp(value: str) -> datetime | None:
         return None
 
 
-def relative_time(value: str) -> str:
+def relative_time(value: str, _=lambda x: x) -> str:
     moment = parse_timestamp(value)
     if moment is None:
         return value
@@ -61,22 +61,22 @@ def relative_time(value: str) -> str:
     seconds = max(0, int(delta.total_seconds()))
 
     if seconds < 60:
-        return "just now"
+        return _("just now")
     if seconds < 3600:
         minutes = seconds // 60
-        return f"{minutes} minute{'s' if minutes != 1 else ''} ago"
+        return _("{count} minute(s) ago").replace("{count}", str(minutes))
     if seconds < 86400:
         hours = seconds // 3600
-        return f"{hours} hour{'s' if hours != 1 else ''} ago"
+        return _("{count} hour(s) ago").replace("{count}", str(hours))
     if seconds < 604800:
         days = seconds // 86400
-        return f"{days} day{'s' if days != 1 else ''} ago"
+        return _("{count} day(s) ago").replace("{count}", str(days))
     weeks = seconds // 604800
-    return f"{weeks} week{'s' if weeks != 1 else ''} ago"
+    return _("{count} week(s) ago").replace("{count}", str(weeks))
 
 
-def format_time(value: str, *, relative: bool = False) -> str:
-    display = relative_time(value) if relative else value
+def format_time(value: str, *, relative: bool = False, _=lambda x: x) -> str:
+    display = relative_time(value, _) if relative else value
     return f'<time datetime="{h(value)}" title="{h(value)}">{h(display)}</time>'
 
 
@@ -161,9 +161,14 @@ class NiraWebApp:
         template = self.jinja_env.get_template(template_name)
         settings = self.store.get_settings()
         translator = get_translator(getattr(self, "_current_lang", "en"))
+
+        def format_time_wrapper(value: str, *, relative: bool = False) -> str:
+            return format_time(value, relative=relative, _=translator)
+
         full_context = {
             "current_theme": settings.get("theme", "auto"),
             "_": translator,
+            "format_time": format_time_wrapper,
             **context,
         }
         return template.render(**full_context)

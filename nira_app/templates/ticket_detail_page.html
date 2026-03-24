@@ -19,8 +19,8 @@
     </div>
   </div>
   <div class="d-flex gap-2">
-    <a class="btn btn-outline-secondary" href="/">Back to Tickets</a>
-    <a class="btn btn-primary" href="/tickets/new">New Ticket</a>
+    <a class="btn btn-outline-secondary" href="/">{{ _("Back to Tickets") }}</a>
+    <a class="btn btn-primary" href="/tickets/new">{{ _("New Ticket") }}</a>
   </div>
 </div>
 
@@ -29,7 +29,7 @@
     <div class="card shadow-sm mb-4">
       <div class="card-body">
         <div class="d-flex justify-content-between align-items-center mb-3">
-          <h2 class="h5 mb-0">Sub-tasks</h2>
+          <h2 class="h5 mb-0">{{ _("Sub-tasks") }}</h2>
           <a href="/tickets/new?parent={{ ticket.id }}" class="btn btn-sm btn-outline-primary">Add Sub-task</a>
         </div>
         <ul class="list-group list-group-flush">
@@ -42,7 +42,7 @@
             <div>{{ status_badge(sub.status) | safe }}</div>
           </li>
           {% else %}
-          <li class="list-group-item text-body-secondary">No sub-tasks yet.</li>
+          <li class="list-group-item text-body-secondary">{{ _("No sub-tasks yet.") }}</li>
           {% endfor %}
         </ul>
       </div>
@@ -52,7 +52,7 @@
 
       <div class="card shadow-sm mb-4">
         <div class="card-body">
-          <label class="form-label" for="title">Title</label>
+          <label class="form-label" for="title">{{ _("Title") }}</label>
           <input
             class="form-control form-control-lg mb-4"
             id="title"
@@ -63,20 +63,20 @@
             hx-trigger="change"
             hx-target="body"
           >
-          <h2 class="h5 mb-3">Body</h2>
+          <h2 class="h5 mb-3">{{ _("Body") }}</h2>
           {{ rich_editor("body_md", ticket.body_md, height_px=420) }}
           <div class="d-flex justify-content-end mt-3">
-            <button class="btn btn-primary" type="submit">Save</button>
+            <button class="btn btn-primary" type="submit">{{ _("Save") }}</button>
           </div>
         </div>
       </div>
 
       <div class="card shadow-sm mb-4">
         <div class="card-body">
-          <h2 class="h5 mb-3">Resolution Notes</h2>
+          <h2 class="h5 mb-3">{{ _("Resolution Notes") }}</h2>
           {{ rich_editor("resolution_md", ticket.resolution_md, height_px=280) }}
           <div class="d-flex justify-content-end mt-3">
-            <button class="btn btn-primary" type="submit">Save</button>
+            <button class="btn btn-primary" type="submit">{{ _("Save") }}</button>
           </div>
         </div>
       </div>
@@ -84,7 +84,7 @@
 
     <div class="card shadow-sm mb-4">
       <div class="card-body">
-        <h2 class="h5 mb-3">Related</h2>
+        <h2 class="h5 mb-3">{{ _("Related") }}</h2>
         <form
           method="post"
           action="/tickets/{{ ticket.id }}/link"
@@ -93,8 +93,8 @@
           hx-target="body"
         >
           <div class="input-group">
-            {{ ticket_typeahead("other_ticket_id", "other_ticket_id", "", placeholder="Search for ticket to link...", exclude_id=ticket.id) }}
-            <button class="btn btn-outline-dark" type="submit">Link</button>
+            {{ ticket_typeahead("other_ticket_id", "other_ticket_id", "", placeholder=_("Search for ticket to link..."), exclude_id=ticket.id) }}
+            <button class="btn btn-outline-dark" type="submit">{{ _("Link") }}</button>
           </div>
         </form>
         <ul class="list-group list-group-flush">
@@ -120,7 +120,7 @@
             </form>
           </li>
           {% else %}
-          <li class="list-group-item text-body-secondary">No related tickets yet.</li>
+          <li class="list-group-item text-body-secondary">{{ _("No related tickets yet.") }}</li>
           {% endfor %}
         </ul>
       </div>
@@ -128,7 +128,7 @@
 
     <div class="card shadow-sm mb-4">
       <div class="card-header bg-transparent border-bottom-0">
-        <h2 class="h5 mb-0 mt-2">Activity Feed</h2>
+        <h2 class="h5 mb-0 mt-2">{{ _("Activity Feed") }}</h2>
       </div>
       <div class="card-body">
         
@@ -143,7 +143,7 @@
             {{ rich_editor("body_md", "", height_px=200, field_id="comment_body_md") }}
           </div>
           <div class="d-flex justify-content-end">
-            <button class="btn btn-primary" type="submit">Add Comment</button>
+            <button class="btn btn-primary" type="submit">{{ _("Add Comment") }}</button>
           </div>
         </form>
 
@@ -156,7 +156,7 @@
               {% if item.type == 'comment' %}
                 <div class="card border-0 bg-body-tertiary shadow-sm">
                   <div class="card-header border-bottom-0 bg-transparent py-2 d-flex justify-content-between align-items-center">
-                    <span class="fw-semibold text-body">Comment</span>
+                    <span class="fw-semibold text-body">{{ _("Comment") }}</span>
                     <span class="text-body-secondary small">{{ format_time(item.created_at, relative=True) | safe }}</span>
                   </div>
                   <div class="card-body py-2 pt-0 markdown-output">
@@ -180,7 +180,7 @@
               {% endif %}
             </div>
           {% else %}
-            <p class="text-body-secondary">No activity recorded yet.</p>
+            <p class="text-body-secondary">{{ _("No activity recorded yet.") }}</p>
           {% endfor %}
         </div>
 
@@ -191,10 +191,10 @@
   <div class="col-xl-4">
     <div class="card shadow-sm mb-4">
       <div class="card-body">
-        <h2 class="h5 mb-3">Status</h2>
+        <h2 class="h5 mb-3">{{ _("Status") }}</h2>
         <div class="row g-3 align-items-end">
           <div class="col-12">
-            <label class="form-label" for="status">Status</label>
+            <label class="form-label" for="status">{{ _("Status") }}</label>
             <select
               class="{{ status_select_classes(ticket.status) }}"
               id="status"
@@ -211,7 +211,7 @@
             </select>
           </div>
           <div class="col-12">
-            <label class="form-label" for="priority">Priority</label>
+            <label class="form-label" for="priority">{{ _("Priority") }}</label>
             <select
               class="form-select"
               id="priority"
@@ -227,7 +227,7 @@
             </select>
           </div>
           <div class="col-12 d-none">
-            <button class="btn btn-primary w-100" type="submit" form="ticket-edit-form">Save</button>
+            <button class="btn btn-primary w-100" type="submit" form="ticket-edit-form">{{ _("Save") }}</button>
           </div>
         </div>
       </div>
@@ -238,11 +238,11 @@
         <h2 class="h5 mb-3">Details</h2>
         <div class="row g-3">
           <div class="col-12 position-relative">
-            <label class="form-label" for="parent">Parent Ticket</label>
+            <label class="form-label" for="parent">{{ _("Parent Ticket") }}</label>
             {{ ticket_typeahead("parent", "parent", ticket.parent_number and (ticket.project ~ '-' ~ ticket.parent_number) or '', exclude_id=ticket.id, form="ticket-edit-form", hx_post="/tickets/" ~ ticket.id ~ "/edit", hx_trigger="change", hx_target="body") }}
           </div>
           <div class="col-12">
-            <label class="form-label" for="labels">Labels</label>
+            <label class="form-label" for="labels">{{ _("Labels") }}</label>
             <div class="label-input-container">
               <input type="text" class="label-hidden-input" placeholder="Add label...">
               <input
@@ -259,7 +259,7 @@
             </div>
           </div>
           <div class="col-12">
-            <label class="form-label" for="due_date">Due Date</label>
+            <label class="form-label" for="due_date">{{ _("Due Date") }}</label>
             <input
               type="date"
               class="form-control"
@@ -273,7 +273,7 @@
             >
           </div>
           <div class="col-12">
-            <label class="form-label" for="story_points">Story Points</label>
+            <label class="form-label" for="story_points">{{ _("Story Points") }}</label>
             <input
               type="number"
               class="form-control"
@@ -300,7 +300,7 @@
             >
           </div>
           <div class="col-12">
-            <label class="form-label" for="type">Type</label>
+            <label class="form-label" for="type">{{ _("Type") }}</label>
             <select
               class="form-select"
               id="type"
@@ -316,7 +316,7 @@
             </select>
           </div>
           <div class="col-12 d-none">
-            <button class="btn btn-primary w-100" type="submit" form="ticket-edit-form">Save</button>
+            <button class="btn btn-primary w-100" type="submit" form="ticket-edit-form">{{ _("Save") }}</button>
           </div>
         </div>
       </div>
