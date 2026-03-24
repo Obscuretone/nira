@@ -9,14 +9,14 @@
   </div>
 </div>
 
-<form id="filter-form" class="row g-3 mb-4" method="get" action="/" hx-get="/" hx-target="body" hx-push-url="true" hx-include="#global-search-input">
+<form id="filter-form" class="row g-3 mb-4" method="get" action="/list" hx-get="/list" hx-target="body" hx-push-url="true" hx-include="#global-search-input">
   <div class="col-md-2">
     <label class="form-label" for="label">{{ _("Labels") }}</label>
-    <input type="text" class="form-control" id="label" name="label" placeholder="{{ _('Filter label...') }}" value="{{ label_filter or '' }}" hx-get="/" hx-trigger="keyup changed delay:500ms" hx-target="body" hx-push-url="true" hx-include="#global-search-input">
+    <input type="text" class="form-control" id="label" name="label" placeholder="{{ _('Filter label...') }}" value="{{ label_filter or '' }}" hx-get="/list" hx-trigger="keyup changed delay:500ms" hx-target="body" hx-push-url="true" hx-include="#global-search-input">
   </div>
   <div class="col-md-2">
     <label class="form-label" for="status">{{ _("Status") }}</label>
-    <select class="form-select" id="status" name="status" hx-get="/" hx-trigger="change" hx-target="body" hx-push-url="true" hx-include="#global-search-input">
+    <select class="form-select" id="status" name="status" hx-get="/list" hx-trigger="change" hx-target="body" hx-push-url="true" hx-include="#global-search-input">
       {% for value, label in status_options -%}
       <option value="{{ value }}"{% if value == selected_status %} selected{% endif %}>{{ _(label) }}</option>
       {% endfor -%}
@@ -24,7 +24,7 @@
   </div>
   <div class="col-md-3">
     <label class="form-label" for="sort">{{ _("Sort By") }}</label>
-    <select class="form-select" id="sort" name="sort" hx-get="/" hx-trigger="change" hx-target="body" hx-push-url="true" hx-include="#global-search-input">
+    <select class="form-select" id="sort" name="sort" hx-get="/list" hx-trigger="change" hx-target="body" hx-push-url="true" hx-include="#global-search-input">
       {% for value, label in sort_options -%}
       <option value="{{ value }}"{% if value == selected_sort %} selected{% endif %}>{{ _(label) }}</option>
       {% endfor -%}
@@ -32,7 +32,7 @@
   </div>
   <div class="col-md-3">
     <label class="form-label" for="direction">{{ _("Direction") }}</label>
-    <select class="form-select" id="direction" name="direction" hx-get="/" hx-trigger="change" hx-target="body" hx-push-url="true" hx-include="#global-search-input">
+    <select class="form-select" id="direction" name="direction" hx-get="/list" hx-trigger="change" hx-target="body" hx-push-url="true" hx-include="#global-search-input">
       {% for value, label in direction_options -%}
       <option value="{{ value }}"{% if value == selected_direction %} selected{% endif %}>{{ _(label) }}</option>
       {% endfor -%}
@@ -40,7 +40,7 @@
   </div>
   <div class="col-md-2">
     <label class="form-label" for="overdue">{{ _("Due Date") }}</label>
-    <select class="form-select" id="overdue" name="overdue" hx-get="/" hx-trigger="change" hx-target="body" hx-push-url="true" hx-include="#global-search-input">
+    <select class="form-select" id="overdue" name="overdue" hx-get="/list" hx-trigger="change" hx-target="body" hx-push-url="true" hx-include="#global-search-input">
       <option value="">{{ _("All") }}</option>
       <option value="1" {% if overdue_filter %}selected{% endif %}>{{ _("Overdue") }}</option>
     </select>
@@ -72,7 +72,7 @@
                 {% for label in ticket.labels.split(',') %}
                 {% set trimmed = label.strip() %}
                 {% if trimmed %}
-                <a href="/?label={{ trimmed|urlencode }}" hx-get="/?label={{ trimmed|urlencode }}" hx-target="body" hx-push-url="true" class="badge text-bg-light border text-secondary text-decoration-none label-pill-link" style="font-size: 0.7rem; transition: background-color 0.2s;">
+                <a href="/list?label={{ trimmed|urlencode }}" hx-get="/list?label={{ trimmed|urlencode }}" hx-target="body" hx-push-url="true" class="badge text-bg-light border text-secondary text-decoration-none label-pill-link" style="font-size: 0.7rem; transition: background-color 0.2s;">
                   {{ trimmed }}
                 </a>
                 {% endif %}
@@ -110,7 +110,7 @@
     {% if label_filter %}{% set _ = params.update({"label": label_filter}) %}{% endif %}
     <li class="page-item {% if page == 1 %}disabled{% endif %}">
       {% set prev_params = params.copy() %}{% set _ = prev_params.update({"page": page - 1}) %}
-      <a class="page-link" href="/?{{ urlencode(prev_params) }}" hx-get="/?{{ urlencode(prev_params) }}" hx-target="body" hx-push-url="true" aria-label="Previous">
+      <a class="page-link" href="/list?{{ urlencode(prev_params) }}" hx-get="/list?{{ urlencode(prev_params) }}" hx-target="body" hx-push-url="true" aria-label="Previous">
         <span aria-hidden="true">&laquo;</span>
       </a>
     </li>
@@ -119,7 +119,7 @@
     </li>
     <li class="page-item {% if page == total_pages %}disabled{% endif %}">
       {% set next_params = params.copy() %}{% set _ = next_params.update({"page": page + 1}) %}
-      <a class="page-link" href="/?{{ urlencode(next_params) }}" hx-get="/?{{ urlencode(next_params) }}" hx-target="body" hx-push-url="true" aria-label="Next">
+      <a class="page-link" href="/list?{{ urlencode(next_params) }}" hx-get="/list?{{ urlencode(next_params) }}" hx-target="body" hx-push-url="true" aria-label="Next">
         <span aria-hidden="true">&raquo;</span>
       </a>
     </li>
