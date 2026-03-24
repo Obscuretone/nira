@@ -1,10 +1,11 @@
 from __future__ import annotations
+from nira_app.models import HistoryData, TicketData, CommentData, DashboardStats, TicketDetails
 
 import re
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Final, Iterable, Iterator, Optional, TypedDict, cast
+from typing import Any, Final, Iterable, Iterator, Optional, cast
 
 from alembic import command
 from alembic.config import Config
@@ -33,61 +34,6 @@ from sqlalchemy.orm import (
     relationship,
     sessionmaker,
 )
-
-
-class TicketData(TypedDict):
-    id: str
-    db_id: int
-    number: int
-    project: str
-    title: str
-    body_md: str
-    status: str
-    priority: str
-    type: str
-    source: str
-    labels: str
-    due_date: Optional[str]
-    parent_id: Optional[int]
-    parent_number: Optional[int]
-    story_points: Optional[int]
-    resolution_reason: Optional[str]
-    resolution_md: Optional[str]
-    created_at: str
-    updated_at: str
-
-
-class CommentData(TypedDict):
-    id: int
-    ticket_id: int
-    body_md: str
-    created_at: str
-
-
-class HistoryData(TypedDict):
-    ticket_id: str
-    field: str
-    old_value: Optional[str]
-    new_value: Optional[str]
-    created_at: str
-
-
-class DashboardStats(TypedDict):
-    status_counts: dict[str, int]
-    status_points: dict[str, int]
-    total_tickets: int
-    total_points: int
-    recent_history: list[HistoryData]
-    recent_tickets: list[TicketData]
-
-
-class TicketDetails(TypedDict):
-    ticket: TicketData
-    parent: Optional[TicketData]
-    related: list[TicketData]
-    sub_tasks: list[TicketData]
-    comments: list[CommentData]
-    history: list[HistoryData]
 
 
 STATUS_VALUES = {"open", "in_progress", "closed"}

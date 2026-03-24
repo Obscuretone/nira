@@ -17,7 +17,7 @@ from rich.table import Table
 from rich.markdown import Markdown
 from rich.text import Text
 
-from .storage import (
+from nira_app.storage import (
     UNSET,
     NiraError,
     NiraStore,
@@ -26,7 +26,7 @@ from .storage import (
     ValidationError,
     find_root,
 )
-from .web import serve as run_server
+from nira_app.web import serve as run_server
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
 RELOAD_POLL_SECONDS = 0.5

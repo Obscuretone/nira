@@ -9,6 +9,42 @@
   </div>
 </div>
 
+<div class="card shadow-sm border-0 mb-4">
+  <div class="card-header bg-transparent py-3">
+    <h2 class="h5 mb-0">{{ _("Recent Tickets") }}</h2>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead>
+          <tr>
+            <th scope="col">ID</th>
+            <th scope="col">Title</th>
+            <th scope="col">Status</th>
+            <th scope="col">Priority</th>
+            <th scope="col">Updated</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for ticket in stats.recent_tickets %}
+          <tr>
+            <td><a href="/tickets/{{ ticket.id }}" class="fw-bold link-body-emphasis text-decoration-none">{{ ticket.id }}</a></td>
+            <td><a href="/tickets/{{ ticket.id }}" class="link-body-emphasis text-decoration-none d-block fw-medium">{{ ticket.title }}</a></td>
+            <td>{{ status_badge(ticket.status) | safe }}</td>
+            <td>{{ priority_badge(ticket.priority) | safe }}</td>
+            <td class="text-body-secondary small">{{ format_time(ticket.updated_at, relative=True) | safe }}</td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="5" class="p-4 text-center text-body-secondary">No recent tickets.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 <div class="row g-4 mb-4">
   <div class="col-md-3">
     <div class="card shadow-sm h-100 border-0">
@@ -46,33 +82,6 @@
 
 <div class="row g-4">
   <div class="col-lg-8">
-    <div class="card shadow-sm border-0 mb-4">
-      <div class="card-header bg-transparent py-3">
-        <h2 class="h5 mb-0">{{ _("Recent Tickets") }}</h2>
-      </div>
-      <div class="card-body p-0">
-        <div class="list-group list-group-flush">
-          {% for ticket in stats.recent_tickets %}
-          <div class="list-group-item py-3">
-            <div class="d-flex justify-content-between align-items-center mb-1">
-              <a href="/tickets/{{ ticket.id }}" class="fw-bold link-body-emphasis text-decoration-none">{{ ticket.id }}</a>
-              <span class="text-body-secondary small">{{ format_time(ticket.updated_at, relative=True) | safe }}</span>
-            </div>
-            <div>
-              <a href="/tickets/{{ ticket.id }}" class="link-body-emphasis text-decoration-none d-block mb-1">{{ ticket.title }}</a>
-              <div class="d-flex gap-2 mt-2">
-                {{ status_badge(ticket.status) | safe }}
-                {{ priority_badge(ticket.priority) | safe }}
-              </div>
-            </div>
-          </div>
-          {% else %}
-          <div class="p-4 text-center text-body-secondary">No recent tickets.</div>
-          {% endfor %}
-        </div>
-      </div>
-    </div>
-    
     <div class="card shadow-sm border-0">
       <div class="card-header bg-transparent py-3">
         <h2 class="h5 mb-0">{{ _("Recent Activity") }}</h2>

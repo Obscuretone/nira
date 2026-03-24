@@ -1,0 +1,280 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Nira 1.0\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Ticket List"
+msgstr "Lista de tickets"
+
+msgid "Dashboard"
+msgstr "Panel"
+
+msgid "Kanban Board"
+msgstr "Tablero Kanban"
+
+msgid "Create Ticket"
+msgstr "Crear ticket"
+
+msgid "Settings"
+msgstr "Ajustes"
+
+msgid "Search..."
+msgstr "Buscar..."
+
+msgid "No matching tickets"
+msgstr "No hay tickets coincidentes"
+
+msgid "Title"
+msgstr "Título"
+
+msgid "Status"
+msgstr "Estado"
+
+msgid "Priority"
+msgstr "Prioridad"
+
+msgid "Type"
+msgstr "Tipo"
+
+msgid "Labels"
+msgstr "Etiquetas"
+
+msgid "Due Date"
+msgstr "Fecha de vencimiento"
+
+msgid "Parent Ticket"
+msgstr "Ticket padre"
+
+msgid "Story Points"
+msgstr "Puntos de historia"
+
+msgid "Source"
+msgstr "Origen"
+
+msgid "Body"
+msgstr "Cuerpo"
+
+msgid "Add Comment"
+msgstr "Añadir comentario"
+
+msgid "Activity Feed"
+msgstr "Feed de actividad"
+
+msgid "Related"
+msgstr "Relacionado"
+
+msgid "Sub-tasks"
+msgstr "Subtareas"
+
+msgid "Save"
+msgstr "Guardar"
+
+msgid "Save Settings"
+msgstr "Guardar ajustes"
+
+msgid "Language"
+msgstr "Idioma"
+
+msgid "Color Theme"
+msgstr "Tema de color"
+
+msgid "Workspace Prefix"
+msgstr "Prefijo del espacio de trabajo"
+
+msgid "Tickets"
+msgstr "Tickets"
+
+msgid "Overdue Only"
+msgstr "Solo atrasados"
+
+msgid "All"
+msgstr "Todos"
+
+msgid "Overdue"
+msgstr "Atrasado"
+
+msgid "Direction"
+msgstr "Dirección"
+
+msgid "Sort By"
+msgstr "Ordenar por"
+
+msgid "Filter label..."
+msgstr "Filtrer etiqueta..."
+
+msgid "Clear Filters"
+msgstr "Borrar filtros"
+
+msgid "Link"
+msgstr "Enlazar"
+
+msgid "Add label..."
+msgstr "Añadir etiqueta..."
+
+msgid "Resolution Notes"
+msgstr "Notas de resolución"
+
+msgid "Resolution"
+msgstr "Resolución"
+
+msgid "Created"
+msgstr "Creado"
+
+msgid "Updated"
+msgstr "Actualizado"
+
+msgid "No tickets found."
+msgstr "No se encontraron tickets."
+
+msgid "Total Tickets"
+msgstr "Total de tickets"
+
+msgid "Total Points"
+msgstr "Total de puntos"
+
+msgid "Status Distribution"
+msgstr "Distribución de estados"
+
+msgid "Points Distribution"
+msgstr "Distribución de puntos"
+
+msgid "Recent Activity"
+msgstr "Actividad reciente"
+
+msgid "Close Ticket"
+msgstr "Cerrar ticket"
+
+msgid "Reopen Ticket"
+msgstr "Reabrir ticket"
+
+msgid "Custom Statuses"
+msgstr "Estados personalizados"
+
+msgid "Workflow Statuses"
+msgstr "Estados de flujo de trabajo"
+
+msgid "Appearance"
+msgstr "Apariencia"
+
+msgid "Auto (Follow System)"
+msgstr "Auto (Seguir sistema)"
+
+msgid "Light"
+msgstr "Claro"
+
+msgid "Dark"
+msgstr "Oscuro"
+
+msgid "Auto (Browser Default)"
+msgstr "Auto (Navegador)"
+
+msgid "English"
+msgstr "Inglés"
+
+msgid "French"
+msgstr "Francés"
+
+msgid "Spanish"
+msgstr "Español"
+
+msgid "German"
+msgstr "Alemán"
+
+msgid "Ticket labels are derived from the current workspace prefix and ticket number. Changing the prefix updates labels like <code>EMH-4</code> across the UI without changing the internal ticket record."
+msgstr "Las etiquetas de los tickets se derivan del prefijo del espacio de trabajo actual y del número del ticket. Cambiar el prefijo actualiza las etiquetas como <code>EMH-4</code> en toda la interfaz sin cambiar el registro interno del ticket."
+
+msgid "Define the list of workflow statuses for this workspace. These form the columns on your Kanban board. Statuses must be comma-separated. The first and last are treated as 'open' and 'completed'."
+msgstr "Define la lista de estados del flujo de trabajo para este espacio de trabajo. Estos forman las columnas de tu tablero Kanban. Los estados deben estar separados por comas. El primero y el último se tratan como 'abierto' y 'completado'."
+
+msgid "Back to Tickets"
+msgstr "Volver a los tickets"
+
+msgid "Workspace"
+msgstr "Espacio de trabajo"
+
+msgid "Current State"
+msgstr "Estado actual"
+
+msgid "Prefix"
+msgstr "Prefijo"
+
+msgid "Choose your preferred color theme and language for the Nira interface."
+msgstr "Elige tu tema de color e idioma preferidos para la interfaz de Nira."
+
+msgid "optional"
+msgstr "opcional"
+
+msgid "why this ticket exists"
+msgstr "por qué existe este ticket"
+
+msgid "No tickets match the current filters."
+msgstr "No hay tickets que coincidan con los filtros actuales."
+
+msgid "Toggle theme (auto)"
+msgstr "Cambiar tema (auto)"
+
+msgid "No activity recorded yet."
+msgstr "No hay actividad registrada aún."
+
+msgid "No sub-tasks yet."
+msgstr "No hay subtareas aún."
+
+msgid "No related tickets yet."
+msgstr "No hay tickets relacionados aún."
+
+msgid "Ticket Prefix"
+msgstr "Prefijo del ticket"
+
+msgid "Showing"
+msgstr "Mostrando"
+
+msgid "of"
+msgstr "de"
+
+msgid "Ticket"
+msgstr "Ticket"
+
+msgid "Due"
+msgstr "Vencimiento"
+
+msgid "just now"
+msgstr "ahora mismo"
+
+msgid "{count} minute(s) ago"
+msgstr "hace {count} minute(s)"
+
+msgid "{count} hour(s) ago"
+msgstr "hace {count} hora(s)"
+
+msgid "{count} day(s) ago"
+msgstr "hace {count} día(s)"
+
+msgid "{count} week(s) ago"
+msgstr "hace {count} semana(s)"
+
+msgid "Open Points"
+msgstr "Puntos abiertos"
+
+msgid "Closed Points"
+msgstr "Puntos completados"
+
+msgid "low"
+msgstr "baja"
+
+msgid "medium"
+msgstr "media"
+
+msgid "high"
+msgstr "alta"
+
+msgid "critical"
+msgstr "crítica"
+
+msgid "descending"
+msgstr "descendente"
+
+msgid "ascending"
+msgstr "ascendente"

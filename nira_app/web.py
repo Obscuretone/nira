@@ -240,11 +240,12 @@ class NiraWebApp:
         return Response("200 OK", body)
 
     def list_page(self, query: dict[str, str], form: dict[str, str]) -> Response:
-        selected_status = query.get("status") or "not_closed"
-        selected_sort = normalize_list_sort(query.get("sort"))
-        selected_direction = normalize_list_direction(query.get("direction"))
         search_query = query.get("search")
         label_filter = query.get("label")
+        # Default to 'all' if filtering by search or label, otherwise 'not_closed'
+        selected_status = query.get("status") or ("all" if (search_query or label_filter) else "not_closed")
+        selected_sort = normalize_list_sort(query.get("sort"))
+        selected_direction = normalize_list_direction(query.get("direction"))
         overdue_filter = query.get("overdue") == "1"
         try:
             page = int(query.get("page", 1))
