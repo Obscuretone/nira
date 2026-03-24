@@ -20,7 +20,8 @@
         "in_progress": "in progress",
         "closed": "completed",
     } %}
-    <span class="badge {{ variants.get(status, 'text-bg-light border') }}">{{ labels.get(status, status) }}</span>
+    {% set formatted_label = labels.get(status, status|replace('_', ' ')) %}
+    <span class="badge {{ variants.get(status, 'text-bg-light border text-secondary') }}">{{ formatted_label }}</span>
 {% endmacro %}
 
 {% macro priority_badge(priority) %}

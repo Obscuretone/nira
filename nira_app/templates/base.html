@@ -239,6 +239,7 @@
         open: "form-select form-select-lg fw-semibold border-secondary bg-secondary-subtle text-secondary-emphasis",
         in_progress: "form-select form-select-lg fw-semibold border-primary bg-primary-subtle text-primary-emphasis",
         closed: "form-select form-select-lg fw-semibold border-success bg-success-subtle text-success-emphasis",
+        default: "form-select form-select-lg fw-semibold border-secondary bg-secondary-subtle text-secondary-emphasis",
       };
 
       const getStoredTheme = () => localStorage.getItem('theme')
@@ -380,7 +381,7 @@
           select.dataset.statusInitialized = "true";
 
           const applyStatusClass = () => {
-            select.className = statusSelectClasses[select.value] || statusSelectClasses.open;
+            select.className = statusSelectClasses[select.value] || statusSelectClasses.default;
           };
 
           applyStatusClass();

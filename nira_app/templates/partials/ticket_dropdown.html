@@ -1,10 +1,11 @@
+{% from "macros.html" import status_badge %}
 {% if tickets %}
   {% for t in tickets %}
   <li>
     <button type="button" class="dropdown-item d-flex flex-column gap-1" onclick="selectTicket(this, '{{ t.id }}')">
       <div class="d-flex w-100 justify-content-between align-items-center">
         <strong class="text-primary">{{ t.id }}</strong>
-        <span class="badge {% if t.status == 'closed' %}bg-success-subtle text-success-emphasis{% elif t.status == 'in_progress' %}bg-primary-subtle text-primary-emphasis{% else %}bg-secondary-subtle text-secondary-emphasis{% endif %}">{{ t.status }}</span>
+        {{ status_badge(t.status) | safe }}
       </div>
       <div class="text-truncate text-body-secondary small">{{ t.title }}</div>
     </button>

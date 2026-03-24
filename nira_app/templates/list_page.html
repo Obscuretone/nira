@@ -82,7 +82,7 @@
             </td>
             <td>
               {% if ticket.due_date %}
-              <span class="text-nowrap small {% if ticket.due_date < utc_now()[:10] and ticket.status != 'closed' %}text-danger fw-bold{% endif %}">{{ ticket.due_date }}</span>
+              <span class="text-nowrap small {% if ticket.due_date < utc_now()[:10] and ticket.status != statuses[-1] %}text-danger fw-bold{% endif %}">{{ ticket.due_date }}</span>
               {% else %}
               <span class="text-body-secondary small">-</span>
               {% endif %}

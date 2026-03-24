@@ -325,6 +325,7 @@ class NiraWebApp:
             total_pages=total_pages,
             total_tickets=total_project_tickets,
             filtered_tickets_count=filtered_tickets_count,
+            statuses=self.store.get_statuses(),
         )
         return Response("200 OK", body)
 
@@ -334,17 +335,18 @@ class NiraWebApp:
         # Fetch a reasonable number of recent tickets for the board
         tickets: list[TicketData] = self.store.list_tickets(search=search_query, label=label_filter, limit=100)
 
-        open_tickets = [t for t in tickets if t["status"] == "open"]
-        in_progress_tickets = [t for t in tickets if t["status"] == "in_progress"]
-        closed_tickets = [t for t in tickets if t["status"] == "closed"]
+        statuses = self.store.get_statuses()
+        tickets_by_status: dict[str, list[TicketData]] = {status: [] for status in statuses}
+        for t in tickets:
+            if t["status"] in tickets_by_status:
+                tickets_by_status[t["status"]].append(t)
 
         body = self.render(
             "board_page.html",
             search_query=search_query,
             label_filter=label_filter,
-            open_tickets=open_tickets,
-            in_progress_tickets=in_progress_tickets,
-            closed_tickets=closed_tickets,
+            statuses=statuses,
+            tickets_by_status=tickets_by_status,
         )
         return Response("200 OK", body)
 
@@ -393,6 +395,7 @@ class NiraWebApp:
             saved=query.get("saved") == "1",
             default_project=settings["default_project"],
             theme=settings["theme"],
+            statuses=settings["statuses"],
             ticket_count=settings["ticket_count"],
         )
         return Response("200 OK", body)
@@ -425,6 +428,8 @@ class NiraWebApp:
             updates["default_project"] = form["default_project"]
         if "theme" in form:
             updates["theme"] = form["theme"]
+        if "statuses" in form:
+            updates["statuses"] = form["statuses"]
 
         if updates:
             self.store.update_settings(updates)
@@ -532,13 +537,14 @@ class NiraWebApp:
         return self.redirect(f"/tickets/{ticket_id}")
 
     def status_filter_options(self) -> list[tuple[str, str]]:
-        return [
+        options = [
             ("not_closed", "not closed"),
-            ("open", "open"),
-            ("in_progress", "in progress"),
-            ("closed", "completed"),
-            ("all", "all"),
         ]
+        for status in self.store.get_statuses():
+            label = "completed" if status == "closed" else status.replace("_", " ")
+            options.append((status, label))
+        options.append(("all", "all"))
+        return options
 
     def list_sort_options(self) -> list[tuple[str, str]]:
         return [
@@ -585,7 +591,12 @@ class NiraWebApp:
         )
 
     def ticket_status_options(self) -> list[tuple[str, str]]:
-        return [("open", "open"), ("in_progress", "in progress"), ("closed", "completed")]
+        statuses = self.store.get_statuses()
+        options = []
+        for status in statuses:
+            label = "completed" if status == "closed" else status.replace("_", " ")
+            options.append((status, label))
+        return options
 
     def priority_options(self) -> list[tuple[str, str]]:
         return [("low", "low"), ("medium", "medium"), ("high", "high"), ("critical", "critical")]

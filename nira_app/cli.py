@@ -198,7 +198,7 @@ def show_ticket_logic(ctx, ticket_id):
     try:
         store = resolve_store(ctx.obj["root"], create=False)
         details = store.ticket_details(ticket_id)
-        print_ticket(details)
+        print_ticket(details, store)
     except NiraError as exc:
         console.print(f"[red]Error:[/red] {exc}")
         raise typer.Exit(1)
@@ -227,7 +227,7 @@ def list_tickets(
             search=search,
             label=label,
         )
-        print_ticket_list(tickets)
+        print_ticket_list(tickets, store)
     except NiraError as exc:
         console.print(f"[red]Error:[/red] {exc}")
         raise typer.Exit(1)
@@ -445,12 +445,19 @@ def start(
         store = resolve_store(ctx.obj["root"], create=False)
         ticket = store.get_ticket(ticket_id)
 
+        statuses = store.get_statuses()
+        in_progress_status = statuses[1] if len(statuses) > 1 else statuses[0]
+
         # 1. Update status if needed
-        if ticket["status"] != "in_progress":
-            store.update_ticket(ticket_id, status="in_progress")
-            console.print(f"Updated [bold blue]{ticket['id']}[/bold blue] status to [yellow]in_progress[/yellow]")
+        if ticket["status"] != in_progress_status:
+            store.update_ticket(ticket_id, status=in_progress_status)
+            console.print(
+                f"Updated [bold blue]{ticket['id']}[/bold blue] status to [yellow]{in_progress_status}[/yellow]"
+            )
         else:
-            console.print(f"Ticket [bold blue]{ticket['id']}[/bold blue] is already [yellow]in_progress[/yellow]")
+            console.print(
+                f"Ticket [bold blue]{ticket['id']}[/bold blue] is already [yellow]{in_progress_status}[/yellow]"
+            )
 
         if no_git:
             return
@@ -546,13 +553,17 @@ def read_markdown_input(*, body: str | None, edit: bool) -> str:
     return ""
 
 
-def print_ticket(details: TicketDetails) -> None:
+def print_ticket(details: TicketDetails, store: NiraStore) -> None:
     ticket = details["ticket"]
     related = details["related"]
     comments = details.get("comments", [])
 
-    status_color = "green" if ticket["status"] == "closed" else "yellow"
-    if ticket["status"] == "in_progress":
+    statuses = store.get_statuses()
+
+    status_color = "yellow"
+    if ticket["status"] == statuses[-1]:
+        status_color = "green"
+    elif len(statuses) > 1 and ticket["status"] == statuses[1]:
         status_color = "blue"
 
     header_text = Text()
@@ -607,10 +618,12 @@ def print_ticket(details: TicketDetails) -> None:
             console.print(Markdown(comment["body_md"]))
 
 
-def print_ticket_list(tickets: list[TicketData]) -> None:
+def print_ticket_list(tickets: list[TicketData], store: NiraStore) -> None:
     if not tickets:
         console.print("[dim]No tickets found.[/dim]")
         return
+
+    statuses = store.get_statuses()
 
     table = Table(box=None, header_style="bold cyan")
     table.add_column("ID", style="blue")
@@ -620,8 +633,10 @@ def print_ticket_list(tickets: list[TicketData]) -> None:
     table.add_column("Title")
 
     for ticket in tickets:
-        status_style = "green" if ticket["status"] == "closed" else ""
-        if ticket["status"] == "in_progress":
+        status_style = ""
+        if ticket["status"] == statuses[-1]:
+            status_style = "green"
+        elif len(statuses) > 1 and ticket["status"] == statuses[1]:
             status_style = "blue"
 
         priority_style = ""

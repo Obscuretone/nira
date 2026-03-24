@@ -38,6 +38,22 @@
             >
           </div>
 
+          <h2 class="h5 mb-3 mt-4">Workflow Statuses</h2>
+          <p class="text-body-secondary">
+            Define the list of workflow statuses for this workspace. These form the columns on your Kanban board. Statuses must be comma-separated. The first and last are treated as 'open' and 'completed'.
+          </p>
+          <div class="mb-3">
+            <label class="form-label" for="statuses">Custom Statuses</label>
+            <input
+              class="form-control"
+              id="statuses"
+              name="statuses"
+              value="{{ statuses|join(', ') }}"
+              placeholder="open, in_progress, closed"
+              required
+            >
+          </div>
+
           <h2 class="h5 mb-3 mt-4">Appearance</h2>
           <p class="text-body-secondary">
             Choose your preferred color theme for the Nira interface.

@@ -29,10 +29,9 @@
   </div>
 </div>
 
-<div class="row gx-4">
-  {% macro board_column(title, tickets, border_class, header_class, status_value, next_status, next_label) %}
-  <div class="col-md-4">
-    <div class="card bg-body-tertiary border-0 h-100 shadow-sm">
+{% macro board_column(title, tickets, border_class, header_class, status_value, next_status, next_label) %}
+<div class="col-11 col-md-5 col-lg-4 col-xl-3" style="min-width: 320px;">
+  <div class="card bg-body-tertiary border-0 h-100 shadow-sm">
       <div class="card-header border-0 bg-transparent py-3 border-top border-3 {{ border_class }}">
         <h2 class="h6 mb-0 d-flex justify-content-between align-items-center">
           <span class="text-uppercase fw-bold {{ header_class }}">{{ title }}</span> 
@@ -78,8 +77,24 @@
   </div>
   {% endmacro %}
 
-  {{ board_column("Open", open_tickets, "border-secondary", "text-secondary", "open", "in_progress", "Start") }}
-  {{ board_column("In Progress", in_progress_tickets, "border-primary", "text-primary", "in_progress", "closed", "Complete") }}
-  {{ board_column("Closed", closed_tickets, "border-success", "text-success", "closed", "open", "Reopen") }}
+  <div class="row gx-4 flex-nowrap overflow-x-auto pb-4" style="min-height: 65vh;">
+    {% for status in statuses %}
+      {% set is_first = loop.first %}
+      {% set is_last = loop.last %}
+      
+      {% if is_first %}
+        {% set border_class = "border-secondary" %}
+        {% set text_class = "text-secondary" %}
+      {% elif is_last %}
+        {% set border_class = "border-success" %}
+        {% set text_class = "text-success" %}
+      {% else %}
+        {% set border_class = "border-primary" %}
+        {% set text_class = "text-primary" %}
+      {% endif %}
+
+      {{ board_column(status | replace('_', ' ') | title, tickets_by_status[status], border_class, text_class, status, "", "") }}
+    {% endfor %}
+  </div>
 </div>
 {% endblock %}

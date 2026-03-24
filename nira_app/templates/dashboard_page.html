@@ -84,7 +84,7 @@
             </div>
             <div class="progress" style="height: 8px;">
               {% set percent = (count / stats.total_tickets * 100) if stats.total_tickets > 0 else 0 %}
-              {% set color = 'success' if status == 'closed' else ('primary' if status == 'in_progress' else 'secondary') %}
+              {% set color = 'success' if loop.last else ('secondary' if loop.first else 'primary') %}
               <div class="progress-bar bg-{{ color }}" style="width: {{ percent }}%"></div>
             </div>
           </div>

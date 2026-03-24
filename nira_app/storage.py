@@ -98,6 +98,8 @@ SOURCE_ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = 2
 DEFAULT_PROJECT_SETTING = "default_project"
 THEME_SETTING = "theme"
+CUSTOM_STATUSES_SETTING = "custom_statuses"
+DEFAULT_STATUSES = ["open", "in_progress", "closed"]
 
 _MIGRATIONS_RUN = False
 
@@ -660,10 +662,12 @@ class NiraStore:
             next_number = session.query(func.max(Ticket.number)).scalar() or 0
             number = next_number + 1
 
+            initial_status = self.get_statuses()[0]
+
             ticket = Ticket(
                 number=number,
                 title=title,
-                status="open",
+                status=initial_status,
                 type=(ticket_type or "task").strip() or "task",
                 priority=(priority or "medium").strip() or "medium",
                 source=(source or "").strip(),
@@ -692,10 +696,18 @@ class NiraStore:
             current_project = self.current_project(session)
             theme_row = session.get(Setting, THEME_SETTING)
             theme = theme_row.value if theme_row else "auto"
+
+            statuses_row = session.get(Setting, CUSTOM_STATUSES_SETTING)
+            if statuses_row and statuses_row.value.strip():
+                statuses = [s.strip() for s in statuses_row.value.split(",") if s.strip()]
+            else:
+                statuses = DEFAULT_STATUSES.copy()
+
             ticket_count = session.query(func.count(Ticket.id)).scalar() or 0
         return {
             "default_project": current_project,
             "theme": theme,
+            "statuses": statuses,
             "ticket_count": ticket_count,
         }
 
@@ -711,14 +723,37 @@ class NiraStore:
                 if theme not in ("auto", "light", "dark"):
                     theme = "auto"
 
-                # Check if it exists first since we use session.get
                 theme_row = session.get(Setting, THEME_SETTING)
                 if theme_row:
                     theme_row.value = theme
                 else:
                     session.add(Setting(key=THEME_SETTING, value=theme))
 
+            if "statuses" in settings:
+                raw_statuses = settings["statuses"]
+                parsed = [s.strip().lower().replace(" ", "_") for s in raw_statuses.split(",") if s.strip()]
+                # Deduplicate but preserve order
+                seen = set()
+                statuses = []
+                for p in parsed:
+                    if p not in seen:
+                        seen.add(p)
+                        statuses.append(p)
+
+                if not statuses:
+                    statuses = DEFAULT_STATUSES.copy()
+
+                val = ",".join(statuses)
+                statuses_row = session.get(Setting, CUSTOM_STATUSES_SETTING)
+                if statuses_row:
+                    statuses_row.value = val
+                else:
+                    session.add(Setting(key=CUSTOM_STATUSES_SETTING, value=val))
+
             session.commit()
+
+    def get_statuses(self) -> list[str]:
+        return cast(list[str], self.get_settings()["statuses"])
 
     def rename_default_project(self, new_project: str) -> dict[str, object]:
         new_key = normalize_project(new_project)
@@ -784,7 +819,9 @@ class NiraStore:
 
             if status:
                 if status == "not_closed":
-                    stmt = stmt.where(Ticket.status != "closed")
+                    statuses = self.get_statuses()
+                    closed_status = statuses[-1] if statuses else "closed"
+                    stmt = stmt.where(Ticket.status != closed_status)
                 else:
                     stmt = stmt.where(Ticket.status == self.normalize_status(status))
             if priority:
@@ -863,7 +900,9 @@ class NiraStore:
 
             if status:
                 if status == "not_closed":
-                    stmt = stmt.where(Ticket.status != "closed")
+                    statuses = self.get_statuses()
+                    closed_status = statuses[-1] if statuses else "closed"
+                    stmt = stmt.where(Ticket.status != closed_status)
                 else:
                     stmt = stmt.where(Ticket.status == self.normalize_status(status))
             if priority:
@@ -974,12 +1013,16 @@ class NiraStore:
         resolution_md = (resolution_md or "").strip()
         if not resolution_md:
             raise ValidationError("Closing a ticket requires resolution notes.")
+        statuses = self.get_statuses()
+        closed_status = statuses[-1] if statuses else "closed"
         return self.update_ticket(
-            ticket_id, status="closed", resolution_reason="completed", resolution_md=resolution_md
+            ticket_id, status=closed_status, resolution_reason="completed", resolution_md=resolution_md
         )
 
     def reopen_ticket(self, ticket_id: str) -> dict:
-        return self.update_ticket(ticket_id, status="open", resolution_reason="")
+        statuses = self.get_statuses()
+        open_status = statuses[0] if statuses else "open"
+        return self.update_ticket(ticket_id, status=open_status, resolution_reason="")
 
     def add_comment(self, ticket_id: str, body_md: str) -> dict:
         body_md = body_md.strip()
@@ -1157,17 +1200,18 @@ class NiraStore:
         )
 
     def get_dashboard_stats(self) -> DashboardStats:
+        statuses = self.get_statuses()
         with self.session() as session:
             # Count by status
             status_counts = {}
-            for status in STATUS_VALUES:
+            for status in statuses:
                 status_counts[status] = (
                     session.query(func.count(Ticket.id)).filter(Ticket.status == status).scalar() or 0
                 )
 
             # Points by status
             status_points = {}
-            for status in STATUS_VALUES:
+            for status in statuses:
                 status_points[status] = (
                     session.query(func.sum(Ticket.story_points)).filter(Ticket.status == status).scalar() or 0
                 )
@@ -1217,7 +1261,9 @@ class NiraStore:
         session.execute(stmt)
 
     def normalize_status(self, status: str) -> str:
-        normalized = (status or "").strip().lower()
-        if normalized not in STATUS_VALUES:
-            raise ValidationError("Status must be one of: open, in_progress, closed.")
+        normalized = (status or "").strip().lower().replace(" ", "_")
+        statuses = self.get_statuses()
+        if normalized not in statuses:
+            valid = ", ".join(statuses)
+            raise ValidationError(f"Status must be one of: {valid}.")
         return normalized
