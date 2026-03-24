@@ -146,8 +146,6 @@ class NiraWebApp:
                 "brand_logo_url": "/assets/nira.png",
                 "favicon_url": "/assets/nira.png",
                 "h": h,
-                "render_markdown": render_markdown,
-                "format_time": format_time,
                 "utc_now": utc_now,
                 "status_badge": status_badge,
                 "priority_badge": priority_badge,
@@ -169,6 +167,7 @@ class NiraWebApp:
             "current_theme": settings.get("theme", "auto"),
             "_": translator,
             "format_time": format_time_wrapper,
+            "render_markdown": render_markdown,
             **context,
         }
         return template.render(**full_context)
@@ -229,7 +228,7 @@ class NiraWebApp:
         except Exception as exc:  # pragma: no cover
             response = self.error_page(
                 "500 Internal Server Error",
-                f"Unexpected error: {exc}",
+                f"Unexpected error: {exc.__class__.__name__} {exc}. {__import__("traceback").format_exc()}",
                 "500 Internal Server Error",
             )
         return response.to_wsgi(start_response)
