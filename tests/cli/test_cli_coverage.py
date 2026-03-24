@@ -102,6 +102,13 @@ def test_cli_comment_error(temp_root, monkeypatch):
     assert "Mock comment error" in out
 
 
+def test_cli_comment_success(temp_root, monkeypatch):
+    run_cli_cov(["init", "--project-key", "NIRA"], cwd=temp_root)
+    run_cli_cov(["create", "T1"], cwd=temp_root)
+    code, out, _ = run_cli_cov(["comment", "NIRA-1", "-m", "msg"], cwd=temp_root)
+    assert code == 0
+    assert "Added comment" in out
+
 def test_cli_close_error(temp_root, monkeypatch):
     run_cli_cov(["init", "--project-key", "NIRA"], cwd=temp_root)
     run_cli_cov(["create", "T1"], cwd=temp_root)
@@ -269,7 +276,10 @@ def test_cli_start_branches(temp_root, monkeypatch):
     monkeypatch.setattr(subprocess, "run", mock_run)
 
     run_cli_cov(["start", "NIRA-1"], cwd=temp_root)
-    run_cli_cov(["start", "NIRA-2", "--no-git"], cwd=temp_root)
+    run_cli_cov(["start", "NIRA-2"], cwd=temp_root)
+    run_cli_cov(["create", "T3", "--type", "task"], cwd=temp_root)
+    run_cli_cov(["start", "NIRA-3"], cwd=temp_root)
+    run_cli_cov(["start", "NIRA-3", "--no-git"], cwd=temp_root)
 
     # Branch exists
     def mock_run_exists(args, **kwargs):
