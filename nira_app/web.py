@@ -432,14 +432,25 @@ class NiraWebApp:
 
     def ticket_detail_page(self, query: dict[str, str], form: dict[str, str], ticket_id: str) -> Response:
         details: TicketDetails = self.store.ticket_details(ticket_id)
+
+        comments = details.get("comments", [])
+        history = details.get("history", [])
+
+        timeline: list[dict[str, Any]] = []
+        for c in comments:
+            timeline.append({"type": "comment", "data": c, "created_at": c["created_at"]})
+        for h in history:
+            timeline.append({"type": "history", "data": h, "created_at": h["created_at"]})
+
+        timeline.sort(key=lambda x: str(x["created_at"]), reverse=True)
+
         body = self.render(
             "ticket_detail_page.html",
             ticket=details["ticket"],
             parent=details.get("parent"),
             related=details.get("related", []),
             sub_tasks=details.get("sub_tasks", []),
-            comments=details.get("comments", []),
-            history=details.get("history", []),
+            timeline=timeline,
             ticket_status_options=self.ticket_status_options(),
             priority_options=self.priority_options(),
             ticket_type_options=self.ticket_type_options(details["ticket"]["type"]),
