@@ -228,6 +228,7 @@ class NiraWebApp:
         self.router.add("GET", "/board", self.board_page)
         self.router.add("GET", "/tickets/new", self.new_ticket_page)
         self.router.add("GET", "/tickets/search_dropdown", self.ticket_search_dropdown)
+        self.router.add("GET", "/tickets/editor_autocomplete", self.editor_autocomplete)
         self.router.add("GET", "/settings", self.settings_page)
         self.router.add("POST", "/tickets", self.create_ticket_action)
         self.router.add("POST", "/settings", self.save_settings_action)
@@ -372,6 +373,16 @@ class NiraWebApp:
             "partials/ticket_dropdown.html",
             tickets=tickets,
             search_term=search_term,
+        )
+        return Response("200 OK", body)
+
+    def editor_autocomplete(self, query: dict[str, str], form: dict[str, str]) -> Response:
+        search_term = query.get("q", "").strip()
+        tickets = self.store.list_tickets(search=search_term if search_term else None, limit=5, sort_by="updated")
+
+        body = self.render(
+            "partials/editor_autocomplete.html",
+            tickets=tickets,
         )
         return Response("200 OK", body)
 

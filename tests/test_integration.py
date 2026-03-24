@@ -862,3 +862,13 @@ class TestHttpIntegration:
         assert "Kanban Board" in body
         assert "Open ticket" in body
         assert "In progress ticket" in body
+
+    def test_editor_autocomplete(self):
+        self.store.create_ticket("EMH", "Some ticket")
+        status, headers, body = self.request("GET", "/tickets/editor_autocomplete?q=Some")
+        assert status == 200
+        assert "Some ticket" in body
+
+        status, headers, body = self.request("GET", "/tickets/editor_autocomplete?q=NotThere")
+        assert status == 200
+        assert "No matching tickets" in body

@@ -1,0 +1,13 @@
+{% if tickets %}
+  {% for t in tickets %}
+  <button type="button" class="list-group-item list-group-item-action d-flex flex-column gap-1" onclick="insertTicketLink('{{ t.id }}', '{{ t.title | replace("'", "\\'") }}')">
+    <div class="d-flex w-100 justify-content-between align-items-center">
+      <strong class="text-primary">{{ t.id }}</strong>
+      <span class="badge {% if t.status == 'closed' %}bg-success-subtle text-success-emphasis{% elif t.status == 'in_progress' %}bg-primary-subtle text-primary-emphasis{% else %}bg-secondary-subtle text-secondary-emphasis{% endif %}">{{ t.status }}</span>
+    </div>
+    <div class="text-truncate text-body-secondary small">{{ t.title }}</div>
+  </button>
+  {% endfor %}
+{% else %}
+  <div class="list-group-item text-body-secondary text-center small py-3">No matching tickets</div>
+{% endif %}

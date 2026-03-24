@@ -313,6 +313,42 @@
             return;
           }
 
+          const ticketPlugin = () => {
+            const button = document.createElement('button');
+            button.className = 'toastui-editor-toolbar-icons';
+            button.style.backgroundImage = 'none';
+            button.style.margin = '0';
+            button.innerHTML = '<b style="color:var(--bs-primary); font-size:16px;">#</b>';
+            button.title = 'Link Ticket';
+            
+            button.addEventListener('click', () => {
+              // Create a tiny modal or just prompt for now
+              const search = window.prompt("Enter ticket ID to link (e.g. EMH-1):");
+              if (search) {
+                 const link = `[${search}](/tickets/${search})`;
+                 editor.insertText(link);
+              }
+            });
+
+            return {
+              toolbarItems: [
+                {
+                  groupIndex: 1,
+                  itemIndex: 3,
+                  item: {
+                    name: 'linkTicket',
+                    tooltip: 'Link Ticket',
+                    command: 'linkTicket',
+                    text: '@',
+                    className: 'toastui-editor-toolbar-icons',
+                    style: 'background:none; width:auto; padding: 0 5px; font-weight:bold; color:var(--bs-primary);',
+                    el: button
+                  }
+                }
+              ]
+            };
+          };
+
           const isDark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
           
           const editor = new window.toastui.Editor({
@@ -323,6 +359,7 @@
             previewStyle: "vertical",
             usageStatistics: false,
             theme: isDark ? 'dark' : 'light',
+            plugins: [ticketPlugin]
           });
 
           // We need to keep a reference to update it when theme changes
