@@ -748,7 +748,7 @@ class TestHttpIntegration:
         assert 'href="/tickets/NIRA-1"' not in list_page
         assert 'href="/tickets/NIRA-2"' in list_page
 
-        status, _, closed_list_page = self.request("GET", "/?status=closed")
+        status, _, closed_list_page = self.request("GET", "/list?status=closed")
         assert status == 200
         assert 'href="/tickets/NIRA-1"' in closed_list_page
         assert 'href="/tickets/NIRA-2"' not in closed_list_page

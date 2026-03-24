@@ -78,6 +78,7 @@ class DashboardStats(TypedDict):
     total_tickets: int
     total_points: int
     recent_history: list[HistoryData]
+    recent_tickets: list[TicketData]
 
 
 class TicketDetails(TypedDict):
@@ -1263,6 +1264,7 @@ class NiraStore:
                     "total_tickets": total_tickets,
                     "total_points": total_points,
                     "recent_history": history_list,
+                    "recent_tickets": self.list_tickets(sort_by="updated", direction="desc", limit=5),
                 },
             )
 
