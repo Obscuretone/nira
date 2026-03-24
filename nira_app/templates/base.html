@@ -522,47 +522,6 @@
           }
       };
 
-      // Global keyboard shortcuts
-      document.addEventListener('keydown', (e) => {
-        // Ignore if user is typing in an input, textarea, or contenteditable element
-        const activeElement = document.activeElement;
-        const isInput = activeElement.tagName === 'INPUT' || 
-                        activeElement.tagName === 'TEXTAREA' || 
-                        activeElement.tagName === 'SELECT' ||
-                        activeElement.isContentEditable;
-                        
-        if (isInput) {
-            if (e.key === 'Escape') {
-                activeElement.blur();
-            }
-            return;
-        }
-
-        // Shortcuts
-        const key = e.key.toLowerCase();
-        if (key === 'c') {
-            e.preventDefault();
-            htmx.ajax('GET', '/tickets/new', {target: 'body', pushUrl: true});
-        } else if (key === 'b') {
-            e.preventDefault();
-            htmx.ajax('GET', '/board', {target: 'body', pushUrl: true});
-        } else if (key === 'd') {
-            e.preventDefault();
-            htmx.ajax('GET', '/', {target: 'body', pushUrl: true});
-        } else if (key === 'l') {
-            e.preventDefault();
-            htmx.ajax('GET', '/list', {target: 'body', pushUrl: true});
-        } else if (key === 'f' || key === '/') {
-            e.preventDefault();
-            const searchInput = document.getElementById('global-search-input');
-            if (searchInput) {
-                searchInput.focus();
-                // Optionally select all text
-                searchInput.select();
-            }
-        }
-      });
-
     </script>
   </body>
 </html>
