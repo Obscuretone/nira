@@ -87,6 +87,12 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "{count} week(s) ago": "il y a {count} semaine(s)",
         "Open Points": "Points ouverts",
         "Closed Points": "Points terminés",
+        "low": "basse",
+        "medium": "moyenne",
+        "high": "haute",
+        "critical": "critique",
+        "descending": "décroissant",
+        "ascending": "croissant",
     },
     "es": {
         "Ticket List": "Lista de tickets",
@@ -174,6 +180,12 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "{count} week(s) ago": "hace {count} semana(s)",
         "Open Points": "Puntos abiertos",
         "Closed Points": "Puntos completados",
+        "low": "baja",
+        "medium": "media",
+        "high": "alta",
+        "critical": "crítica",
+        "descending": "descendente",
+        "ascending": "ascendente",
     },
     "de": {
         "Ticket List": "Ticketliste",
@@ -261,6 +273,12 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "{count} week(s) ago": "vor {count} Woche(n)",
         "Open Points": "Offene Punkte",
         "Closed Points": "Abgeschlossene Punkte",
+        "low": "niedrig",
+        "medium": "mittel",
+        "high": "hoch",
+        "critical": "kritisch",
+        "descending": "absteigend",
+        "ascending": "aufsteigend",
     },
 }
 

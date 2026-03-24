@@ -206,7 +206,7 @@
               hx-target="body"
             >
               {% for value, label in ticket_status_options -%}
-              <option value="{{ value }}"{% if value == ticket.status %} selected{% endif %}>{{ label }}</option>
+              <option value="{{ value }}"{% if value == ticket.status %} selected{% endif %}>{{ _(label) }}</option>
               {% endfor -%}
             </select>
           </div>
@@ -222,7 +222,7 @@
               hx-target="body"
             >
               {% for value, label in priority_options -%}
-              <option value="{{ value }}"{% if value == ticket.priority %} selected{% endif %}>{{ label }}</option>
+              <option value="{{ value }}"{% if value == ticket.priority %} selected{% endif %}>{{ _(label) }}</option>
               {% endfor -%}
             </select>
           </div>
@@ -311,7 +311,7 @@
               hx-target="body"
             >
               {% for value, label in ticket_type_options -%}
-              <option value="{{ value }}"{% if value == ticket.type %} selected{% endif %}>{{ label }}</option>
+              <option value="{{ value }}"{% if value == ticket.type %} selected{% endif %}>{{ _(label) }}</option>
               {% endfor -%}
             </select>
           </div>

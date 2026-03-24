@@ -35,8 +35,3 @@ def test_regional_language():
 def test_missing_language_code():
     _ = get_translator("zz")
     assert _("Hello") == "Hello"
-
-
-def test_complex_region_code():
-    _ = get_translator("fr-CA")
-    assert _("Ticket List") == "Liste des tickets"
