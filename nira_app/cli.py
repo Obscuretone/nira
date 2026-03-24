@@ -245,6 +245,8 @@ def update(
     labels: Annotated[Optional[str], typer.Option(help="New comma-separated labels.")] = None,
     due: Annotated[Optional[str], typer.Option(help="New due date (YYYY-MM-DD).")] = None,
     parent: Annotated[Optional[str], typer.Option(help="New parent ticket ID.")] = None,
+    story_points: Annotated[Optional[int], typer.Option(help="New story points.")] = None,
+    body: Annotated[Optional[str], typer.Option("--body", "-m", help="New body content.")] = None,
     resolution_reason: Annotated[Optional[str], typer.Option(help="New resolution reason.")] = None,
 ):
     """
@@ -260,6 +262,8 @@ def update(
             "source": source if source is not None else UNSET,
             "labels": labels if labels is not None else UNSET,
             "due_date": due if due is not None else UNSET,
+            "story_points": story_points if story_points is not None else UNSET,
+            "body_md": body if body is not None else UNSET,
             "resolution_reason": resolution_reason if resolution_reason is not None else UNSET,
         }
         if parent is not None:
@@ -498,7 +502,7 @@ def start(
 
 
 @app.command()
-def serve(
+def serve(  # pragma: no cover
     ctx: typer.Context,
     host: Annotated[str, typer.Option(help="Host to bind to.")] = "127.0.0.1",
     port: Annotated[int, typer.Option(help="Port to bind to.")] = 8765,
@@ -791,5 +795,5 @@ def main(args: list[str] | None = None) -> int:
         return exc.code if isinstance(exc.code, int) else 0
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     main()

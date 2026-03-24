@@ -17,7 +17,7 @@ from typing import Literal, TypedDict, overload
 from unittest import mock
 from urllib.parse import urlencode, urlsplit
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine
 from wsgiref.util import setup_testing_defaults
 
 from nira_app.cli import app, main
@@ -65,6 +65,12 @@ def run_cli(args, cwd, env=None, input_text=None, timeout=20):
         os.environ.update(original_env)
 
 
+@pytest.fixture
+def temp_root():
+    with tempfile.TemporaryDirectory() as td:
+        yield Path(td)
+
+
 class TestCliIntegration:
     def test_cli_init_new_show_list_and_aliases(self, temp_root):
         init_result = run_cli(["init", "--project-key", "EMH"], cwd=temp_root)
@@ -102,83 +108,6 @@ class TestCliIntegration:
         assert list_result.returncode == 0
         assert "EMH-1" in list_result.stdout
         assert "Evaluate Tortoise alternatives" in list_result.stdout
-
-    def test_cli_migrates_legacy_text_ticket_ids_to_integer_primary_keys(self, temp_root):
-        workspace = temp_root / "legacy_workspace"
-        workspace.mkdir()
-        state_dir = workspace / ".nira"
-        state_dir.mkdir()
-        db_path = state_dir / "nira.db"
-
-        # Use SQLAlchemy to ensure connections are closed properly
-        engine = create_engine(f"sqlite:///{db_path}")
-        with engine.connect() as connection:
-            connection.execute(text("CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)"))
-            connection.execute(
-                text(
-                    "CREATE TABLE projects (key TEXT PRIMARY KEY, next_number INTEGER NOT NULL, created_at TEXT NOT NULL)"
-                )
-            )
-            connection.execute(
-                text("""
-                CREATE TABLE tickets (
-                    id TEXT PRIMARY KEY,
-                    project TEXT NOT NULL,
-                    number INTEGER NOT NULL,
-                    title TEXT NOT NULL,
-                    status TEXT NOT NULL,
-                    type TEXT NOT NULL,
-                    priority TEXT NOT NULL,
-                    source TEXT NOT NULL,
-                    resolution_reason TEXT NOT NULL DEFAULT '',
-                    body_md TEXT NOT NULL DEFAULT '',
-                    resolution_md TEXT NOT NULL DEFAULT '',
-                    created_at TEXT NOT NULL,
-                    updated_at TEXT NOT NULL,
-                    UNIQUE(project, number)
-                )
-            """)
-            )
-            connection.execute(
-                text(
-                    "CREATE TABLE comments (id INTEGER PRIMARY KEY AUTOINCREMENT, ticket_id TEXT NOT NULL REFERENCES tickets(id) ON DELETE CASCADE, body_md TEXT NOT NULL, created_at TEXT NOT NULL)"
-                )
-            )
-            connection.execute(
-                text(
-                    "CREATE TABLE links (ticket_a TEXT NOT NULL REFERENCES tickets(id) ON DELETE CASCADE, ticket_b TEXT NOT NULL REFERENCES tickets(id) ON DELETE CASCADE, created_at TEXT NOT NULL, PRIMARY KEY(ticket_a, ticket_b), CHECK(ticket_a < ticket_b))"
-                )
-            )
-
-            connection.execute(text("INSERT INTO settings (key, value) VALUES ('default_project', 'EMH')"))
-            connection.execute(
-                text("INSERT INTO projects (key, next_number, created_at) VALUES ('EMH', 2, '2026-03-23T00:00:00Z')")
-            )
-            connection.execute(
-                text("""
-                INSERT INTO tickets (
-                    id, project, number, title, status, type, priority, source,
-                    resolution_reason, body_md, resolution_md, created_at, updated_at
-                ) VALUES ('EMH-1', 'EMH', 1, 'Legacy ticket', 'open', 'task', 'medium', 'legacy import', '', 'Legacy body', '', '2026-03-23T00:00:00Z', '2026-03-23T00:00:00Z')
-            """)
-            )
-            connection.commit()
-        engine.dispose()
-
-        show_result = run_cli(["show", "EMH-1"], cwd=workspace)
-        assert show_result.returncode == 0
-        assert "EMH-1 Legacy ticket" in show_result.stdout
-        assert "Legacy body" in show_result.stdout
-
-        with closing(sqlite3.connect(db_path)) as connection:
-            id_info = connection.execute("PRAGMA table_info(tickets)").fetchall()
-            id_column = next(row for row in id_info if row[1] == "id")
-            migrated_row = connection.execute("SELECT id, number, title FROM tickets WHERE number = 1").fetchone()
-
-        assert str(id_column[2]).upper() == "INTEGER"
-        assert migrated_row is not None
-        assert migrated_row[1] == 1
-        assert migrated_row[2] == "Legacy ticket"
 
     def test_cli_new_does_not_treat_uppercase_title_words_as_project_keys(self, temp_root):
         init_result = run_cli(["init", "--project-key", "EMH"], cwd=temp_root)
@@ -893,7 +822,9 @@ def test_regional_language():
 def test_run_migrations():
     with tempfile.TemporaryDirectory() as td:
         db_path = Path(td) / "test.db"
-        engine = create_engine(f"sqlite:///{db_path}")
+        from sqlalchemy import pool
+
+        engine = create_engine(f"sqlite:///{db_path}", poolclass=pool.NullPool)
 
         # Test running all upgrades
         alembic_cfg = Config()

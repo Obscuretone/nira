@@ -22,16 +22,11 @@ def test_i18n_german():
     assert _("Ticket List") == "Ticketliste"
 
 
-def test_missing_language():
-    _ = get_translator("xyz")
-    assert _("Title") == "Title"
-
-
-def test_regional_language():
-    _ = get_translator("es-MX")
-    assert _("Title") == "Título"
-
-
 def test_missing_language_code():
     _ = get_translator("zz")
     assert _("Hello") == "Hello"
+
+
+def test_complex_region_code():
+    _ = get_translator("fr-CA")
+    assert _("Ticket List") == "Liste des tickets"

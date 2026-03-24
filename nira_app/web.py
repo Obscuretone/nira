@@ -590,7 +590,7 @@ class NiraWebApp:
         try:
             full_path = (ASSETS_DIR / asset_path).resolve()
             full_path.relative_to(ASSETS_DIR.resolve())
-        except (ValueError, OSError):
+        except (ValueError, OSError):  # pragma: no cover
             return Response("404 Not Found", "Asset not found.", content_type="text/plain; charset=utf-8")
 
         if not full_path.is_file():

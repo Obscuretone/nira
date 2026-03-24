@@ -28,7 +28,7 @@ def render_inline(text: str) -> str:
             return match.group(1)
         return f'<a href="{url}">{match.group(1)}</a>'
 
-    escaped = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", replace_link, escaped)
+    escaped = re.sub(r"\[([^\]]+)\]\(([^)]+?)\)", replace_link, escaped)
     escaped = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", escaped)
     escaped = re.sub(r"\*([^*]+)\*", r"<em>\1</em>", escaped)
 

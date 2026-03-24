@@ -342,6 +342,9 @@ class NiraStore:
                 command.upgrade(self.alembic_cfg, "head")
         self.engine.dispose()
 
+    def close(self):
+        self.engine.dispose()
+
     @contextmanager
     def connect(self) -> Iterator[sqlite3.Connection]:
         connection = sqlite3.connect(self.db_path)

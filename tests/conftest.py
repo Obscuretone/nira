@@ -1,22 +1,27 @@
-import shutil
-import tempfile
-from pathlib import Path
-
 import pytest
-
-import nira_app.storage
+import gc
+from nira_app.storage import NiraStore
 
 
 @pytest.fixture(autouse=True)
-def reset_migrations():
-    """Resets the migration tracking flag before each test."""
-    nira_app.storage._MIGRATIONS_RUN = False
+def cleanup_sqlite_connections():
+    stores = []
+    original_init = NiraStore.__init__
+
+    def tracking_init(self, *args, **kwargs):
+        original_init(self, *args, **kwargs)
+        stores.append(self)
+
+    NiraStore.__init__ = tracking_init  # type: ignore
     yield
+    NiraStore.__init__ = original_init  # type: ignore
+
+    for store in stores:
+        if hasattr(store, "engine"):
+            store.engine.dispose()
+    gc.collect()
 
 
 @pytest.fixture
-def temp_root():
-    """Provides a temporary directory path for tests."""
-    tempdir = tempfile.mkdtemp()
-    yield Path(tempdir)
-    shutil.rmtree(tempdir)
+def temp_root(tmp_path):
+    return tmp_path
