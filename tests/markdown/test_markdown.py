@@ -18,3 +18,4 @@ def test_markdown_render_coverage():
     assert "<pre><code>\nunclosed" in render_markdown("```\nunclosed")
     assert "<li>item</li>" in render_markdown("- item")
     assert render_markdown("") == ""
+    assert "<p>p1</p>\n<p>p2</p>" in render_markdown("p1\n\np2")

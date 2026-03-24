@@ -30,3 +30,14 @@ def test_missing_language_code():
 def test_complex_region_code():
     _ = get_translator("fr-CA")
     assert _("Ticket List") == "Liste des tickets"
+
+
+def test_translator_exception_fallback(monkeypatch):
+    import gettext
+
+    def mock_translation(*args, **kwargs):
+        raise Exception("Mock error")
+
+    monkeypatch.setattr(gettext, "translation", mock_translation)
+    _ = get_translator("en")
+    assert _("Test") == "Test"

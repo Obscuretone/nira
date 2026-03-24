@@ -48,13 +48,18 @@ def test_legacy_migration_coverage(temp_root):
 
 
 def test_storage_misc_and_legacy(temp_root):
-    from nira_app.storage import normalize_project, derive_default_project_key
+    from nira_app.storage import normalize_project, derive_default_project_key, normalize_ticket_id
 
     with pytest.raises(ValidationError):
         normalize_project("")
     with pytest.raises(ValidationError):
         normalize_project("123")
     assert derive_default_project_key("123 name") == "N1N"
+    assert derive_default_project_key("  ") == "NIRA"
+    assert derive_default_project_key("") == "NIRA"
+
+    with pytest.raises(ValidationError):
+        normalize_ticket_id("INVALID")
 
     store = NiraStore(temp_root / "t1")
     store.initialize("NIRA")
