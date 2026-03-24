@@ -185,8 +185,8 @@
             type="search" 
             id="global-search-input"
             name="search" 
-            placeholder="Search..." 
-            aria-label="Search" 
+            placeholder="{{ _('Search...') }}" 
+            aria-label="{{ _('Search...') }}" 
             value="{{ search_query or '' }}"
             hx-get="/"
             hx-trigger="keyup changed delay:500ms"
@@ -197,11 +197,11 @@
         </form>
 
         <nav class="d-flex flex-wrap align-items-center brand-nav order-2 order-lg-3 gap-3">
-          <a class="link-body-emphasis text-decoration-none fw-semibold" href="/" title="Go to List (L or /)">Ticket List</a>
-          <a class="link-body-emphasis text-decoration-none fw-semibold" href="/dashboard" title="Go to Dashboard (D)">Dashboard</a>
-          <a class="link-body-emphasis text-decoration-none fw-semibold" href="/board" title="Go to Kanban Board (B)">Board</a>
-          <a class="link-body-emphasis text-decoration-none fw-semibold" href="/tickets/new" title="Create a new ticket (C)">Create Ticket</a>
-          <a class="link-body-emphasis text-decoration-none fw-semibold" href="/settings">Settings</a>
+          <a class="link-body-emphasis text-decoration-none fw-semibold" href="/" title="Go to List (L or /)">{{ _('Ticket List') }}</a>
+          <a class="link-body-emphasis text-decoration-none fw-semibold" href="/dashboard" title="Go to Dashboard (D)">{{ _('Dashboard') }}</a>
+          <a class="link-body-emphasis text-decoration-none fw-semibold" href="/board" title="Go to Kanban Board (B)">{{ _('Kanban Board') }}</a>
+          <a class="link-body-emphasis text-decoration-none fw-semibold" href="/tickets/new" title="Create a new ticket (C)">{{ _('Create Ticket') }}</a>
+          <a class="link-body-emphasis text-decoration-none fw-semibold" href="/settings">{{ _('Settings') }}</a>
           <div class="dropdown ms-1">
             <button class="btn btn-sm btn-outline-secondary dropdown-toggle d-flex align-items-center" id="bd-theme" type="button" aria-expanded="false" data-bs-toggle="dropdown" aria-label="Toggle theme (auto)">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-circle-half theme-icon-active" viewBox="0 0 16 16"><path d="M8 15A7 7 0 1 0 8 1v14zm0 1A8 8 0 1 1 8 0a8 8 0 0 1 0 16z"/></svg>

@@ -11,6 +11,7 @@ from wsgiref.simple_server import WSGIRequestHandler, make_server
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
+from .i18n import get_translator
 from .markdown import render_markdown
 from .storage import (
     DashboardStats,
@@ -159,8 +160,10 @@ class NiraWebApp:
     def render(self, template_name: str, **context: Any) -> str:
         template = self.jinja_env.get_template(template_name)
         settings = self.store.get_settings()
+        translator = get_translator(getattr(self, "_current_lang", "en"))
         full_context = {
             "current_theme": settings.get("theme", "auto"),
+            "_": translator,
             **context,
         }
         return template.render(**full_context)
@@ -195,6 +198,15 @@ class NiraWebApp:
         path = environ.get("PATH_INFO", "") or "/"
         query = self.parse_query(environ.get("QUERY_STRING", ""))
         form = self.parse_form(environ) if method == "POST" else {}
+
+        # Determine language for this request
+        settings = self.store.get_settings()
+        lang_setting = str(settings.get("language", "auto"))
+        if lang_setting == "auto":
+            accept_lang = environ.get("HTTP_ACCEPT_LANGUAGE", "en")
+            self._current_lang = accept_lang.split(",")[0].split("-")[0].lower() if accept_lang else "en"
+        else:
+            self._current_lang = lang_setting
 
         try:
             match = self.router.match(method, path)
@@ -342,6 +354,7 @@ class NiraWebApp:
             saved=query.get("saved") == "1",
             default_project=settings["default_project"],
             theme=settings["theme"],
+            language=settings["language"],
             statuses=settings["statuses"],
             ticket_count=settings["ticket_count"],
         )
@@ -375,6 +388,8 @@ class NiraWebApp:
             updates["default_project"] = form["default_project"]
         if "theme" in form:
             updates["theme"] = form["theme"]
+        if "language" in form:
+            updates["language"] = form["language"]
         if "statuses" in form:
             updates["statuses"] = form["statuses"]
 

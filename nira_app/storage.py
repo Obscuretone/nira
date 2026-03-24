@@ -99,6 +99,7 @@ SCHEMA_VERSION = 2
 DEFAULT_PROJECT_SETTING = "default_project"
 THEME_SETTING = "theme"
 CUSTOM_STATUSES_SETTING = "custom_statuses"
+LANGUAGE_SETTING = "language"
 DEFAULT_STATUSES = ["open", "in_progress", "closed"]
 
 _MIGRATIONS_RUN = False
@@ -697,6 +698,9 @@ class NiraStore:
             theme_row = session.get(Setting, THEME_SETTING)
             theme = theme_row.value if theme_row else "auto"
 
+            lang_row = session.get(Setting, LANGUAGE_SETTING)
+            language = lang_row.value if lang_row else "auto"
+
             statuses_row = session.get(Setting, CUSTOM_STATUSES_SETTING)
             if statuses_row and statuses_row.value.strip():
                 statuses = [s.strip() for s in statuses_row.value.split(",") if s.strip()]
@@ -707,6 +711,7 @@ class NiraStore:
         return {
             "default_project": current_project,
             "theme": theme,
+            "language": language,
             "statuses": statuses,
             "ticket_count": ticket_count,
         }
@@ -728,6 +733,17 @@ class NiraStore:
                     theme_row.value = theme
                 else:
                     session.add(Setting(key=THEME_SETTING, value=theme))
+
+            if "language" in settings:
+                lang = settings["language"]
+                if lang not in ("auto", "en", "fr", "es", "de"):
+                    lang = "auto"
+
+                lang_row = session.get(Setting, LANGUAGE_SETTING)
+                if lang_row:
+                    lang_row.value = lang
+                else:
+                    session.add(Setting(key=LANGUAGE_SETTING, value=lang))
 
             if "statuses" in settings:
                 raw_statuses = settings["statuses"]

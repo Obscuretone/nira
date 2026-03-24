@@ -1,3 +1,4 @@
+from nira_app.i18n import get_translator
 import io
 import os
 import re
@@ -872,3 +873,13 @@ class TestHttpIntegration:
         status, headers, body = self.request("GET", "/tickets/editor_autocomplete?q=NotThere")
         assert status == 200
         assert "No matching tickets" in body
+
+
+def test_missing_language():
+    _ = get_translator("xyz")
+    assert _("Title") == "Title"
+
+
+def test_regional_language():
+    _ = get_translator("es-MX")
+    assert _("Title") == "Título"

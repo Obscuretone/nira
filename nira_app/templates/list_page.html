@@ -1,48 +1,48 @@
 {% extends "base.html" %}
 
-{% block title %}Tickets{% endblock %}
+{% block title %}{{ _("Tickets") }}{% endblock %}
 
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
   <div>
-    <h1 class="h2 mb-0">Tickets</h1>
+    <h1 class="h2 mb-0">{{ _("Tickets") }}</h1>
   </div>
 </div>
 
 <form id="filter-form" class="row g-3 mb-4" method="get" action="/" hx-get="/" hx-target="body" hx-push-url="true" hx-include="#global-search-input">
   <div class="col-md-2">
-    <label class="form-label" for="label">Label</label>
-    <input type="text" class="form-control" id="label" name="label" placeholder="Filter label..." value="{{ label_filter or '' }}" hx-get="/" hx-trigger="keyup changed delay:500ms" hx-target="body" hx-push-url="true" hx-include="#global-search-input">
+    <label class="form-label" for="label">{{ _("Labels") }}</label>
+    <input type="text" class="form-control" id="label" name="label" placeholder="{{ _('Filter label...') }}" value="{{ label_filter or '' }}" hx-get="/" hx-trigger="keyup changed delay:500ms" hx-target="body" hx-push-url="true" hx-include="#global-search-input">
   </div>
   <div class="col-md-2">
-    <label class="form-label" for="status">Status</label>
+    <label class="form-label" for="status">{{ _("Status") }}</label>
     <select class="form-select" id="status" name="status" hx-get="/" hx-trigger="change" hx-target="body" hx-push-url="true" hx-include="#global-search-input">
       {% for value, label in status_options -%}
-      <option value="{{ value }}"{% if value == selected_status %} selected{% endif %}>{{ label }}</option>
+      <option value="{{ value }}"{% if value == selected_status %} selected{% endif %}>{{ _(label) }}</option>
       {% endfor -%}
     </select>
   </div>
   <div class="col-md-3">
-    <label class="form-label" for="sort">Sort By</label>
+    <label class="form-label" for="sort">{{ _("Sort By") }}</label>
     <select class="form-select" id="sort" name="sort" hx-get="/" hx-trigger="change" hx-target="body" hx-push-url="true" hx-include="#global-search-input">
       {% for value, label in sort_options -%}
-      <option value="{{ value }}"{% if value == selected_sort %} selected{% endif %}>{{ label }}</option>
+      <option value="{{ value }}"{% if value == selected_sort %} selected{% endif %}>{{ _(label) }}</option>
       {% endfor -%}
     </select>
   </div>
   <div class="col-md-3">
-    <label class="form-label" for="direction">Direction</label>
+    <label class="form-label" for="direction">{{ _("Direction") }}</label>
     <select class="form-select" id="direction" name="direction" hx-get="/" hx-trigger="change" hx-target="body" hx-push-url="true" hx-include="#global-search-input">
       {% for value, label in direction_options -%}
-      <option value="{{ value }}"{% if value == selected_direction %} selected{% endif %}>{{ label }}</option>
+      <option value="{{ value }}"{% if value == selected_direction %} selected{% endif %}>{{ _(label) }}</option>
       {% endfor -%}
     </select>
   </div>
   <div class="col-md-2">
-    <label class="form-label" for="overdue">Due Date</label>
+    <label class="form-label" for="overdue">{{ _("Due Date") }}</label>
     <select class="form-select" id="overdue" name="overdue" hx-get="/" hx-trigger="change" hx-target="body" hx-push-url="true" hx-include="#global-search-input">
-      <option value="">All</option>
-      <option value="1" {% if overdue_filter %}selected{% endif %}>Overdue</option>
+      <option value="">{{ _("All") }}</option>
+      <option value="1" {% if overdue_filter %}selected{% endif %}>{{ _("Overdue") }}</option>
     </select>
   </div>
 </form>
@@ -53,12 +53,12 @@
       <table class="table table-hover align-middle mb-0">
         <thead>
           <tr>
-            <th scope="col">{{ sort_header_link("Ticket", "ticket_id", selected_sort, selected_direction, selected_status, search_query, label_filter) | safe }}</th>
-            <th scope="col">Title</th>
-            <th scope="col">Due</th>
-            <th scope="col">{{ sort_header_link("Status", "status", selected_sort, selected_direction, selected_status, search_query, label_filter) | safe }}</th>
-            <th scope="col">{{ sort_header_link("Priority", "priority", selected_sort, selected_direction, selected_status, search_query, label_filter) | safe }}</th>
-            <th scope="col">{{ sort_header_link("Updated", "updated", selected_sort, selected_direction, selected_status, search_query, label_filter) | safe }}</th>
+            <th scope="col">{{ sort_header_link(_("Ticket"), "ticket_id", selected_sort, selected_direction, selected_status, search_query, label_filter) | safe }}</th>
+            <th scope="col">{{ _("Title") }}</th>
+            <th scope="col">{{ _("Due") }}</th>
+            <th scope="col">{{ sort_header_link(_("Status"), "status", selected_sort, selected_direction, selected_status, search_query, label_filter) | safe }}</th>
+            <th scope="col">{{ sort_header_link(_("Priority"), "priority", selected_sort, selected_direction, selected_status, search_query, label_filter) | safe }}</th>
+            <th scope="col">{{ sort_header_link(_("Updated"), "updated", selected_sort, selected_direction, selected_status, search_query, label_filter) | safe }}</th>
           </tr>
         </thead>
         <tbody>
@@ -128,6 +128,6 @@
 {% endif %}
 
 <div class="text-center mt-3 text-body-secondary small">
-  Showing {{ tickets|length }} of {{ total_tickets }} total tickets.
+  {{ _("Showing") }} {{ tickets|length }} {{ _("of") }} {{ total_tickets }} {{ _("Tickets") }}.
 </div>
 {% endblock %}
