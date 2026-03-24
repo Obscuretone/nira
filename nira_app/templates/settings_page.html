@@ -1,19 +1,19 @@
 {% extends "base.html" %}
 
-{% block title %}Settings{% endblock %}
+{% block title %}{{ _("Settings") }}{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
   <div>
-    <p class="text-uppercase text-body-secondary small mb-1">Workspace</p>
-    <h1 class="h2 mb-0">Settings</h1>
+    <p class="text-uppercase text-body-secondary small mb-1">{{ _("Workspace") }}</p>
+    <h1 class="h2 mb-0">{{ _("Settings") }}</h1>
   </div>
-  <a class="btn btn-outline-secondary" href="/">Back to Tickets</a>
+  <a class="btn btn-outline-secondary" href="/">{{ _("Back to Tickets") }}</a>
 </div>
 
 {% if saved %}
 <div class="alert alert-success" role="alert">
-  Workspace settings updated.
+  {{ _("Workspace settings updated.") }}
 </div>
 {% endif %}
 
@@ -21,14 +21,13 @@
   <div class="col-lg-7">
     <div class="card shadow-sm">
       <div class="card-body">
-        <h2 class="h5 mb-3">Ticket Prefix</h2>
+        <h2 class="h5 mb-3">{{ _("Ticket Prefix") }}</h2>
         <p class="text-body-secondary">
-          Ticket labels are derived from the current workspace prefix and ticket number. Changing the prefix updates
-          labels like <code>EMH-4</code> across the UI without changing the internal ticket record.
+          {{ _("Ticket labels are derived from the current workspace prefix and ticket number. Changing the prefix updates labels like <code>EMH-4</code> across the UI without changing the internal ticket record.")|safe }}
         </p>
         <form method="post" action="/settings">
           <div class="mb-3">
-            <label class="form-label" for="default_project">Workspace Prefix</label>
+            <label class="form-label" for="default_project">{{ _("Workspace Prefix") }}</label>
             <input
               class="form-control"
               id="default_project"
@@ -38,12 +37,12 @@
             >
           </div>
 
-          <h2 class="h5 mb-3 mt-4">Workflow Statuses</h2>
+          <h2 class="h5 mb-3 mt-4">{{ _("Workflow Statuses") }}</h2>
           <p class="text-body-secondary">
-            Define the list of workflow statuses for this workspace. These form the columns on your Kanban board. Statuses must be comma-separated. The first and last are treated as 'open' and 'completed'.
+            {{ _("Define the list of workflow statuses for this workspace. These form the columns on your Kanban board. Statuses must be comma-separated. The first and last are treated as 'open' and 'completed'.") }}
           </p>
           <div class="mb-3">
-            <label class="form-label" for="statuses">Custom Statuses</label>
+            <label class="form-label" for="statuses">{{ _("Custom Statuses") }}</label>
             <input
               class="form-control"
               id="statuses"
@@ -56,7 +55,7 @@
 
           <h2 class="h5 mb-3 mt-4">{{ _("Appearance") }}</h2>
           <p class="text-body-secondary">
-            Choose your preferred color theme and language for the Nira interface.
+            {{ _("Choose your preferred color theme and language for the Nira interface.") }}
           </p>
           <div class="row g-3 mb-3">
             <div class="col-md-6">
@@ -88,10 +87,10 @@
   <div class="col-lg-5">
     <div class="card shadow-sm">
       <div class="card-body">
-        <h2 class="h5 mb-3">Current State</h2>
+        <h2 class="h5 mb-3">{{ _("Current State") }}</h2>
         <dl class="row mb-0">
-          <dt class="col-sm-5">Prefix</dt><dd class="col-sm-7">{{ default_project }}</dd>
-          <dt class="col-sm-5">Tickets</dt><dd class="col-sm-7">{{ ticket_count }}</dd>
+          <dt class="col-sm-5">{{ _("Prefix") }}</dt><dd class="col-sm-7">{{ default_project }}</dd>
+          <dt class="col-sm-5">{{ _("Tickets") }}</dt><dd class="col-sm-7">{{ ticket_count }}</dd>
         </dl>
       </div>
     </div>
