@@ -109,6 +109,7 @@ def test_cli_comment_success(temp_root, monkeypatch):
     assert code == 0
     assert "Added comment" in out
 
+
 def test_cli_close_error(temp_root, monkeypatch):
     run_cli_cov(["init", "--project-key", "NIRA"], cwd=temp_root)
     run_cli_cov(["create", "T1"], cwd=temp_root)

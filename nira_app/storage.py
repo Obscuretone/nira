@@ -21,6 +21,7 @@ from sqlalchemy import (
     create_engine,
     delete,
     func,
+    or_,
     pool,
     select,
     text,
@@ -774,9 +775,34 @@ class NiraStore:
             stmt = select(Ticket)
 
             if search:
-                stmt = stmt.where(
-                    text("tickets.id IN (SELECT rowid FROM tickets_search WHERE tickets_search MATCH :query)")
-                ).params(query=search)
+                search_term = search.strip()
+                search_number = None
+                # Try to extract a ticket number if it looks like NIRA-123
+                id_match = TICKET_ID_RE.fullmatch(search_term.upper())
+                if id_match:
+                    search_number = int(id_match.group(2))
+                elif search_term.isdigit():
+                    # Or if it's just a number
+                    search_number = int(search_term)
+
+                # Prepare FTS5 query
+                # Wrap in double quotes if it contains special characters to avoid syntax errors
+                # FTS5 special characters include those used for proximity, columns, etc.
+                fts_query = search_term.replace('"', '""')
+                if any(c in fts_query for c in "()+-*:"):
+                    fts_query = f'"{fts_query}"'
+
+                if search_number is not None:
+                    stmt = stmt.where(
+                        or_(
+                            Ticket.number == search_number,
+                            text("tickets.id IN (SELECT rowid FROM tickets_search WHERE tickets_search MATCH :query)"),
+                        )
+                    ).params(query=fts_query)
+                else:
+                    stmt = stmt.where(
+                        text("tickets.id IN (SELECT rowid FROM tickets_search WHERE tickets_search MATCH :query)")
+                    ).params(query=fts_query)
 
             if label:
                 stmt = stmt.where(Ticket.labels.contains(label.strip()))
@@ -855,9 +881,34 @@ class NiraStore:
             stmt = select(func.count(Ticket.id))
 
             if search:
-                stmt = stmt.where(
-                    text("tickets.id IN (SELECT rowid FROM tickets_search WHERE tickets_search MATCH :query)")
-                ).params(query=search)
+                search_term = search.strip()
+                search_number = None
+                # Try to extract a ticket number if it looks like NIRA-123
+                id_match = TICKET_ID_RE.fullmatch(search_term.upper())
+                if id_match:
+                    search_number = int(id_match.group(2))
+                elif search_term.isdigit():
+                    # Or if it's just a number
+                    search_number = int(search_term)
+
+                # Prepare FTS5 query
+                # Wrap in double quotes if it contains special characters to avoid syntax errors
+                # FTS5 special characters include those used for proximity, columns, etc.
+                fts_query = search_term.replace('"', '""')
+                if any(c in fts_query for c in "()+-*:"):
+                    fts_query = f'"{fts_query}"'
+
+                if search_number is not None:
+                    stmt = stmt.where(
+                        or_(
+                            Ticket.number == search_number,
+                            text("tickets.id IN (SELECT rowid FROM tickets_search WHERE tickets_search MATCH :query)"),
+                        )
+                    ).params(query=fts_query)
+                else:
+                    stmt = stmt.where(
+                        text("tickets.id IN (SELECT rowid FROM tickets_search WHERE tickets_search MATCH :query)")
+                    ).params(query=fts_query)
 
             if label:
                 stmt = stmt.where(Ticket.labels.contains(label.strip()))
