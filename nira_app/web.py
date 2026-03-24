@@ -178,8 +178,8 @@ class NiraWebApp:
         self.router.add("GET", r"/assets/(?P<asset_path>.*)", self.asset_response)
 
         # Main pages
-        self.router.add("GET", "/", self.list_page)
-        self.router.add("GET", "/dashboard", self.dashboard_page)
+        self.router.add("GET", "/", self.dashboard_page)
+        self.router.add("GET", "/list", self.list_page)
         self.router.add("GET", "/board", self.board_page)
         self.router.add("GET", "/tickets/new", self.new_ticket_page)
         self.router.add("GET", "/tickets/search_dropdown", self.ticket_search_dropdown)
@@ -551,7 +551,7 @@ class NiraWebApp:
         if label_filter:
             params["label"] = label_filter
 
-        href = "/?" + urlencode(params)
+        href = "/list?" + urlencode(params)
         return (
             f'<a class="link-body-emphasis text-decoration-none d-inline-flex align-items-center gap-1" '
             f'href="{h(href)}" hx-get="{h(href)}" hx-target="body" hx-push-url="true">{h(label)}{indicator}</a>'

@@ -596,12 +596,12 @@ class TestHttpIntegration:
         return status_code, captured["headers"], payload
 
     def test_http_endpoints_cover_full_crud_flow(self):
-        status, _, body = self.request("GET", "/")
+        status, _, body = self.request("GET", "/list")
         assert status == 200
         assert "Nira" in body
         assert 'href="/assets/nira.png"' in body
         assert ">NIRA</span>" in body
-        assert 'href="/" title=' in body
+        assert 'href="/list" title=' in body
         assert 'href="/tickets/new" title=' in body
         assert 'href="/settings">Settings</a>' in body
         assert 'name="project"' not in body
@@ -610,8 +610,8 @@ class TestHttpIntegration:
         assert 'name="sort"' in body
         assert 'name="direction"' in body
         assert "selected>updated</option>" in body
-        assert 'href="/?status=not_closed&amp;sort=ticket_id&amp;direction=desc&amp;page=1"' in body
-        assert 'href="/?status=not_closed&amp;sort=updated&amp;direction=asc&amp;page=1"' in body
+        assert 'href="/list?status=not_closed&amp;sort=ticket_id&amp;direction=desc&amp;page=1"' in body
+        assert 'href="/list?status=not_closed&amp;sort=updated&amp;direction=asc&amp;page=1"' in body
 
         status, _, body = self.request("GET", "/tickets/new")
         assert status == 200
@@ -741,17 +741,17 @@ class TestHttpIntegration:
         assert status == 200
         assert "/tickets/EMH-2" in detail
 
-        status, _, list_page = self.request("GET", "/")
+        status, _, list_page = self.request("GET", "/list")
         assert status == 200
         assert 'href="/tickets/EMH-1"' in list_page
         assert 'href="/tickets/EMH-2"' in list_page
         assert "just now" in list_page
 
-        status, _, priority_sorted = self.request("GET", "/?status=all&sort=priority&direction=desc")
+        status, _, priority_sorted = self.request("GET", "/list?status=all&sort=priority&direction=desc")
         assert status == 200
         assert priority_sorted.index('href="/tickets/EMH-1"') < priority_sorted.index('href="/tickets/EMH-2"')
 
-        status, _, id_sorted = self.request("GET", "/?status=all&sort=ticket_id&direction=desc")
+        status, _, id_sorted = self.request("GET", "/list?status=all&sort=ticket_id&direction=desc")
         assert status == 200
         assert id_sorted.index('href="/tickets/EMH-2"') < id_sorted.index('href="/tickets/EMH-1"')
 
@@ -773,7 +773,7 @@ class TestHttpIntegration:
         assert status == 200
         assert "NIRA-1 First HTTP ticket updated" in renamed_detail
 
-        status, _, renamed_list = self.request("GET", "/")
+        status, _, renamed_list = self.request("GET", "/list")
         assert status == 200
         assert 'href="/tickets/NIRA-1"' in renamed_list
         assert 'href="/tickets/NIRA-2"' in renamed_list
@@ -809,7 +809,7 @@ class TestHttpIntegration:
         assert "Closed via test" in detail
         assert "text-bg-success" in detail
 
-        status, _, list_page = self.request("GET", "/")
+        status, _, list_page = self.request("GET", "/list")
         assert status == 200
         assert 'href="/tickets/NIRA-1"' not in list_page
         assert 'href="/tickets/NIRA-2"' in list_page
