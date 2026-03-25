@@ -184,20 +184,6 @@ def test_cli_links_error(temp_root, monkeypatch):
     assert "Mock links error" in out
 
 
-def test_cli_start_error(temp_root, monkeypatch):
-    run_cli_cov(["init", "--project-key", "NIRA"], cwd=temp_root)
-    run_cli_cov(["create", "T1"], cwd=temp_root)
-    from nira_app.storage import NiraStore, NiraError
-
-    def mock_start(*args, **kwargs):
-        raise NiraError("Mock start error")
-
-    monkeypatch.setattr(NiraStore, "update_ticket", mock_start)
-    code, out, _ = run_cli_cov(["start", "NIRA-1"], cwd=temp_root)
-    assert code == 1
-    assert "Mock start error" in out
-
-
 def test_cli_serve_error(temp_root, monkeypatch):
     run_cli_cov(["init", "--project-key", "NIRA"], cwd=temp_root)
     import nira_app.cli
@@ -259,52 +245,6 @@ def test_cli_aliases(temp_root):
     assert "Error" in out or "NIRA-1" in out
     code, out, _ = run_cli_cov(["create", "Alias test"], cwd=temp_root)
     assert code == 0
-
-
-def test_cli_start_branches(temp_root, monkeypatch):
-    run_cli_cov(["init", "--project-key", "NIRA"], cwd=temp_root)
-    run_cli_cov(["create", "T1", "--type", "bug"], cwd=temp_root)
-    run_cli_cov(["create", "T2", "--type", "feature"], cwd=temp_root)
-
-    def mock_run(args, **kwargs):
-        class Res:
-            returncode = 0
-            stdout = "success"
-            stderr = ""
-
-        return Res()
-
-    monkeypatch.setattr(subprocess, "run", mock_run)
-
-    run_cli_cov(["start", "NIRA-1"], cwd=temp_root)
-    run_cli_cov(["start", "NIRA-2"], cwd=temp_root)
-    run_cli_cov(["create", "T3", "--type", "task"], cwd=temp_root)
-    run_cli_cov(["start", "NIRA-3"], cwd=temp_root)
-    run_cli_cov(["start", "NIRA-3", "--no-git"], cwd=temp_root)
-
-    # Branch exists
-    def mock_run_exists(args, **kwargs):
-        class Res:
-            returncode = 1
-            stdout = ""
-            stderr = "already exists"
-
-        return Res()
-
-    monkeypatch.setattr(subprocess, "run", mock_run_exists)
-    run_cli_cov(["start", "NIRA-1"], cwd=temp_root)
-
-    # Other git error
-    def mock_run_error(args, **kwargs):
-        class Res:
-            returncode = 1
-            stdout = ""
-            stderr = "fatal error"
-
-        return Res()
-
-    monkeypatch.setattr(subprocess, "run", mock_run_error)
-    run_cli_cov(["start", "NIRA-1"], cwd=temp_root)
 
 
 def test_cli_print_ticket_variations(temp_root):

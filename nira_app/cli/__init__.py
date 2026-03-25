@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import re
 import shlex
 import subprocess
 import sys
@@ -430,74 +429,6 @@ def unlink(
         console.print(f"Unlinked [blue]{ticket_id}[/blue] and [blue]{other_ticket_id}[/blue]")
     except NiraError as exc:
         console.print(f"[red]Error:[/red] {exc}")
-        raise typer.Exit(1)
-
-
-@app.command()
-def start(
-    ctx: typer.Context,
-    ticket_id: Annotated[str, typer.Argument(help="ID of the ticket to start working on.")],
-    branch_type: Annotated[
-        str, typer.Option("--type", "-t", help="Branch prefix type (e.g. feature, bugfix, chore)")
-    ] = "",
-    no_git: Annotated[bool, typer.Option("--no-git", help="Do not create a git branch")] = False,
-):
-    """
-    Start working on a ticket: change status to 'in_progress' and checkout a new git branch.
-    """
-    try:
-        store = resolve_store(ctx.obj["root"], create=False)
-        ticket = store.get_ticket(ticket_id)
-
-        statuses = store.get_statuses()
-        in_progress_status = statuses[1] if len(statuses) > 1 else statuses[0]
-
-        # 1. Update status if needed
-        if ticket["status"] != in_progress_status:
-            store.update_ticket(ticket_id, status=in_progress_status)
-            console.print(
-                f"Updated [bold blue]{ticket['id']}[/bold blue] status to [yellow]{in_progress_status}[/yellow]"
-            )
-        else:
-            console.print(
-                f"Ticket [bold blue]{ticket['id']}[/bold blue] is already [yellow]{in_progress_status}[/yellow]"
-            )
-
-        if no_git:
-            return
-
-        # 2. Generate slug
-        title = ticket["title"].lower()
-        slug = re.sub(r"[^a-z0-9\s-]", "", title)
-        slug = re.sub(r"[\s-]+", "-", slug).strip("-")
-
-        # 3. Determine prefix
-        prefix = branch_type
-        if not prefix:
-            t_type = ticket.get("type", "task")
-            if t_type == "bug":
-                prefix = "bugfix"
-            elif t_type in ("feature", "enhancement"):
-                prefix = "feature"
-            else:
-                prefix = "task"
-
-        branch_name = f"{prefix}/{ticket['id']}-{slug}"
-
-        # 4. Git checkout
-        console.print(f"Checking out branch: [bold green]{branch_name}[/bold green]")
-        result = subprocess.run(["git", "checkout", "-b", branch_name], capture_output=True, text=True)
-        if result.returncode == 0:
-            console.print("[green]Success![/green]")
-        else:
-            if "already exists" in result.stderr or "already exists" in result.stdout:
-                console.print("[yellow]Branch already exists, checking it out...[/yellow]")
-                subprocess.run(["git", "checkout", branch_name])
-            else:
-                stderr_console.print(f"[red]Git error:[/red]\n{result.stderr}")
-
-    except NiraError as exc:
-        stderr_console.print(f"[red]Error:[/red] {exc}")
         raise typer.Exit(1)
 
 
