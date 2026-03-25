@@ -359,7 +359,7 @@ def test_cli_print_list_empty(temp_root):
     print_ticket_list([], store)
 
 
-def test_cli_print_list_variations(temp_root):
+def test_cli_list_variations(temp_root):
     from nira_app.cli import print_ticket_list
     from nira_app.storage import NiraStore
 
@@ -371,6 +371,9 @@ def test_cli_print_list_variations(temp_root):
         {"id": "NIRA-3", "status": "closed", "priority": "critical", "type": "feature", "title": "T3"},
     ]
     print_ticket_list(tickets, store)  # type: ignore
+
+    # Test CLI command with --status all
+    run_cli_cov(["list", "--status", "all"], cwd=temp_root)
 
 
 def test_cli_describe_reload_change():

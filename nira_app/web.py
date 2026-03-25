@@ -242,7 +242,12 @@ class NiraWebApp:
         search_query = query.get("search")
         label_filter = query.get("label")
         # Default to 'all' if filtering by search or label, otherwise 'not_closed'
-        selected_status = query.get("status") or "all"
+        selected_status = query.get("status")
+        if not selected_status:
+            if search_query or label_filter:
+                selected_status = "all"
+            else:
+                selected_status = "not_closed"
         selected_sort = normalize_list_sort(query.get("sort"))
         selected_direction = normalize_list_direction(query.get("direction"))
         overdue_filter = query.get("overdue") == "1"

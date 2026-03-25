@@ -511,12 +511,12 @@ class TestHttpIntegration:
         assert 'href="/settings">Settings</a>' in body
         assert 'name="project"' not in body
         assert "not closed" in body
-        assert "selected>all</option>" in body
+        assert "selected>not closed</option>" in body
         assert 'name="sort"' in body
         assert 'name="direction"' in body
         assert "selected>updated</option>" in body
-        assert 'href="/list?status=all&amp;sort=ticket_id&amp;direction=desc&amp;page=1"' in body
-        assert 'href="/list?status=all&amp;sort=updated&amp;direction=asc&amp;page=1"' in body
+        assert 'href="/list?status=not_closed&amp;sort=ticket_id&amp;direction=desc&amp;page=1"' in body
+        assert 'href="/list?status=not_closed&amp;sort=updated&amp;direction=asc&amp;page=1"' in body
 
         status, _, body = self.request("GET", "/tickets/new")
         assert status == 200

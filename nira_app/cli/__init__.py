@@ -207,7 +207,9 @@ def show_ticket_logic(ctx, ticket_id):
 def list_tickets(
     ctx: typer.Context,
     project: Annotated[Optional[str], typer.Option(help="Filter by project.")] = None,
-    status: Annotated[Optional[str], typer.Option(help="Filter by status.")] = None,
+    status: Annotated[
+        Optional[str], typer.Option(help="Filter by status (defaults to 'not_closed', use 'all' to show all).")
+    ] = None,
     priority: Annotated[Optional[str], typer.Option(help="Filter by priority.")] = None,
     type: Annotated[Optional[str], typer.Option(help="Filter by type.")] = None,
     search: Annotated[Optional[str], typer.Option(help="Search query.")] = None,
@@ -217,6 +219,11 @@ def list_tickets(
     List tickets in the current workspace.
     """
     try:
+        if status is None and not search and not label:
+            status = "not_closed"
+        elif status == "all":
+            status = None
+
         store = resolve_store(ctx.obj["root"], create=False)
         tickets = store.list_tickets(
             project=project,
