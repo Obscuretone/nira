@@ -19,6 +19,7 @@ Nira is a local issue tracker for a single workspace, featuring a shell-first CL
 - **`NiraWebApp` (`nira_app/web.py`):** Handles web requests via a custom `Router`. Uses HTMX for partial page updates.
 - **`models.py`:** Defines `TypedDict` structures for passing data between the storage layer and interfaces.
 - **Search:** Uses SQLite FTS5 for full-text search, with triggers maintained in `storage.py` to keep the index updated.
+
 ## 📓 Issue Tracking & Lifecycle
 
 ### 1. Nira is the Source of Truth
@@ -29,13 +30,14 @@ The `./nira` CLI tool is the primary issue tracker for this project. You MUST us
 - **Context:** Remember that Nira is its own issue tracker. Refer to ticket bodies and resolution notes for historical context.
 
 ### 2. Verification is Mandatory
-...
-
 Before staging, committing, or proposing any changes, you **MUST** run the following verification suite:
 ```bash
 ./check.sh
 ```
 This is also enforced by a pre-commit hook that runs `./check.sh` automatically. If the hook fails, the commit will be blocked until the issues are resolved. Do NOT bypass this hook with `--no-verify`.
+
+**Code Review:** You MUST perform a full code review of the `git diff` before committing. Ensure all changes are intentional, follow the architectural patterns, and do not introduce regressions or debugging code.
+
 This script runs:
 - `ruff format .`
 - `ruff check .`
@@ -43,21 +45,21 @@ This script runs:
 - `pyright`
 - `pytest`
 
-### 2. Coding Standards
+### 3. Coding Standards
 - **Line Length:** 120 characters (enforced by `ruff`).
 - **Typing:** Strict type hints are required. Always run `mypy` and `pyright`.
 - **Formatting:** Use `ruff format`.
 
-### 3. Internationalization (i18n)
+### 4. Internationalization (i18n)
 - All user-facing strings in Python and Templates MUST be wrapped in `_()`.
 - Translations are managed in `nira_app/locales/` using `.po` and `.mo` files.
 
-### 4. Database Migrations
+### 5. Database Migrations
 - Never modify the schema directly.
 - Use Alembic to generate and apply migrations: `alembic revision -m "description"`.
 - Migrations are stored in `nira_app/migrations/alembic/versions/`.
 
-### 5. Ticket Identity
+### 6. Ticket Identity
 - Tickets have an internal integer ID but are presented to the user using a project-prefix-based key (e.g., `NIRA-1`).
 - Project keys are typically uppercase.
 
