@@ -137,19 +137,22 @@ class TestCliIntegration:
 
     def test_cli_init_uses_acronym_for_multi_word_folder_names(self, temp_root):
         workspaces = [
-            temp_root / "new-issue-reporting-app",
-            temp_root / "new issue reporting app",
-            temp_root / "NewIssueReportingApp",
+            (temp_root / "new-issue-reporting-app", "NIRA"),
+            (temp_root / "new issue reporting app", "NIRA"),
+            (temp_root / "NewIssueReportingApp", "NIRA"),
+            (temp_root / "employment-matching-hub", "EMH"),
+            (temp_root / "EmploymentMatchingHub", "EMH"),
+            (temp_root / "my-test-project", "MTP"),
         ]
 
-        for workspace in workspaces:
+        for workspace, expected_key in workspaces:
             workspace.mkdir()
             init_result = run_cli(["init"], cwd=workspace)
             assert init_result.returncode == 0
 
             new_result = run_cli(["new", "Ticket created from workspace acronym"], cwd=workspace)
             assert new_result.returncode == 0
-            assert "NIRA-1" in new_result.stdout
+            assert f"{expected_key}-1" in new_result.stdout
 
     def test_cli_update_link_close_and_reopen(self, temp_root):
         assert run_cli(["init", "--project-key", "NIRA"], cwd=temp_root).returncode == 0

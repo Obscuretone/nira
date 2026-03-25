@@ -65,6 +65,9 @@ def test_storage_misc_and_legacy(temp_root):
     assert derive_default_project_key("123 name") == "N1N"
     assert derive_default_project_key("  ") == "NIRA"
     assert derive_default_project_key("") == "NIRA"
+    assert derive_default_project_key("employment-matching-hub") == "EMH"
+    assert derive_default_project_key("EmploymentMatchingHub") == "EMH"
+    assert derive_default_project_key("nira") == "NIRA"
 
     with pytest.raises(ValidationError):
         normalize_ticket_id("INVALID")

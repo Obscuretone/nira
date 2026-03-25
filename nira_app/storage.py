@@ -106,7 +106,11 @@ def derive_default_project_key(folder_name: str) -> str:
     if not words:
         candidate = ""
     elif len(words) == 1:
-        candidate = words[0].upper()
+        word = words[0].upper()
+        if len(word) < 3:
+            candidate = word.ljust(4, "A")
+        else:
+            candidate = word
     else:
         candidate = "".join(word[0].upper() for word in words if word)
 
