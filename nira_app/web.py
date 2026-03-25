@@ -360,7 +360,6 @@ class NiraWebApp:
             default_project=settings["default_project"],
             theme=settings["theme"],
             language=settings["language"],
-            statuses=settings["statuses"],
             ticket_count=settings["ticket_count"],
         )
         return Response("200 OK", body)
@@ -395,8 +394,6 @@ class NiraWebApp:
             updates["theme"] = form["theme"]
         if "language" in form:
             updates["language"] = form["language"]
-        if "statuses" in form:
-            updates["statuses"] = form["statuses"]
 
         if updates:
             self.store.update_settings(updates)

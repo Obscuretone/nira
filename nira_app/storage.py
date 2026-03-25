@@ -46,9 +46,7 @@ SOURCE_ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = 2
 DEFAULT_PROJECT_SETTING = "default_project"
 THEME_SETTING = "theme"
-CUSTOM_STATUSES_SETTING = "custom_statuses"
 LANGUAGE_SETTING = "language"
-DEFAULT_STATUSES = ["open", "in_progress", "closed"]
 
 _MIGRATIONS_RUN = False
 
@@ -657,18 +655,11 @@ class NiraStore:
             lang_row = session.get(Setting, LANGUAGE_SETTING)
             language = lang_row.value if lang_row else "auto"
 
-            statuses_row = session.get(Setting, CUSTOM_STATUSES_SETTING)
-            if statuses_row and statuses_row.value.strip():
-                statuses = [s.strip() for s in statuses_row.value.split(",") if s.strip()]
-            else:
-                statuses = DEFAULT_STATUSES.copy()
-
             ticket_count = session.query(func.count(Ticket.id)).scalar() or 0
         return {
             "default_project": current_project,
             "theme": theme,
             "language": language,
-            "statuses": statuses,
             "ticket_count": ticket_count,
         }
 
@@ -701,31 +692,10 @@ class NiraStore:
                 else:
                     session.add(Setting(key=LANGUAGE_SETTING, value=lang))
 
-            if "statuses" in settings:
-                raw_statuses = settings["statuses"]
-                parsed = [s.strip().lower().replace(" ", "_") for s in raw_statuses.split(",") if s.strip()]
-                # Deduplicate but preserve order
-                seen = set()
-                statuses = []
-                for p in parsed:
-                    if p not in seen:
-                        seen.add(p)
-                        statuses.append(p)
-
-                if not statuses:
-                    statuses = DEFAULT_STATUSES.copy()
-
-                val = ",".join(statuses)
-                statuses_row = session.get(Setting, CUSTOM_STATUSES_SETTING)
-                if statuses_row:
-                    statuses_row.value = val
-                else:
-                    session.add(Setting(key=CUSTOM_STATUSES_SETTING, value=val))
-
             session.commit()
 
     def get_statuses(self) -> list[str]:
-        return cast(list[str], self.get_settings()["statuses"])
+        return ["open", "in_progress", "closed"]
 
     def rename_default_project(self, new_project: str) -> dict[str, object]:
         new_key = normalize_project(new_project)

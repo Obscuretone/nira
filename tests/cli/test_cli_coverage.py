@@ -425,11 +425,10 @@ def test_cli_print_list_variations(temp_root):
 
     store = NiraStore(temp_root)
     store.initialize("NIRA")
-    store.update_settings({"statuses": "s1,s2,s3"})
     tickets = [
-        {"id": "NIRA-1", "status": "s1", "priority": "low", "type": "task", "title": "T1"},
-        {"id": "NIRA-2", "status": "s2", "priority": "high", "type": "bug", "title": "T2"},
-        {"id": "NIRA-3", "status": "s3", "priority": "critical", "type": "feature", "title": "T3"},
+        {"id": "NIRA-1", "status": "open", "priority": "low", "type": "task", "title": "T1"},
+        {"id": "NIRA-2", "status": "in_progress", "priority": "high", "type": "bug", "title": "T2"},
+        {"id": "NIRA-3", "status": "closed", "priority": "critical", "type": "feature", "title": "T3"},
     ]
     print_ticket_list(tickets, store)  # type: ignore
 

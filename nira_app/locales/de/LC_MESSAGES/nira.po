@@ -150,11 +150,7 @@ msgstr "Ticket schließen"
 msgid "Reopen Ticket"
 msgstr "Ticket wieder öffnen"
 
-msgid "Custom Statuses"
-msgstr "Benutzerdefinierte Status"
 
-msgid "Workflow Statuses"
-msgstr "Workflow-Status"
 
 msgid "Appearance"
 msgstr "Aussehen"
@@ -186,8 +182,6 @@ msgstr "Deutsch"
 msgid "Ticket labels are derived from the current workspace prefix and ticket number. Changing the prefix updates labels like <code>NIRA-4</code> across the UI without changing the internal ticket record."
 msgstr "Ticket-Labels werden aus dem aktuellen Arbeitsbereichs-Präfix und der Ticketnummer abgeleitet. Das Ändern des Präfixes aktualisiert Labels wie <code>NIRA-4</code> in der gesamten Benutzeroberfläche, ohne den internen Ticket-Datensatz zu ändern."
 
-msgid "Define the list of workflow statuses for this workspace. These form the columns on your Kanban board. Statuses must be comma-separated. The first and last are treated as 'open' and 'completed'."
-msgstr "Definieren Sie die Liste der Workflow-Status für diesen Arbeitsbereich. Diese bilden die Spalten auf Ihrem Kanban-Board. Die Status müssen durch Kommas getrennt sein. Der erste und der letzte werden als 'offen' und 'abgeschlossen' behandelt."
 
 msgid "Back to Tickets"
 msgstr "Zurück zu den Tickets"

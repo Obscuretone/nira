@@ -86,9 +86,9 @@ def test_settings_coverage(temp_root):
     store = NiraStore(temp_root / "settings")
     store.initialize("NIRA")
 
-    store.update_settings({"theme": "dark", "language": "en", "statuses": "todo,done"})
+    store.update_settings({"theme": "dark", "language": "en"})
     store.update_settings({"theme": "invalid", "language": "zz"})
 
     app = NiraWebApp(store)
     app.save_settings_action({"HX-Request": "1"}, {"theme": "light"})
-    app.save_settings_action({}, {"language": "fr", "statuses": "x,y"})
+    app.save_settings_action({}, {"language": "fr"})

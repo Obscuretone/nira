@@ -17,18 +17,6 @@ def test_storage_final_coverage(temp_root):
         store.create_ticket("NIRA", "T1")
         store.touch_tickets(session, [1], timestamp="2024-01-01T00:00:00Z")
 
-    # get_settings with manual custom_statuses
-    store.update_settings({"statuses": "todo,done"})
-    settings = store.get_settings()
-    assert settings["statuses"] == ["todo", "done"]
-
-    # update_settings with empty statuses
-    store.update_settings({"statuses": ""})
-    settings = store.get_settings()
-    from typing import cast, List
-
-    assert "open" in cast(List[str], settings["statuses"])
-
 
 def test_storage_legacy_branches(temp_root):
     store = NiraStore(temp_root / "legacy")
