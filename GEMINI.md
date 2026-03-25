@@ -19,10 +19,19 @@ Nira is a local issue tracker for a single workspace, featuring a shell-first CL
 - **`NiraWebApp` (`nira_app/web.py`):** Handles web requests via a custom `Router`. Uses HTMX for partial page updates.
 - **`models.py`:** Defines `TypedDict` structures for passing data between the storage layer and interfaces.
 - **Search:** Uses SQLite FTS5 for full-text search, with triggers maintained in `storage.py` to keep the index updated.
+## 📓 Issue Tracking & Lifecycle
 
-## 🚦 Development Workflow & Mandates
+### 1. Nira is the Source of Truth
+The `./nira` CLI tool is the primary issue tracker for this project. You MUST use it to manage tasks, bugs, and features.
+- **Consult Tickets:** Use `./nira list` and `./nira show <ID>` to understand current priorities and requirements.
+- **Track Progress:** Use `./nira start <ID>` when beginning work on a ticket. This will automatically update the status and checkout a dedicated branch.
+- **Record Resolutions:** Use `./nira close <ID> --reason <REASON> --notes <NOTES>` when a task is completed.
+- **Consistency:** Always check the status of relevant tickets before assuming a task is complete.
+- **Context:** Remember that Nira is its own issue tracker. Refer to ticket bodies and resolution notes for historical context.
 
-### 1. Verification is Mandatory
+### 2. Verification is Mandatory
+...
+
 Before staging, committing, or proposing any changes, you **MUST** run the following verification suite:
 ```bash
 ./check.sh

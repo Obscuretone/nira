@@ -273,9 +273,9 @@ class NiraStore:
                 default_key,
                 force=default_project is not None,
             )
-            # Ensure FTS is up to date
+            # Ensure FTS is up to date and triggers are present
+            self.create_fts_schema(connection)
             if not self.table_exists(connection, "tickets_search"):
-                self.create_fts_schema(connection)
                 self.populate_fts_index(connection)
 
             connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")

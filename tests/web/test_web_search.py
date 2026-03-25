@@ -34,3 +34,19 @@ def test_web_search_robust(temp_root):
     res = app.list_page({"search": "robust*"}, {})
     assert isinstance(res.body, str)
     assert "Robust Migration" in res.body
+
+    # Search with spaces
+    res = app.list_page({"search": "Robust Migration"}, {})
+    assert isinstance(res.body, str)
+    assert "Robust Migration" in res.body
+
+    # Search with multiple words not in order
+    res = app.list_page({"search": "Migration Robust"}, {})
+    assert isinstance(res.body, str)
+    assert "Robust Migration" in res.body
+
+    # Search for something non-existent
+    res = app.list_page({"search": "missing"}, {})
+    assert isinstance(res.body, str)
+    assert "Robust Migration" not in res.body
+    assert "No tickets match the current filters" in res.body
