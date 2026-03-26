@@ -822,6 +822,8 @@ def print_ticket_list(tickets: list[TicketData], store: NiraStore, *, title: str
             priority_style = "bold red"
         elif ticket["priority"] == "high":
             priority_style = "red"
+        elif ticket["priority"] == "low":
+            priority_style = "dim"
 
         table.add_row(
             ticket["id"],
