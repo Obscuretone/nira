@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 import sqlite3
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 from pathlib import Path
 from typing import Final, Iterable, Iterator
 
@@ -160,20 +160,37 @@ class NiraStore:
             normalize_project(default_project) if default_project else derive_default_project_key(self.root.name)
         )
 
-        stamp_revision: str | None = None
+        # 1. Check if we need migration (read-only)
+        needs_migration = False
         with self.connect() as connection:
             if self.needs_legacy_migration(connection):
+                needs_migration = True
+
+        # 2. Perform migration if needed (exclusive)
+        stamp_revision: str | None = None
+        if needs_migration:
+            self.engine.dispose()
+            with closing(sqlite3.connect(self.db_path)) as connection:
+                connection.row_factory = sqlite3.Row
                 self.migrate_legacy_schema(connection)
-                stamp_revision = "b00dc4b8ba72"  # Initial schema revision
-            elif not self.table_exists(connection, "settings"):
-                # Use SQLAlchemy to create initial schema
-                Base.metadata.create_all(self.engine)
-                stamp_revision = "head"
+                connection.commit()
+            stamp_revision = "head"  # We migrate directly to latest
+
+        # 3. Create missing tables if not migrating
+        if not needs_migration:
+            with self.connect() as connection:
+                if not self.table_exists(connection, "settings"):
+                    # Use SQLAlchemy to create initial schema
+                    self.engine.dispose()
+                    Base.metadata.create_all(self.engine)
+                    self.engine.dispose()
+                    stamp_revision = "head"
 
         if stamp_revision:
             self.run_migrations(stamp_revision=stamp_revision)
+            self.engine.dispose()
 
-        # Run alembic migrations (outside of connect context to avoid locking)
+        # 4. Run alembic migrations (outside of connect context to avoid locking)
         if not _MIGRATIONS_RUN:
             self.run_migrations()
             _MIGRATIONS_RUN = True
@@ -210,8 +227,8 @@ class NiraStore:
         try:
             connection.row_factory = sqlite3.Row
             connection.execute("PRAGMA foreign_keys = ON")
-            connection.execute("PRAGMA busy_timeout = 5000")
-            connection.execute("PRAGMA journal_mode = WAL")
+            connection.execute("PRAGMA busy_timeout = 30000")
+            connection.execute("PRAGMA journal_mode = DELETE")
             yield connection
             connection.commit()
         except Exception:
@@ -321,9 +338,12 @@ class NiraStore:
         if not self.table_exists(connection, "tickets"):
             return
 
+        cols = self.column_names(connection, "tickets")
+        project_col = "project" if "project" in cols else "NULL as project"
+
         old_tickets = connection.execute(
-            """
-            SELECT id, project, number, title, status, type, priority, source,
+            f"""
+            SELECT id, {project_col}, number, title, status, type, priority, source,
                    resolution_reason, body_md, resolution_md, created_at, updated_at
             FROM tickets
             ORDER BY number ASC
@@ -334,11 +354,14 @@ class NiraStore:
         if len(legacy_projects) > 1:
             raise ValidationError("This workspace has multiple legacy ticket prefixes and cannot be auto-migrated.")
 
+        default_key = list(legacy_projects)[0] if legacy_projects else derive_default_project_key(self.root.name)
+
         connection.executescript(
             """
             DROP TABLE IF EXISTS tickets_new;
             DROP TABLE IF EXISTS comments_new;
             DROP TABLE IF EXISTS links_new;
+            DROP TABLE IF EXISTS history_new;
 
             CREATE TABLE tickets_new (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -375,11 +398,21 @@ class NiraStore:
                 PRIMARY KEY(ticket_a_id, ticket_b_id),
                 CHECK(ticket_a_id < ticket_b_id)
             );
+
+            CREATE TABLE history_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ticket_id INTEGER NOT NULL REFERENCES tickets_new(id) ON DELETE CASCADE,
+                field TEXT NOT NULL,
+                old_value TEXT,
+                new_value TEXT,
+                created_at TEXT NOT NULL
+            );
             """
         )
 
         legacy_id_to_db_id: dict[str, int] = {}
         for row in old_tickets:
+            project_val = normalize_project(row["project"]) if row["project"] else default_key
             cursor = connection.execute(
                 """
                 INSERT INTO tickets_new (
@@ -388,7 +421,7 @@ class NiraStore:
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    row["project"],
+                    project_val,
                     int(row["number"]),
                     row["title"],
                     row["status"],
@@ -422,10 +455,14 @@ class NiraStore:
                 )
 
         if self.table_exists(connection, "links"):
-            old_links = connection.execute("SELECT ticket_a, ticket_b, created_at FROM links").fetchall()
+            link_cols = self.column_names(connection, "links")
+            col_a = "ticket_a" if "ticket_a" in link_cols else "ticket_a_id"
+            col_b = "ticket_b" if "ticket_b" in link_cols else "ticket_b_id"
+
+            old_links = connection.execute(f"SELECT {col_a}, {col_b}, created_at FROM links").fetchall()
             for row in old_links:
-                left_db_id = legacy_id_to_db_id.get(str(row["ticket_a"]))
-                right_db_id = legacy_id_to_db_id.get(str(row["ticket_b"]))
+                left_db_id = legacy_id_to_db_id.get(str(row[col_a]))
+                right_db_id = legacy_id_to_db_id.get(str(row[col_b]))
                 if left_db_id is None or right_db_id is None or left_db_id == right_db_id:
                     continue
                 ticket_a_id, ticket_b_id = sorted((left_db_id, right_db_id))
@@ -437,15 +474,32 @@ class NiraStore:
                     (ticket_a_id, ticket_b_id, row["created_at"]),
                 )
 
+        if self.table_exists(connection, "history"):
+            old_history = connection.execute(
+                "SELECT ticket_id, field, old_value, new_value, created_at FROM history"
+            ).fetchall()
+            for row in old_history:
+                ticket_db_id = legacy_id_to_db_id.get(str(row["ticket_id"]))
+                if ticket_db_id is None:
+                    continue
+                connection.execute(
+                    """
+                    INSERT INTO history_new (ticket_id, field, old_value, new_value, created_at)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (ticket_db_id, row["field"], row["old_value"], row["new_value"], row["created_at"]),
+                )
+
         connection.execute("PRAGMA foreign_keys = OFF")
         try:
-            for table_name in ("links", "comments", "tickets", "projects"):
+            for table_name in ("links", "comments", "tickets", "projects", "history"):
                 if self.table_exists(connection, table_name):
                     connection.execute(f"DROP TABLE {table_name}")
 
             connection.execute("ALTER TABLE tickets_new RENAME TO tickets")
             connection.execute("ALTER TABLE comments_new RENAME TO comments")
             connection.execute("ALTER TABLE links_new RENAME TO links")
+            connection.execute("ALTER TABLE history_new RENAME TO history")
         finally:
             connection.execute("PRAGMA foreign_keys = ON")
 
