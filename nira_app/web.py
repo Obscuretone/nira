@@ -263,6 +263,11 @@ class NiraWebApp:
         query = self.parse_query(environ.get("QUERY_STRING", ""))
         form = self.parse_form(environ) if method == "POST" else {}
 
+        # Add HX-Request to query for easier access in handlers
+        is_htmx = environ.get("HTTP_HX_REQUEST") == "true"
+        if is_htmx:
+            query["HX-Request"] = "true"
+
         # Determine language for this request
         settings = self.store.get_settings()
         lang_setting = str(settings.get("language", "auto"))
@@ -282,16 +287,32 @@ class NiraWebApp:
         except TicketNotFoundError as exc:
             response = self.error_page("404 Not Found", str(exc), "404 Not Found")
         except ValidationError as exc:
-            response = self.error_page("400 Bad Request", str(exc), "400 Bad Request")
+            if is_htmx:
+                response = self.toast_response(str(exc), "danger")
+            else:
+                response = self.error_page("400 Bad Request", str(exc), "400 Bad Request")
         except NiraError as exc:
-            response = self.error_page("500 Internal Server Error", str(exc), "500 Internal Server Error")
+            if is_htmx:
+                response = self.toast_response(str(exc), "danger")
+            else:
+                response = self.error_page("500 Internal Server Error", str(exc), "500 Internal Server Error")
         except Exception as exc:  # pragma: no cover
-            response = self.error_page(
-                "500 Internal Server Error",
-                f"Unexpected error: {exc.__class__.__name__} {exc}. {__import__('traceback').format_exc()}",
-                "500 Internal Server Error",
-            )
+            msg = f"Unexpected error: {exc.__class__.__name__} {exc}"
+            if is_htmx:
+                response = self.toast_response(msg, "danger")
+            else:
+                response = self.error_page(
+                    "500 Internal Server Error",
+                    f"{msg}. {__import__('traceback').format_exc()}",
+                    "500 Internal Server Error",
+                )
         return response.to_wsgi(start_response)
+
+    def toast_response(self, message: str, type: str = "success") -> Response:
+        import json
+
+        trigger = {"nira:toast": {"message": message, "type": type}}
+        return Response("200 OK", "", headers=[("HX-Trigger", json.dumps(trigger))])
 
     def dashboard_page(self, query: dict[str, str], form: dict[str, str]) -> Response:
         stats: DashboardStats = self.service.get_dashboard_stats()

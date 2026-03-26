@@ -187,10 +187,24 @@
     </script>
   </head>
   <body hx-indicator="#nira-progress">
-    <div class="progress rounded-0" style="height: 3px; position: fixed; top: 0; left: 0; width: 100%; z-index: 2000; opacity: 0; transition: opacity 0.2s ease-in-out;" id="nira-progress">
-      <div class="progress-bar progress-bar-animated progress-bar-striped w-100" role="progressbar"></div>
+  <div class="progress rounded-0" style="height: 3px; position: fixed; top: 0; left: 0; width: 100%; z-index: 2000; opacity: 0; transition: opacity 0.2s ease-in-out;" id="nira-progress">
+    <div class="progress-bar progress-bar-animated progress-bar-striped w-100" role="progressbar"></div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 3000;">
+    <div id="nira-toast" class="toast align-items-center border-0 shadow-lg" role="alert" aria-live="assertive" aria-atomic="true">
+      <div class="d-flex">
+        <div class="toast-body" id="nira-toast-body">
+          <!-- Message injected here -->
+        </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+      </div>
     </div>
-    <header class="brand-shell">
+  </div>
+
+  <header class="brand-shell">
+
       <div class="container py-3 d-flex flex-wrap align-items-center gap-3">
         <a class="d-inline-flex align-items-center gap-3 text-decoration-none me-auto" href="/">
           <img class="brand-mark" src="{{ brand_logo_url }}" alt="Nira logo">
@@ -587,6 +601,32 @@
                   document.getElementById('global-search-input')?.focus();
                   break;
           }
+      });
+
+      // Toast notifications
+      const toastEl = document.getElementById('nira-toast');
+      const toastBody = document.getElementById('nira-toast-body');
+      let toastInstance = null;
+      
+      if (toastEl && typeof bootstrap !== 'undefined') {
+          toastInstance = new bootstrap.Toast(toastEl, { delay: 5000 });
+      }
+
+      window.showToast = function(message, type = 'danger') {
+          if (!toastEl || !toastInstance) return;
+          toastBody.textContent = message;
+          toastEl.className = `toast align-items-center border-0 shadow-lg text-white bg-${type}`;
+          toastInstance.show();
+      };
+
+      // Handle custom event from HX-Trigger header
+      document.body.addEventListener('nira:toast', (evt) => {
+          window.showToast(evt.detail.message, evt.detail.type || 'success');
+      });
+
+      // Handle HTMX response errors (like 400, 500)
+      document.body.addEventListener('htmx:responseError', (evt) => {
+          window.showToast(`Error: ${evt.detail.xhr.statusText || 'Server error'}`, 'danger');
       });
 
       // Initialize on first load
