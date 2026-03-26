@@ -21,7 +21,6 @@ from sqlalchemy.orm import (
 )
 
 from nira_app.models import (
-    Base,
     Setting,
     Ticket,
 )
@@ -182,6 +181,8 @@ class NiraStore:
                 if not self.table_exists(connection, "settings"):
                     # Use SQLAlchemy to create initial schema
                     self.engine.dispose()
+                    from nira_app.models import Base
+
                     Base.metadata.create_all(self.engine)
                     self.engine.dispose()
                     stamp_revision = "head"
@@ -189,6 +190,59 @@ class NiraStore:
         if stamp_revision:
             self.run_migrations(stamp_revision=stamp_revision)
             self.engine.dispose()
+
+        # 3.5 Heal out-of-sync migrations (e.g. columns exist but version is low)
+        with self.connect() as connection:
+            if self.table_exists(connection, "alembic_version"):
+                row = connection.execute("SELECT version_num FROM alembic_version").fetchone()
+                db_ver = row[0] if row else None
+
+                if db_ver:
+                    cols = self.column_names(connection, "tickets")
+
+                    version_order = {
+                        "b00dc4b8ba72": 0,
+                        "cb8b7155ded5": 1,
+                        "9c61fe152d41": 2,
+                        "6523e01bb988": 3,
+                        "b5778a9f2a33": 4,
+                        "c0d1284dadf6": 5,
+                    }
+
+                    max_ver = db_ver
+                    max_order = version_order.get(db_ver, 0)
+
+                    if "labels" in cols and version_order["cb8b7155ded5"] > max_order:
+                        max_ver = "cb8b7155ded5"
+                        max_order = version_order[max_ver]
+                    if "due_date" in cols and version_order["9c61fe152d41"] > max_order:
+                        max_ver = "9c61fe152d41"
+                        max_order = version_order[max_ver]
+                    if "parent_id" in cols and version_order["6523e01bb988"] > max_order:
+                        max_ver = "6523e01bb988"
+                        max_order = version_order[max_ver]
+                    if self.table_exists(connection, "history") and version_order["b5778a9f2a33"] > max_order:
+                        max_ver = "b5778a9f2a33"
+                        max_order = version_order[max_ver]
+                    if "story_points" in cols and version_order["c0d1284dadf6"] > max_order:
+                        max_ver = "c0d1284dadf6"
+                        max_order = version_order[max_ver]
+
+                    # Final check: if we are at head but missing parent_id, manually add it
+                    # (This handles a specific corruption observed)
+                    if "parent_id" not in cols and max_order >= 3:
+                        self.engine.dispose()
+                        with closing(sqlite3.connect(self.db_path)) as conn:
+                            conn.execute(
+                                "ALTER TABLE tickets ADD COLUMN parent_id INTEGER REFERENCES tickets(id) ON DELETE SET NULL"
+                            )
+                            conn.commit()
+                        self.engine.dispose()
+
+                    if max_ver != db_ver:
+                        self.engine.dispose()
+                        self.run_migrations(stamp_revision=max_ver)
+                        self.engine.dispose()
 
         # 4. Run alembic migrations (outside of connect context to avoid locking)
         if not _MIGRATIONS_RUN:
@@ -340,11 +394,16 @@ class NiraStore:
 
         cols = self.column_names(connection, "tickets")
         project_col = "project" if "project" in cols else "NULL as project"
+        labels_col = "labels" if "labels" in cols else "'' as labels"
+        due_date_col = "due_date" if "due_date" in cols else "NULL as due_date"
+        parent_id_col = "parent_id" if "parent_id" in cols else "NULL as parent_id"
+        story_points_col = "story_points" if "story_points" in cols else "NULL as story_points"
 
         old_tickets = connection.execute(
             f"""
             SELECT id, {project_col}, number, title, status, type, priority, source,
-                   resolution_reason, body_md, resolution_md, created_at, updated_at
+                   resolution_reason, body_md, resolution_md, created_at, updated_at,
+                   {labels_col}, {due_date_col}, {parent_id_col}, {story_points_col}
             FROM tickets
             ORDER BY number ASC
             """
@@ -373,6 +432,10 @@ class NiraStore:
                 priority TEXT NOT NULL,
                 source TEXT NOT NULL,
                 resolution_reason TEXT NOT NULL DEFAULT '',
+                labels TEXT NOT NULL DEFAULT '',
+                due_date TEXT,
+                parent_id INTEGER REFERENCES tickets_new(id) ON DELETE SET NULL,
+                story_points INTEGER,
                 body_md TEXT NOT NULL DEFAULT '',
                 resolution_md TEXT NOT NULL DEFAULT '',
                 created_at TEXT NOT NULL,
@@ -417,8 +480,9 @@ class NiraStore:
                 """
                 INSERT INTO tickets_new (
                     project, number, title, status, type, priority, source, resolution_reason,
+                    labels, due_date, parent_id, story_points,
                     body_md, resolution_md, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     project_val,
@@ -429,6 +493,10 @@ class NiraStore:
                     row["priority"],
                     row["source"],
                     row["resolution_reason"],
+                    row["labels"],
+                    row["due_date"],
+                    row["parent_id"],
+                    row["story_points"],
                     row["body_md"],
                     row["resolution_md"],
                     row["created_at"],
