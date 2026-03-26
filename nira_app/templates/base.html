@@ -166,6 +166,16 @@
       a.label-pill-link:hover {
         background-color: var(--bs-secondary-bg) !important;
       }
+      .letter-spacing-1 {
+        letter-spacing: 0.05rem;
+      }
+      #nira-progress {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #nira-progress.htmx-request {
+        opacity: 1;
+      }
     </style>
     <script>
       // Load theme early from server-side preference
@@ -176,7 +186,10 @@
       })();
     </script>
   </head>
-  <body>
+  <body hx-indicator="#nira-progress">
+    <div class="progress rounded-0" style="height: 3px; position: fixed; top: 0; left: 0; width: 100%; z-index: 2000; opacity: 0; transition: opacity 0.2s ease-in-out;" id="nira-progress">
+      <div class="progress-bar progress-bar-animated progress-bar-striped w-100" role="progressbar"></div>
+    </div>
     <header class="brand-shell">
       <div class="container py-3 d-flex flex-wrap align-items-center gap-3">
         <a class="d-inline-flex align-items-center gap-3 text-decoration-none me-auto" href="/">
@@ -235,6 +248,25 @@
     <main class="container page-shell">
       {% block content %}{{ content | safe }}{% endblock %}
     </main>
+
+    <footer class="container py-4 mt-auto border-top border-translucent">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div class="text-body-secondary small">
+          &copy; {{ utc_now()[:4] }} Nira Issue Tracker. {{ _("Perfect code, minimal footprint.") }}
+        </div>
+        <div class="d-flex gap-3 align-items-center">
+          <span class="text-body-secondary small fw-medium text-uppercase letter-spacing-1">{{ _("Shortcuts") }}</span>
+          <div class="d-flex gap-2">
+            <kbd class="bg-body-secondary text-body-emphasis border border-secondary-subtle px-2 py-1 shadow-sm" title="{{ _('Go to List') }}">L</kbd>
+            <kbd class="bg-body-secondary text-body-emphasis border border-secondary-subtle px-2 py-1 shadow-sm" title="{{ _('Go to Board') }}">B</kbd>
+            <kbd class="bg-body-secondary text-body-emphasis border border-secondary-subtle px-2 py-1 shadow-sm" title="{{ _('Create Ticket') }}">C</kbd>
+            <kbd class="bg-body-secondary text-body-emphasis border border-secondary-subtle px-2 py-1 shadow-sm" title="{{ _('Go to Dashboard') }}">D</kbd>
+            <kbd class="bg-body-secondary text-body-emphasis border border-secondary-subtle px-2 py-1 shadow-sm" title="{{ _('Focus Search') }}">/</kbd>
+          </div>
+        </div>
+      </div>
+    </footer>
+
     <script src="{{ bootstrap_js }}" integrity="{{ bootstrap_js_integrity }}" crossorigin="anonymous"></script>
     <script src="{{ toast_ui_editor_js }}"></script>
     <script src="{{ htmx_js }}" integrity="{{ htmx_js_integrity }}" crossorigin="anonymous"></script>
@@ -524,6 +556,38 @@
           });
         });
       }
+
+      // Keyboard shortcuts
+      document.addEventListener('keydown', (e) => {
+          // Don't trigger if user is typing in an input or textarea
+          if (['INPUT', 'TEXTAREA'].includes(e.target.tagName) || e.target.isContentEditable) {
+              // But / should still focus search if not in search already
+              if (e.key === '/' && e.target.id !== 'global-search-input') {
+                  e.preventDefault();
+                  document.getElementById('global-search-input')?.focus();
+              }
+              return;
+          }
+
+          switch(e.key.toLowerCase()) {
+              case 'l':
+                  window.location.href = '/list';
+                  break;
+              case 'b':
+                  window.location.href = '/board';
+                  break;
+              case 'c':
+                  window.location.href = '/tickets/new';
+                  break;
+              case 'd':
+                  window.location.href = '/';
+                  break;
+              case '/':
+                  e.preventDefault();
+                  document.getElementById('global-search-input')?.focus();
+                  break;
+          }
+      });
 
       // Initialize on first load
       initNiraComponents(document);

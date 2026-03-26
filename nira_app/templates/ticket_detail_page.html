@@ -6,12 +6,16 @@
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
   <div>
-    <p class="text-uppercase text-body-secondary small mb-1">
-      {{ ticket.project }} 
-      {% if parent %}
-      / <a href="/tickets/{{ parent.id }}" class="text-decoration-none text-body-secondary">{{ parent.id }}</a>
-      {% endif %}
-    </p>
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb text-uppercase small mb-2">
+        <li class="breadcrumb-item"><a href="/" class="text-decoration-none text-body-secondary">{{ _("Dashboard") }}</a></li>
+        <li class="breadcrumb-item"><a href="/list" class="text-decoration-none text-body-secondary">{{ _("Tickets") }}</a></li>
+        {% if parent %}
+        <li class="breadcrumb-item"><a href="/tickets/{{ parent.id }}" class="text-decoration-none text-body-secondary">{{ parent.id }}</a></li>
+        {% endif %}
+        <li class="breadcrumb-item active text-body-tertiary" aria-current="page">{{ ticket.id }}</li>
+      </ol>
+    </nav>
     <h1 class="h2 mb-1">{{ ticket.id }} {{ ticket.title }}</h1>
     <div class="d-flex flex-wrap gap-2">
       {{ status_badge(ticket.status) | safe }}
