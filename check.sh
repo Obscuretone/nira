@@ -13,6 +13,9 @@ mypy --config-file mypy.ini nira_app tests
 echo "Running pyright..."
 pyright
 
+echo "Running jscpd (duplication check)..."
+npx jscpd nira_app --threshold 5
+
 echo "Running pytest..."
 pytest
 
