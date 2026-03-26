@@ -435,6 +435,27 @@
           const input = container.querySelector('.label-hidden-input');
           const hiddenRealInput = container.querySelector('.label-real-input');
           
+          function getLabelStyle(text) {
+              const colorPairs = [
+                  ["#e7f1ff", "#004a99"],
+                  ["#e6ffec", "#005a13"],
+                  ["#fffde6", "#5a4b00"],
+                  ["#ffe6e6", "#990000"],
+                  ["#f3e6ff", "#4b0099"],
+                  ["#e6faff", "#005a6b"],
+                  ["#fff3e6", "#994b00"],
+                  ["#e6fffa", "#005a4b"]
+              ];
+              let hash = 0;
+              for (let i = 0; i < text.length; i++) {
+                  hash = ((hash << 5) - hash) + text.charCodeAt(i);
+                  hash |= 0; // Convert to 32bit integer
+              }
+              const idx = Math.abs(hash) % colorPairs.length;
+              const [bg, fg] = colorPairs[idx];
+              return `background-color: ${bg} !important; color: ${fg} !important; border: 1px solid ${fg}44 !important;`;
+          }
+
           function updateRealInput() {
               const labels = Array.from(container.querySelectorAll('.label-pill span'))
                   .map(span => span.textContent.trim());
@@ -446,6 +467,7 @@
           function createPill(text) {
               const pill = document.createElement('div');
               pill.className = 'label-pill mb-0';
+              pill.setAttribute('style', getLabelStyle(text));
               
               const span = document.createElement('span');
               span.textContent = text;

@@ -72,7 +72,7 @@
                 {% for label in ticket.labels.split(',') %}
                 {% set trimmed = label.strip() %}
                 {% if trimmed %}
-                <a href="/list?label={{ trimmed|urlencode }}" hx-get="/list?label={{ trimmed|urlencode }}" hx-target="body" hx-push-url="true" class="badge text-bg-light border text-secondary text-decoration-none label-pill-link" style="font-size: 0.7rem; transition: background-color 0.2s;">
+                <a href="/list?label={{ trimmed|urlencode }}" hx-get="/list?label={{ trimmed|urlencode }}" hx-target="body" hx-push-url="true" class="badge text-decoration-none label-pill-link" style="font-size: 0.7rem; {{ label_style(trimmed) }}">
                   {{ highlight(trimmed, search_query) | safe }}
                 </a>
                 {% endif %}

@@ -18,6 +18,36 @@ def test_highlight_helper():
     )
 
 
+def test_highlight_in_template(temp_root):
+    from nira_app.storage import NiraStore
+    from nira_app.web import NiraWebApp
+
+    store = NiraStore(temp_root / "templ")
+    store.initialize("TEST")
+    store.create_ticket("TEST", "Special Title")
+    app = NiraWebApp(store)
+
+    # Test rendering list_page with a search query that should trigger highlighting
+    res = app.list_page({"search": "Special"}, {})
+    body = res.body
+    assert isinstance(body, str)
+    assert '<mark class="p-0">Special</mark> Title' in body
+
+
+def test_label_style():
+    from nira_app.web import label_style
+
+    s1 = label_style("bug")
+    s2 = label_style("bug")
+    assert s1 == s2
+    assert "background-color" in s1
+    assert "color" in s1
+
+    s3 = label_style("feature")
+    # It's possible to have collisions, but with 8 colors it's unlikely for "bug" and "feature"
+    assert s1 != s3
+
+
 def test_relative_time_units():
     now = datetime.now(UTC)
 

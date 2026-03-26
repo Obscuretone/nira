@@ -36,6 +36,8 @@ Before staging, committing, or proposing any changes, you **MUST** run the follo
 ```
 This is also enforced by a pre-commit hook that runs `./check.sh` automatically. If the hook fails, the commit will be blocked until the issues are resolved. Do NOT bypass this hook with `--no-verify`.
 
+**Testing:** ALWAYS search for and update related tests after making a code change. You must add a new test case to the existing test file (if one exists) or create a new test file to verify your changes. A change is incomplete without verification logic.
+
 **Code Review:** You MUST perform a full code review of the `git diff` before committing. Ensure all changes are intentional, follow the architectural patterns, and do not introduce regressions or debugging code.
 
 This script runs:

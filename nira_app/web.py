@@ -139,6 +139,31 @@ def priority_badge(priority: str) -> str:
     return f'<span class="badge {variants.get(priority, "text-bg-light border")}">{h(priority)}</span>'
 
 
+def label_style(label: str) -> str:
+    # A set of accessible, high-contrast color pairs (background, text)
+    color_pairs = [
+        ("#e7f1ff", "#004a99"),  # Blue
+        ("#e6ffec", "#005a13"),  # Green
+        ("#fffde6", "#5a4b00"),  # Yellow
+        ("#ffe6e6", "#990000"),  # Red
+        ("#f3e6ff", "#4b0099"),  # Purple
+        ("#e6faff", "#005a6b"),  # Cyan
+        ("#fff3e6", "#994b00"),  # Orange
+        ("#e6fffa", "#005a4b"),  # Teal
+    ]
+
+    # Simple deterministic hash
+    h_val = 0
+    for char in label:
+        h_val = ((h_val << 5) - h_val) + ord(char)
+        h_val &= 0xFFFFFFFF  # Convert to 32-bit int
+
+    idx = h_val % len(color_pairs)
+    bg, fg = color_pairs[idx]
+
+    return f"background-color: {bg} !important; color: {fg} !important; border: 1px solid {fg}44 !important;"
+
+
 class QuietRequestHandler(WSGIRequestHandler):
     def log_message(self, format, *args):
         return
@@ -178,6 +203,7 @@ class NiraWebApp:
                 "urlencode": urlencode,
                 "sort_header_link": self.sort_header_link,
                 "highlight": highlight,
+                "label_style": label_style,
             }
         )
 
@@ -194,6 +220,8 @@ class NiraWebApp:
             "_": translator,
             "format_time": format_time_wrapper,
             "render_markdown": render_markdown,
+            "highlight": highlight,
+            "h": h,
             **context,
         }
         return template.render(**full_context)
