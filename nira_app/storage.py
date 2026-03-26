@@ -646,6 +646,56 @@ class NiraStore:
             result = self.ticket_from_model(ticket, current_project)
         return result
 
+    def import_tickets(self, tickets_data: list[dict[str, Any]]) -> int:
+        count = 0
+        with self.session() as session:
+            for data in tickets_data:
+                # We identify existing tickets by number
+                number = int(data["number"])
+                stmt = select(Ticket).where(Ticket.number == number)
+                existing = session.execute(stmt).scalar_one_or_none()
+
+                if existing:
+                    # Update existing? For now, let's just update to keep it simple and useful
+                    existing.title = data.get("title", existing.title)
+                    existing.status = data.get("status", existing.status)
+                    existing.type = data.get("type", existing.type) or data.get("ticket_type", existing.type)
+                    existing.priority = data.get("priority", existing.priority)
+                    existing.source = data.get("source", existing.source)
+                    existing.labels = data.get("labels", existing.labels)
+                    existing.due_date = data.get("due_date", existing.due_date)
+                    existing.story_points = (
+                        int(data["story_points"])
+                        if data.get("story_points") not in (None, "")
+                        else existing.story_points
+                    )
+                    existing.body_md = data.get("body_md", existing.body_md)
+                    existing.resolution_md = data.get("resolution_md", existing.resolution_md)
+                    existing.resolution_reason = data.get("resolution_reason", existing.resolution_reason)
+                    existing.created_at = data.get("created_at", existing.created_at)
+                    existing.updated_at = data.get("updated_at", existing.updated_at)
+                else:
+                    ticket = Ticket(
+                        number=number,
+                        title=data["title"],
+                        status=data.get("status", "open"),
+                        type=data.get("type") or data.get("ticket_type") or "task",
+                        priority=data.get("priority", "medium"),
+                        source=data.get("source", ""),
+                        labels=data.get("labels", ""),
+                        due_date=data.get("due_date"),
+                        story_points=int(data["story_points"]) if data.get("story_points") not in (None, "") else None,
+                        body_md=data.get("body_md", ""),
+                        resolution_md=data.get("resolution_md", ""),
+                        resolution_reason=data.get("resolution_reason", ""),
+                        created_at=data.get("created_at") or utc_now(),
+                        updated_at=data.get("updated_at") or utc_now(),
+                    )
+                    session.add(ticket)
+                count += 1
+            session.commit()
+        return count
+
     def get_default_project(self) -> str:
         with self.session() as session:
             return self.current_project(session)

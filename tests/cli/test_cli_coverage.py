@@ -400,6 +400,45 @@ def test_cli_show_json(temp_root):
     assert data["ticket"]["title"] == "T1"
 
 
+def test_cli_export_import(temp_root):
+    run_cli_cov(["init", "--project-key", "NIRA"], cwd=temp_root)
+    run_cli_cov(["create", "T1", "--body", "Body 1"], cwd=temp_root)
+    run_cli_cov(["create", "T2", "--body", "Body 2"], cwd=temp_root)
+
+    csv_path = temp_root / "export.csv"
+    code, out, _ = run_cli_cov(["export", str(csv_path)], cwd=temp_root)
+    assert code == 0
+    assert "Exported 2 tickets" in out
+    assert csv_path.exists()
+
+    # Create a new workspace and import
+    workspace2 = temp_root.parent / "ws2"
+    workspace2.mkdir(exist_ok=True)
+    run_cli_cov(["init", "--project-key", "NIRA"], cwd=workspace2)
+
+    # Import into workspace 2
+    code, out, _ = run_cli_cov(["import", str(csv_path)], cwd=workspace2)
+    assert code == 0
+    assert "Imported 2 tickets" in out
+
+    # Verify tickets in workspace 2
+    code, out, _ = run_cli_cov(["list"], cwd=workspace2)
+    assert "T1" in out
+    assert "T2" in out
+
+    # Test export with no tickets
+    workspace3 = temp_root.parent / "ws3"
+    workspace3.mkdir(exist_ok=True)
+    run_cli_cov(["init", "--project-key", "NIRA"], cwd=workspace3)
+    code, out, _ = run_cli_cov(["export", "empty.csv"], cwd=workspace3)
+    assert "No tickets found" in out
+
+    # Test import file not found
+    code, out, _ = run_cli_cov(["import", "missing.csv"], cwd=workspace3)
+    assert code == 1
+    assert "not found" in out
+
+
 def test_cli_describe_reload_change():
     from nira_app.cli import describe_reload_change
 

@@ -361,6 +361,65 @@ def test_legacy_migration_errors(temp_root):
             store.migrate_legacy_schema(conn)
 
 
+def test_storage_import_tickets(temp_root):
+    store = NiraStore(temp_root / "import")
+    store.initialize("NIRA")
+
+    data = [
+        {
+            "number": 1,
+            "title": "Imported 1",
+            "status": "open",
+            "type": "task",
+            "priority": "medium",
+            "source": "cli",
+            "labels": "tag1",
+            "due_date": "2024-01-01",
+            "story_points": 5,
+            "body_md": "body 1",
+            "resolution_md": "",
+            "resolution_reason": "",
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:00:00Z",
+        },
+        {
+            "number": 2,
+            "title": "Imported 2",
+            "status": "closed",
+            "type": "bug",
+            "priority": "high",
+            "source": "api",
+            "labels": "tag2",
+            "due_date": None,
+            "story_points": None,
+            "body_md": "body 2",
+            "resolution_md": "fixed",
+            "resolution_reason": "completed",
+            "created_at": None,
+            "updated_at": None,
+        },
+    ]
+
+    count = store.import_tickets(data)
+    assert count == 2
+
+    t1 = store.get_ticket("NIRA-1")
+    assert t1["title"] == "Imported 1"
+    assert t1["story_points"] == 5
+    assert t1["labels"] == "tag1"
+
+    t2 = store.get_ticket("NIRA-2")
+    assert t2["title"] == "Imported 2"
+    assert t2["status"] == "closed"
+    assert t2["resolution_md"] == "fixed"
+
+    # Test update via import
+    data[0]["title"] = "Updated title"
+    store.import_tickets([data[0]])
+    t1_updated = store.get_ticket("NIRA-1")
+    assert t1_updated["title"] == "Updated title"
+
+
 def test_missing_ticket_operations(temp_root):
     store = NiraStore(temp_root / "ops")
     store.initialize("NIRA")

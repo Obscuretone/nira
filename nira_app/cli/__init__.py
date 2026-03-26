@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import json
 import os
 import shlex
@@ -445,6 +446,75 @@ def unlink(
         store.unlink_tickets(ticket_id, other_ticket_id)
         console.print(f"Unlinked [blue]{ticket_id}[/blue] and [blue]{other_ticket_id}[/blue]")
     except NiraError as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(1)
+
+
+@app.command()
+def export(
+    ctx: typer.Context,
+    filename: Annotated[Path, typer.Argument(help="Filename to export to.")],
+    project: Annotated[Optional[str], typer.Option(help="Filter by project.")] = None,
+    status: Annotated[Optional[str], typer.Option(help="Filter by status.")] = None,
+    priority: Annotated[Optional[str], typer.Option(help="Filter by priority.")] = None,
+    type: Annotated[Optional[str], typer.Option(help="Filter by type.")] = None,
+    search: Annotated[Optional[str], typer.Option(help="Search query.")] = None,
+    label: Annotated[Optional[str], typer.Option(help="Filter by label.")] = None,
+):
+    """
+    Export tickets to a CSV file.
+    """
+    try:
+        store = resolve_store(ctx.obj["root"], create=False)
+        tickets = store.list_tickets(
+            project=project,
+            status=status,
+            priority=priority,
+            ticket_type=type,
+            search=search,
+            label=label,
+        )
+
+        if not tickets:
+            console.print("[yellow]No tickets found to export.[/yellow]")
+            return
+
+        with open(filename, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=tickets[0].keys())
+            writer.writeheader()
+            writer.writerows(tickets)
+
+        console.print(f"[green]Exported {len(tickets)} tickets to {filename}[/green]")
+    except (NiraError, OSError) as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(1)
+
+
+@app.command(name="import")
+def import_tickets(
+    ctx: typer.Context,
+    filename: Annotated[Path, typer.Argument(help="CSV file to import from.")],
+):
+    """
+    Import tickets from a CSV file.
+    """
+    try:
+        store = resolve_store(ctx.obj["root"], create=False)
+        if not filename.exists():
+            console.print(f"[red]Error:[/red] File {filename} not found.")
+            raise typer.Exit(1)
+
+        with open(filename, "r", newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            tickets_data = list(reader)
+
+        if not tickets_data:
+            console.print("[yellow]No tickets found in CSV to import.[/yellow]")
+            return
+
+        count = store.import_tickets(tickets_data)
+        console.print(f"[green]Imported {count} tickets from {filename}[/green]")
+    except (NiraError, OSError, ValueError) as exc:
         console.print(f"[red]Error:[/red] {exc}")
         raise typer.Exit(1)
 
