@@ -376,6 +376,30 @@ def test_cli_list_variations(temp_root):
     run_cli_cov(["list", "--status", "all"], cwd=temp_root)
 
 
+def test_cli_list_json(temp_root):
+    run_cli_cov(["init", "--project-key", "NIRA"], cwd=temp_root)
+    run_cli_cov(["create", "T1"], cwd=temp_root)
+    code, out, _ = run_cli_cov(["list", "--json"], cwd=temp_root)
+    assert code == 0
+    import json
+
+    data = json.loads(out)
+    assert isinstance(data, list)
+    assert data[0]["title"] == "T1"
+
+
+def test_cli_show_json(temp_root):
+    run_cli_cov(["init", "--project-key", "NIRA"], cwd=temp_root)
+    run_cli_cov(["create", "T1"], cwd=temp_root)
+    code, out, _ = run_cli_cov(["show", "NIRA-1", "--json"], cwd=temp_root)
+    assert code == 0
+    import json
+
+    data = json.loads(out)
+    assert "ticket" in data
+    assert data["ticket"]["title"] == "T1"
+
+
 def test_cli_describe_reload_change():
     from nira_app.cli import describe_reload_change
 

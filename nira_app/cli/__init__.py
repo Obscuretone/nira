@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import shlex
 import subprocess
@@ -178,26 +179,31 @@ def create_ticket_logic(ctx, title_parts, project, source, type, priority, label
 def show_ticket(
     ctx: typer.Context,
     ticket_id: Annotated[str, typer.Argument(help="ID of the ticket to show.")],
+    json_output: Annotated[bool, typer.Option("--json", help="Output in JSON format.")] = False,
 ):
     """
     Show a ticket's details.
     """
-    show_ticket_logic(ctx, ticket_id)
+    show_ticket_logic(ctx, ticket_id, json_output)
 
 
 @app.command(name="get", hidden=True)
 def get_ticket_alias(
     ctx: typer.Context,
     ticket_id: Annotated[str, typer.Argument()],
+    json_output: Annotated[bool, typer.Option("--json")] = False,
 ):
-    show_ticket_logic(ctx, ticket_id)
+    show_ticket_logic(ctx, ticket_id, json_output)
 
 
-def show_ticket_logic(ctx, ticket_id):
+def show_ticket_logic(ctx, ticket_id, json_output=False):
     try:
         store = resolve_store(ctx.obj["root"], create=False)
         details = store.ticket_details(ticket_id)
-        print_ticket(details, store)
+        if json_output:
+            print(json.dumps(details, indent=2))
+        else:
+            print_ticket(details, store)
     except NiraError as exc:
         console.print(f"[red]Error:[/red] {exc}")
         raise typer.Exit(1)
@@ -214,6 +220,7 @@ def list_tickets(
     type: Annotated[Optional[str], typer.Option(help="Filter by type.")] = None,
     search: Annotated[Optional[str], typer.Option(help="Search query.")] = None,
     label: Annotated[Optional[str], typer.Option(help="Filter by label.")] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Output in JSON format.")] = False,
 ):
     """
     List tickets in the current workspace.
@@ -233,7 +240,10 @@ def list_tickets(
             search=search,
             label=label,
         )
-        print_ticket_list(tickets, store)
+        if json_output:
+            print(json.dumps(tickets, indent=2))
+        else:
+            print_ticket_list(tickets, store)
     except NiraError as exc:
         console.print(f"[red]Error:[/red] {exc}")
         raise typer.Exit(1)
