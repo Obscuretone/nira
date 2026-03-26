@@ -24,8 +24,8 @@ def test_highlight_in_template(temp_root):
 
     store = NiraStore(temp_root / "templ")
     store.initialize("TEST")
-    store.create_ticket("TEST", "Special Title")
     app = NiraWebApp(store)
+    app.service.create_ticket("TEST", "Special Title")
 
     # Test rendering list_page with a search query that should trigger highlighting
     res = app.list_page({"search": "Special"}, {})
@@ -115,7 +115,7 @@ def test_web_app_misc_coverage(temp_root):
     app.board_page({"label": "test"}, {})
 
     # Test ticket_detail_page with missing parent/related
-    store.create_ticket("NIRA", "T1")
+    app.service.create_ticket("NIRA", "T1")
     app.ticket_detail_page({}, {}, "NIRA-1")
 
     # Test edit_ticket_action validation
@@ -128,7 +128,7 @@ def test_web_action_errors(temp_root):
     store.initialize("NIRA")
     app = NiraWebApp(store)
 
-    store.create_ticket("NIRA", "T1")
+    app.service.create_ticket("NIRA", "T1")
 
     # edit_ticket_action status change
     app.edit_ticket_action({}, {"status": "closed", "resolution_reason": "done"}, "NIRA-1")
@@ -152,7 +152,7 @@ def test_web_more_coverage(temp_root):
     app.asset_response({}, {}, "missing.png")  # 404
 
     # ticket_search_dropdown with exclude
-    store.create_ticket("NIRA", "T1")
+    app.service.create_ticket("NIRA", "T1")
     app.ticket_search_dropdown({"exclude": "NIRA-1"}, {})
 
     # create_ticket_action with parent

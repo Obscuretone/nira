@@ -10,35 +10,38 @@ from nira_app.storage import (
     Setting,
     DEFAULT_PROJECT_SETTING,
 )
+from nira_app.services import TicketService
 
 
 def test_storage_errors(temp_root):
     store = NiraStore(temp_root / "errors")
+    service = TicketService(store)
 
     store.initialize("NIRA")
     store.initialize("NIRA")  # Should not raise if already initialized with same key
 
     store = NiraStore(temp_root / "err2")
+    service = TicketService(store)
     store.initialize("NIRA")
 
     # Missing tickets
     with pytest.raises(NiraError):
-        store.get_ticket("NIRA-999")
+        service.store.get_ticket("NIRA-999")
     with pytest.raises(NiraError):
-        store.update_ticket("NIRA-999", status="open")
+        service.update_ticket("NIRA-999", status="open")
     with pytest.raises(NiraError):
-        store.add_comment("NIRA-999", "b")
+        service.add_comment("NIRA-999", "b")
     with pytest.raises(NiraError):
-        store.link_tickets("NIRA-999", "NIRA-1")
+        service.link_tickets("NIRA-999", "NIRA-1")
     with pytest.raises(NiraError):
-        store.unlink_tickets("NIRA-999", "NIRA-1")
+        service.unlink_tickets("NIRA-999", "NIRA-1")
 
     # Validation
-    store.create_ticket("NIRA", "T1")
+    service.create_ticket("NIRA", "T1")
     with pytest.raises(ValidationError):
-        store.link_tickets("NIRA-1", "NIRA-1")
+        service.link_tickets("NIRA-1", "NIRA-1")
     with pytest.raises(ValidationError):
-        store.unlink_tickets("NIRA-1", "NIRA-1")
+        service.unlink_tickets("NIRA-1", "NIRA-1")
 
 
 def test_legacy_migration_coverage(temp_root):
@@ -73,14 +76,15 @@ def test_storage_misc_and_legacy(temp_root):
         normalize_ticket_id("INVALID")
 
     store = NiraStore(temp_root / "t1")
+    service = TicketService(store)
     store.initialize("NIRA")
-    store.create_ticket("NIRA", "T1", labels="tag")
-    assert store.count_tickets(project="MISSING") == 0
-    assert store.count_tickets(label="tag") == 1
+    service.create_ticket("NIRA", "T1", labels="tag")
+    assert service.count_tickets(project="MISSING") == 0
+    assert service.count_tickets(label="tag") == 1
 
     # reset reason
-    store.update_ticket("NIRA-1", status="closed")
-    store.update_ticket("NIRA-1", status="open")
+    service.update_ticket("NIRA-1", status="closed")
+    service.update_ticket("NIRA-1", status="open")
 
     with store.session() as session:
         store.touch_tickets(session, [1])
@@ -89,40 +93,41 @@ def test_storage_misc_and_legacy(temp_root):
 
 def test_storage_coverage_remaining(temp_root):
     store = NiraStore(temp_root / "final")
+    service = TicketService(store)
     store.initialize("NIRA")
 
-    store.create_ticket("NIRA", "T1")
-    store.create_ticket("NIRA", "T2")
+    service.create_ticket("NIRA", "T1")
+    service.create_ticket("NIRA", "T2")
 
     # Missing link targets
     try:
-        store.link_tickets("NIRA-999", "NIRA-1")
+        service.link_tickets("NIRA-999", "NIRA-1")
     except Exception:
         pass
 
     try:
-        store.link_tickets("NIRA-1", "NIRA-999")
+        service.link_tickets("NIRA-1", "NIRA-999")
     except Exception:
         pass
 
     try:
-        store.unlink_tickets("NIRA-999", "NIRA-1")
+        service.unlink_tickets("NIRA-999", "NIRA-1")
     except Exception:
         pass
 
     try:
-        store.unlink_tickets("NIRA-1", "NIRA-999")
+        service.unlink_tickets("NIRA-1", "NIRA-999")
     except Exception:
         pass
 
     try:
-        store.add_comment("NIRA-999", "b")
+        service.add_comment("NIRA-999", "b")
     except Exception:
         pass
 
     # Invalid project in get_ticket
     try:
-        store.get_ticket("INVALID-1")
+        service.store.get_ticket("INVALID-1")
     except Exception:
         pass
 
@@ -136,9 +141,10 @@ def test_storage_coverage_remaining(temp_root):
 
 def test_list_ticket_filters(temp_root):
     store = NiraStore(temp_root / "filters")
+    service = TicketService(store)
     store.initialize("NIRA")
 
-    store.list_tickets(
+    service.list_tickets(
         project="NIRA",
         label="none",
         overdue=True,
@@ -148,46 +154,48 @@ def test_list_ticket_filters(temp_root):
         status="open",
         sort_by="updated",
     )
-    store.count_tickets(
+    service.count_tickets(
         project="NIRA", label="none", overdue=True, parent_id=1, ticket_type="task", priority="high", status="open"
     )
 
 
 def test_storage_validation_errors(temp_root):
     store = NiraStore(temp_root / "validation")
+    service = TicketService(store)
     store.initialize("NIRA")
 
     # Title required
     with pytest.raises(ValidationError, match="Title is required"):
-        store.create_ticket("NIRA", "")
+        service.create_ticket("NIRA", "")
 
     # Title cannot be empty in update
-    store.create_ticket("NIRA", "T1")
+    service.create_ticket("NIRA", "T1")
     with pytest.raises(ValidationError, match="Title cannot be empty"):
-        store.update_ticket("NIRA-1", title=" ")
+        service.update_ticket("NIRA-1", title=" ")
 
     # Closing requires resolution notes
     with pytest.raises(ValidationError, match="Closing a ticket requires resolution notes"):
-        store.close_ticket("NIRA-1", resolution_md=" ")
+        service.close_ticket("NIRA-1", resolution_md=" ")
 
     # Comment text required
     with pytest.raises(ValidationError, match="Comment text is required"):
-        store.add_comment("NIRA-1", " ")
+        service.add_comment("NIRA-1", " ")
 
 
 def test_storage_more_coverage(temp_root):
     store = NiraStore(temp_root / "more")
+    service = TicketService(store)
     store.initialize("NIRA")
 
     # Trigger update_ticket logic
-    store.create_ticket("NIRA", "T1")
-    store.update_ticket("NIRA-1", labels="  a, b  ", due_date="2023-12-31", parent_id=1)
+    service.create_ticket("NIRA", "T1")
+    service.update_ticket("NIRA-1", labels="  a, b  ", due_date="2023-12-31", parent_id=1)
 
     # Trigger sorting/filtering logic
-    store.list_tickets(sort_by="priority", overdue=True)
-    store.list_tickets(sort_by="status", offset=10)
-    store.list_tickets(status="closed")
-    store.count_tickets(status="closed")
+    service.list_tickets(sort_by="priority", overdue=True)
+    service.list_tickets(sort_by="status", offset=10)
+    service.list_tickets(status="closed")
+    service.count_tickets(status="closed")
 
 
 def test_connect_rollback(temp_root):
@@ -223,16 +231,17 @@ def test_get_projects_default(temp_root):
 
 def test_storage_final_coverage(temp_root):
     store = NiraStore(temp_root)
+    service = TicketService(store)
     store.initialize("NIRA")
 
     # create_ticket project mismatch
     with pytest.raises(ValidationError) as exc:
-        store.create_ticket("WRONG", "Title")
+        service.create_ticket("WRONG", "Title")
     assert "Change it in settings first" in str(exc.value)
 
     # touch_tickets
     with store.session() as session:
-        store.create_ticket("NIRA", "T1")
+        service.create_ticket("NIRA", "T1")
         store.touch_tickets(session, [1], timestamp="2024-01-01T00:00:00Z")
 
 
@@ -248,7 +257,7 @@ def test_storage_legacy_branches(temp_root):
         assert store.needs_legacy_migration(conn) is True
 
         conn.execute("DROP TABLE tickets")
-        conn.execute("CREATE TABLE tickets (id INTEGER PRIMARY KEY, project TEXT)")
+        conn.execute("CREATE TABLE tickets (id INTEGER PRIMARY KEY, number INTEGER)")
         assert store.needs_legacy_migration(conn) is True
 
 
@@ -261,9 +270,10 @@ def test_storage_migrate_legacy_no_tickets(temp_root):
 
 def test_storage_count_tickets_search(temp_root):
     store = NiraStore(temp_root / "search")
+    service = TicketService(store)
     store.initialize("NIRA")
-    store.create_ticket("NIRA", "Searchable content")
-    assert store.count_tickets(search="Searchable") == 1
+    service.create_ticket("NIRA", "Searchable content")
+    assert service.count_tickets(search="Searchable") == 1
 
 
 def test_storage_initialize_legacy(temp_root):
@@ -317,8 +327,9 @@ def test_storage_rename_project(temp_root):
 
 def test_storage_touch_tickets(temp_root):
     store = NiraStore(temp_root / "touch")
+    service = TicketService(store)
     store.initialize("NIRA")
-    store.create_ticket("NIRA", "T1")
+    service.create_ticket("NIRA", "T1")
     with store.session() as session:
         # Call touch_tickets with multiple IDs and a timestamp
         store.touch_tickets(session, [1], timestamp="2024-01-01T00:00:00Z")
@@ -363,6 +374,7 @@ def test_legacy_migration_errors(temp_root):
 
 def test_storage_import_tickets(temp_root):
     store = NiraStore(temp_root / "import")
+    service = TicketService(store)
     store.initialize("NIRA")
 
     data = [
@@ -400,34 +412,35 @@ def test_storage_import_tickets(temp_root):
         },
     ]
 
-    count = store.import_tickets(data)
+    count = service.import_tickets(data)
     assert count == 2
 
-    t1 = store.get_ticket("NIRA-1")
+    t1 = service.store.get_ticket("NIRA-1")
     assert t1["title"] == "Imported 1"
     assert t1["story_points"] == 5
     assert t1["labels"] == "tag1"
 
-    t2 = store.get_ticket("NIRA-2")
+    t2 = service.store.get_ticket("NIRA-2")
     assert t2["title"] == "Imported 2"
     assert t2["status"] == "closed"
     assert t2["resolution_md"] == "fixed"
 
     # Test update via import
     data[0]["title"] = "Updated title"
-    store.import_tickets([data[0]])
-    t1_updated = store.get_ticket("NIRA-1")
+    service.import_tickets([data[0]])
+    t1_updated = service.store.get_ticket("NIRA-1")
     assert t1_updated["title"] == "Updated title"
 
 
 def test_missing_ticket_operations(temp_root):
     store = NiraStore(temp_root / "ops")
+    service = TicketService(store)
     store.initialize("NIRA")
 
     with pytest.raises(NiraError):
-        store.get_ticket("NIRA-1")
+        service.store.get_ticket("NIRA-1")
 
-    store.create_ticket("NIRA", "T1")
+    service.create_ticket("NIRA", "T1")
     # Add comment with non-existent ticket
     with pytest.raises(NiraError):
-        store.add_comment("NIRA-999", "comment")
+        service.add_comment("NIRA-999", "comment")

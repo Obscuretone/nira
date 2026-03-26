@@ -19,15 +19,15 @@ from rich.table import Table
 from rich.markdown import Markdown
 from rich.text import Text
 
+from nira_app.models import TicketData, TicketDetails
 from nira_app.storage import (
     UNSET,
     NiraError,
     NiraStore,
-    TicketData,
-    TicketDetails,
     ValidationError,
     find_root,
 )
+from nira_app.services import TicketService
 from nira_app.web import serve as run_server
 from nira_app.logging import setup_logging
 
@@ -155,6 +155,7 @@ def create_ticket_alias(
 def create_ticket_logic(ctx, title_parts, project, source, type, priority, labels, due, parent, body, edit):
     try:
         store = resolve_store(ctx.obj["root"], create=False)
+        service = TicketService(store)
         parent_db_id = None
         if parent:
             parent_ticket = store.get_ticket(parent)
@@ -163,7 +164,7 @@ def create_ticket_logic(ctx, title_parts, project, source, type, priority, label
         title = " ".join(title_parts).strip()
         body_md = read_markdown_input(body=body, edit=edit)
 
-        ticket = store.create_ticket(
+        ticket = service.create_ticket(
             project or "",
             title,
             source=source,
@@ -204,7 +205,8 @@ def get_ticket_alias(
 def show_ticket_logic(ctx, ticket_id, json_output=False):
     try:
         store = resolve_store(ctx.obj["root"], create=False)
-        details = store.ticket_details(ticket_id)
+        service = TicketService(store)
+        details = service.ticket_details(ticket_id)
         if json_output:
             print(json.dumps(details, indent=2))
         else:
@@ -237,7 +239,8 @@ def list_tickets(
             status = None
 
         store = resolve_store(ctx.obj["root"], create=False)
-        tickets = store.list_tickets(
+        service = TicketService(store)
+        tickets = service.list_tickets(
             project=project,
             status=status,
             priority=priority,
@@ -275,6 +278,7 @@ def update(
     """
     try:
         store = resolve_store(ctx.obj["root"], create=False)
+        service = TicketService(store)
         updates: dict[str, Any] = {
             "title": title if title is not None else UNSET,
             "status": status if status is not None else UNSET,
@@ -294,7 +298,7 @@ def update(
                 parent_ticket = store.get_ticket(parent)
                 updates["parent_id"] = parent_ticket["db_id"]
 
-        ticket = store.update_ticket(ticket_id, **updates)
+        ticket = service.update_ticket(ticket_id, **updates)
         console.print(f"Updated [bold blue]{ticket['id']}[/bold blue]")
     except NiraError as exc:
         console.print(f"[red]Error:[/red] {exc}")
@@ -316,7 +320,8 @@ def edit(
 
     try:
         store = resolve_store(ctx.obj["root"], create=False)
-        details = store.ticket_details(ticket_id)
+        service = TicketService(store)
+        details = service.ticket_details(ticket_id)
         if field == "body":
             field_name = "body_md"
             initial_text = details["ticket"]["body_md"]
@@ -326,7 +331,7 @@ def edit(
 
         updated_text = launch_editor(initial_text)
         updates: dict[str, Any] = {field_name: updated_text}
-        ticket = store.update_ticket(ticket_id, **updates)
+        ticket = service.update_ticket(ticket_id, **updates)
         console.print(f"Updated [bold blue]{ticket['id']}[/bold blue] {field}")
     except NiraError as exc:
         console.print(f"[red]Error:[/red] {exc}")
@@ -347,11 +352,12 @@ def close(
     """
     try:
         store = resolve_store(ctx.obj["root"], create=False)
+        service = TicketService(store)
         resolution_md = read_markdown_input(body=notes, edit=edit)
         if not resolution_md.strip():
             console.print("[yellow]Warning:[/yellow] Empty resolution notes. Aborting.")
             raise typer.Exit(1)
-        ticket = store.close_ticket(ticket_id, resolution_md=resolution_md)
+        ticket = service.close_ticket(ticket_id, resolution_md=resolution_md)
         console.print(f"Closed [bold blue]{ticket['id']}[/bold blue]")
     except NiraError as exc:
         console.print(f"[red]Error:[/red] {exc}")
@@ -374,7 +380,8 @@ def comment(
         if not body_md.strip():
             console.print("[yellow]Warning:[/yellow] Empty comment. Aborting.")
             raise typer.Exit(1)
-        comment_record = store.add_comment(ticket_id, body_md)
+        service = TicketService(store)
+        comment_record = service.add_comment(ticket_id, body_md)
         console.print(
             f"Added comment [bold blue]#{comment_record['id']}[/bold blue] to [bold blue]{ticket_id}[/bold blue]"
         )
@@ -393,7 +400,8 @@ def reopen(
     """
     try:
         store = resolve_store(ctx.obj["root"], create=False)
-        ticket = store.reopen_ticket(ticket_id)
+        service = TicketService(store)
+        ticket = service.reopen_ticket(ticket_id)
         console.print(f"Reopened [bold blue]{ticket['id']}[/bold blue]")
     except NiraError as exc:
         console.print(f"[red]Error:[/red] {exc}")
@@ -411,7 +419,8 @@ def link(
     """
     try:
         store = resolve_store(ctx.obj["root"], create=False)
-        store.link_tickets(ticket_id, other_ticket_id)
+        service = TicketService(store)
+        service.link_tickets(ticket_id, other_ticket_id)
         console.print(f"Linked [blue]{ticket_id}[/blue] and [blue]{other_ticket_id}[/blue]")
     except NiraError as exc:
         console.print(f"[red]Error:[/red] {exc}")
@@ -428,8 +437,9 @@ def links(
     """
     try:
         store = resolve_store(ctx.obj["root"], create=False)
+        service = TicketService(store)
         resolved_ticket_id = store.get_ticket(ticket_id)["id"] if ticket_id else None
-        links_data = store.list_links(ticket_id)
+        links_data = service.list_links(ticket_id)
         print_links(links_data, ticket_id=resolved_ticket_id)
     except NiraError as exc:
         console.print(f"[red]Error:[/red] {exc}")
@@ -447,7 +457,8 @@ def unlink(
     """
     try:
         store = resolve_store(ctx.obj["root"], create=False)
-        store.unlink_tickets(ticket_id, other_ticket_id)
+        service = TicketService(store)
+        service.unlink_tickets(ticket_id, other_ticket_id)
         console.print(f"Unlinked [blue]{ticket_id}[/blue] and [blue]{other_ticket_id}[/blue]")
     except NiraError as exc:
         console.print(f"[red]Error:[/red] {exc}")
@@ -470,7 +481,8 @@ def export(
     """
     try:
         store = resolve_store(ctx.obj["root"], create=False)
-        tickets = store.list_tickets(
+        service = TicketService(store)
+        tickets = service.list_tickets(
             project=project,
             status=status,
             priority=priority,
@@ -504,6 +516,7 @@ def import_tickets(
     """
     try:
         store = resolve_store(ctx.obj["root"], create=False)
+        service = TicketService(store)
         if not filename.exists():
             console.print(f"[red]Error:[/red] File {filename} not found.")
             raise typer.Exit(1)
@@ -516,9 +529,92 @@ def import_tickets(
             console.print("[yellow]No tickets found in CSV to import.[/yellow]")
             return
 
-        count = store.import_tickets(tickets_data)
+        count = service.import_tickets(tickets_data)
         console.print(f"[green]Imported {count} tickets from {filename}[/green]")
     except (NiraError, OSError, ValueError) as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(1)
+
+
+@app.command()
+def board(
+    ctx: typer.Context,
+    project: Annotated[Optional[str], typer.Option(help="Filter by project.")] = None,
+):
+    """
+    Show a summary Kanban board in the terminal.
+    """
+    try:
+        store = resolve_store(ctx.obj["root"], create=False)
+        service = TicketService(store)
+        statuses = store.get_statuses()
+        # Fetch 100 most recent tickets
+        tickets = service.list_tickets(project=project, limit=100)
+
+        from rich.columns import Columns
+
+        cols = []
+        for status in statuses:
+            status_tickets = [t for t in tickets if t["status"] == status]
+            table = Table(title=f"{status.replace('_', ' ').title()} ({len(status_tickets)})", box=None)
+            table.add_column("ID", style="blue")
+            table.add_column("Title")
+            for t in status_tickets[:10]:  # Only show top 10 per column
+                table.add_row(t["id"], t["title"])
+            if len(status_tickets) > 10:
+                table.add_row("...", f"and {len(status_tickets) - 10} more")
+            cols.append(Panel(table, border_style="dim"))
+
+        console.print(Columns(cols))
+    except NiraError as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(1)
+
+
+@app.command()
+def dashboard(ctx: typer.Context):
+    """
+    Show a workspace overview.
+    """
+    try:
+        store = resolve_store(ctx.obj["root"], create=False)
+        service = TicketService(store)
+        stats = service.get_dashboard_stats()
+
+        console.print(Panel(f"[bold]Dashboard: {store.get_default_project()}[/bold]", style="blue"))
+
+        # Status Table
+        table = Table(title="Tickets by Status")
+        table.add_column("Status")
+        table.add_column("Count", justify="right")
+        table.add_column("Points", justify="right")
+
+        for status, count in stats["status_counts"].items():
+            points = stats["status_points"].get(status, 0)
+            table.add_row(status.replace("_", " ").title(), str(count), str(points))
+
+        table.add_section()
+        table.add_row("Total", str(stats["total_tickets"]), str(stats["total_points"]), style="bold")
+        console.print(table)
+
+        # Recent Tickets
+        if stats["recent_tickets"]:
+            print_ticket_list(stats["recent_tickets"], store, title="Recent Tickets")
+
+        # Recent Activity
+        if stats["recent_history"]:
+            hist_table = Table(title="Recent Activity")
+            hist_table.add_column("Date", style="dim")
+            hist_table.add_column("Ticket")
+            hist_table.add_column("Activity")
+
+            for item in stats["recent_history"]:
+                hist_table.add_row(
+                    item["created_at"], item["ticket_id"], f"{item['field']} -> {item['new_value'] or 'None'}"
+                )
+            console.print(hist_table)
+
+    except NiraError as exc:
         console.print(f"[red]Error:[/red] {exc}")
         raise typer.Exit(1)
 
@@ -644,14 +740,16 @@ def print_ticket(details: TicketDetails, store: NiraStore) -> None:
             console.print(Markdown(comment["body_md"]))
 
 
-def print_ticket_list(tickets: list[TicketData], store: NiraStore) -> None:
+def print_ticket_list(tickets: list[TicketData], store: NiraStore, *, title: str | None = None) -> None:
     if not tickets:
+        if title:
+            console.print(f"[bold]{title}[/bold]")
         console.print("[dim]No tickets found.[/dim]")
         return
 
     statuses = store.get_statuses()
 
-    table = Table(box=None, header_style="bold cyan")
+    table = Table(title=title, box=None, header_style="bold cyan", title_style="bold", title_justify="left")
     table.add_column("ID", style="blue")
     table.add_column("Status")
     table.add_column("Priority")

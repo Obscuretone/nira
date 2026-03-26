@@ -29,6 +29,7 @@ class Setting(Base):
 class Ticket(Base):
     __tablename__ = "tickets"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    project: Mapped[str] = mapped_column(String, nullable=False)
     number: Mapped[int] = mapped_column(Integer, nullable=False, unique=True)
     title: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(String, nullable=False)

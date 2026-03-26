@@ -11,7 +11,7 @@ def test_web_errors(temp_root):
     app = NiraWebApp(store)
 
     # search_dropdown
-    store.create_ticket("NIRA", "T1")
+    app.service.create_ticket("NIRA", "T1")
     app.ticket_search_dropdown({"q": "T1"}, {})
     app.ticket_search_dropdown({"parent": "T1"}, {})
 
@@ -76,7 +76,7 @@ def test_web_coverage_remaining(temp_root):
         pass
 
     # edit ticket parent not found
-    store.create_ticket("NIRA", "T1")
+    app.service.create_ticket("NIRA", "T1")
     try:
         app.edit_ticket_action({}, {"parent": "NIRA-999"}, "NIRA-1")
     except Exception:

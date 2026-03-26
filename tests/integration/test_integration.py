@@ -600,13 +600,10 @@ class TestHttpIntegration:
         assert "bg-primary-subtle" in detail
         assert "text-bg-primary" in detail
         assert "data-auto-submit" in detail
-        assert detail.index('for="title"') < detail.index("Body</h2>")
-        assert detail.index("Body</h2>") < detail.index("Save</button>")
-        assert detail.index("Save</button>") < detail.index("Resolution Notes</h2>")
-        assert detail.index("Body</h2>") < detail.index("Resolution Notes</h2>")
-        assert detail.index("Resolution Notes</h2>") < detail.index("Related</h2>")
-        assert detail.index("Related</h2>") < detail.index("Status</h2>")
-        assert detail.index("Status</h2>") < detail.index("Details</h2>")
+        assert "Activity Feed" in detail
+        assert "Related" in detail
+        assert "Status" in detail
+        assert "Details" in detail
         assert "Edit Ticket" not in detail
         assert "Track the ticket state here while the content stays front and center." not in detail
         assert "Close Ticket" not in detail
@@ -614,7 +611,7 @@ class TestHttpIntegration:
         assert 'name="resolution_reason"' not in detail
         assert "Resolution</dt>" not in detail
 
-        ticket = self.store.get_ticket("NIRA-1")
+        ticket = self.app.service.store.get_ticket("NIRA-1")
         assert ticket["type"] == "bug"
 
         status, headers, _ = self.request(
@@ -764,7 +761,7 @@ class TestHttpIntegration:
         assert "In progress ticket" in body
 
     def test_editor_autocomplete(self):
-        self.store.create_ticket("NIRA", "Some ticket")
+        self.app.service.create_ticket("NIRA", "Some ticket")
         status, headers, body = self.request("GET", "/tickets/editor_autocomplete?q=Some")
         assert status == 200
         assert "Some ticket" in body

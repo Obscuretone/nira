@@ -5,12 +5,11 @@ from nira_app.web import NiraWebApp
 def test_web_search_robust(temp_root):
     store = NiraStore(temp_root)
     store.initialize("NIRA")
+    app = NiraWebApp(store)
 
     # Create some tickets
-    store.create_ticket("NIRA", "Robust Migration")
-    store.create_ticket("NIRA", "Simple Task")
-
-    app = NiraWebApp(store)
+    app.service.create_ticket("NIRA", "Robust Migration")
+    app.service.create_ticket("NIRA", "Simple Task")
 
     # Search for "robust"
     res = app.list_page({"search": "robust"}, {})

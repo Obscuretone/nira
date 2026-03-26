@@ -13,13 +13,12 @@ from wsgiref.simple_server import WSGIRequestHandler, make_server
 
 from .i18n import get_translator
 from .markdown import render_markdown
+from .models import DashboardStats, TicketData, TicketDetails
 from .router import Response, Router
+from .services import TicketService
 from .storage import (
-    DashboardStats,
     NiraError,
     NiraStore,
-    TicketData,
-    TicketDetails,
     TicketNotFoundError,
     ValidationError,
     normalize_list_direction,
@@ -178,6 +177,7 @@ class LoggingRequestHandler(WSGIRequestHandler):
 class NiraWebApp:
     def __init__(self, store: NiraStore):
         self.store = store
+        self.service = TicketService(store)
         self.router = Router()
         self.jinja_env = Environment(
             loader=FileSystemLoader(TEMPLATES_DIR),
@@ -294,7 +294,7 @@ class NiraWebApp:
         return response.to_wsgi(start_response)
 
     def dashboard_page(self, query: dict[str, str], form: dict[str, str]) -> Response:
-        stats: DashboardStats = self.store.get_dashboard_stats()
+        stats: DashboardStats = self.service.get_dashboard_stats()
         body = self.render("dashboard_page.html", stats=stats)
         return Response("200 OK", body)
 
@@ -322,7 +322,7 @@ class NiraWebApp:
 
         status_filter = None if selected_status == "all" else selected_status
 
-        tickets: list[TicketData] = self.store.list_tickets(
+        tickets: list[TicketData] = self.service.list_tickets(
             status=status_filter,
             sort_by=selected_sort,
             direction=selected_direction,
@@ -332,10 +332,10 @@ class NiraWebApp:
             label=label_filter,
             overdue=overdue_filter,
         )
-        filtered_tickets_count = self.store.count_tickets(
+        filtered_tickets_count = self.service.count_tickets(
             status=status_filter, search=search_query, label=label_filter, overdue=overdue_filter
         )
-        total_project_tickets = self.store.count_tickets()
+        total_project_tickets = self.service.count_tickets()
         total_pages = (filtered_tickets_count + limit - 1) // limit
 
         body = self.render(
@@ -362,7 +362,7 @@ class NiraWebApp:
         search_query = query.get("search")
         label_filter = query.get("label")
         # Fetch a reasonable number of recent tickets for the board
-        tickets: list[TicketData] = self.store.list_tickets(search=search_query, label=label_filter, limit=100)
+        tickets: list[TicketData] = self.service.list_tickets(search=search_query, label=label_filter, limit=100)
 
         statuses = self.store.get_statuses()
         tickets_by_status: dict[str, list[TicketData]] = {status: [] for status in statuses}
@@ -380,7 +380,7 @@ class NiraWebApp:
         return Response("200 OK", body)
 
     def new_ticket_page(self, query: dict[str, str], form: dict[str, str]) -> Response:
-        default_project = query.get("project", "") or self.store.get_default_project()
+        default_project = query.get("project", "") or self.service.store.get_default_project()
         body = self.render(
             "new_ticket_page.html",
             default_project=default_project,
@@ -395,7 +395,7 @@ class NiraWebApp:
         exclude_id = query.get("exclude")
 
         # When empty, show most recent 5
-        tickets = self.store.list_tickets(search=search_term if search_term else None, limit=5, sort_by="updated")
+        tickets = self.service.list_tickets(search=search_term if search_term else None, limit=5, sort_by="updated")
 
         if exclude_id:
             tickets = [t for t in tickets if t["id"] != exclude_id]
@@ -409,7 +409,7 @@ class NiraWebApp:
 
     def editor_autocomplete(self, query: dict[str, str], form: dict[str, str]) -> Response:
         search_term = query.get("q", "").strip()
-        tickets = self.store.list_tickets(search=search_term if search_term else None, limit=5, sort_by="updated")
+        tickets = self.service.list_tickets(search=search_term if search_term else None, limit=5, sort_by="updated")
 
         body = self.render(
             "partials/editor_autocomplete.html",
@@ -433,10 +433,10 @@ class NiraWebApp:
         parent_db_id = None
         parent_id = form.get("parent")
         if parent_id:
-            parent_ticket = self.store.get_ticket(parent_id)
+            parent_ticket = self.service.store.get_ticket(parent_id)
             parent_db_id = parent_ticket["db_id"]
 
-        ticket = self.store.create_ticket(
+        ticket = self.service.create_ticket(
             form.get("project", ""),
             form.get("title", ""),
             source=form.get("source", ""),
@@ -476,7 +476,7 @@ class NiraWebApp:
         )
 
     def ticket_detail_page(self, query: dict[str, str], form: dict[str, str], ticket_id: str) -> Response:
-        details: TicketDetails = self.store.ticket_details(ticket_id)
+        details: TicketDetails = self.service.ticket_details(ticket_id)
 
         comments = details.get("comments", [])
         history = details.get("history", [])
@@ -533,36 +533,36 @@ class NiraWebApp:
                 updates["parent_id"] = None
             else:
                 try:
-                    parent_ticket = self.store.get_ticket(parent_val)
+                    parent_ticket = self.service.store.get_ticket(parent_val)
                     updates["parent_id"] = parent_ticket["db_id"]
                 except TicketNotFoundError:
                     raise ValidationError(f"Parent ticket '{parent_val}' not found.")
 
-        self.store.update_ticket(ticket_id, **updates)
+        self.service.update_ticket(ticket_id, **updates)
         return self.redirect(f"/tickets/{ticket_id}")
 
     def close_ticket_action(self, query: dict[str, str], form: dict[str, str], ticket_id: str) -> Response:
         resolution_md = (form.get("resolution_md", "") or "").strip()
         if not resolution_md:
-            resolution_md = self.store.get_ticket(ticket_id)["resolution_md"] or "Closed via web UI."
-        self.store.close_ticket(ticket_id, resolution_md=resolution_md)
+            resolution_md = self.service.store.get_ticket(ticket_id)["resolution_md"] or "Closed via web UI."
+        self.service.close_ticket(ticket_id, resolution_md=resolution_md)
         return self.redirect(f"/tickets/{ticket_id}")
 
     def reopen_ticket_action(self, query: dict[str, str], form: dict[str, str], ticket_id: str) -> Response:
-        self.store.reopen_ticket(ticket_id)
+        self.service.reopen_ticket(ticket_id)
         return self.redirect(f"/tickets/{ticket_id}")
 
     def add_comment_action(self, query: dict[str, str], form: dict[str, str], ticket_id: str) -> Response:
         body_md = form.get("body_md", "")
-        self.store.add_comment(ticket_id, body_md)
+        self.service.add_comment(ticket_id, body_md)
         return self.redirect(f"/tickets/{ticket_id}")
 
     def link_ticket_action(self, query: dict[str, str], form: dict[str, str], ticket_id: str) -> Response:
-        self.store.link_tickets(ticket_id, form.get("other_ticket_id", ""))
+        self.service.link_tickets(ticket_id, form.get("other_ticket_id", ""))
         return self.redirect(f"/tickets/{ticket_id}")
 
     def unlink_ticket_action(self, query: dict[str, str], form: dict[str, str], ticket_id: str) -> Response:
-        self.store.unlink_tickets(ticket_id, form.get("other_ticket_id", ""))
+        self.service.unlink_tickets(ticket_id, form.get("other_ticket_id", ""))
         return self.redirect(f"/tickets/{ticket_id}")
 
     def status_filter_options(self) -> list[tuple[str, str]]:

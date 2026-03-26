@@ -2,10 +2,12 @@ import re
 import os
 import subprocess
 import time
+import json
 from pathlib import Path
 from nira_app.cli import app, main
 from typer.testing import CliRunner
-from nira_app.models import TicketDetails
+from nira_app.models import TicketDetails, TicketData
+from nira_app.services import TicketService
 
 _typer_runner = CliRunner()
 
@@ -15,7 +17,7 @@ def run_cli_cov(args, cwd=".", input=None):
     os.chdir(cwd)
     try:
         # result.output contains both stdout and stderr by default
-        result = _typer_runner.invoke(app, args, input=input)
+        result = _typer_runner.invoke(app, args, input=input, catch_exceptions=False)
         clean_output = re.sub(r"\x1b\[[0-9;]*m", "", result.output)
         return result.exit_code, clean_output, ""
     finally:
@@ -36,12 +38,12 @@ def test_cli_init_error(temp_root, monkeypatch):
 
 def test_cli_create_error(temp_root, monkeypatch):
     run_cli_cov(["init", "--project-key", "NIRA"], cwd=temp_root)
-    from nira_app.storage import NiraStore, NiraError
+    from nira_app.storage import NiraError
 
     def mock_create(*args, **kwargs):
         raise NiraError("Mock create error")
 
-    monkeypatch.setattr(NiraStore, "create_ticket", mock_create)
+    monkeypatch.setattr(TicketService, "create_ticket", mock_create)
     code, out, _ = run_cli_cov(["create", "Title"], cwd=temp_root)
     assert code == 1
     assert "Mock create error" in out
@@ -49,12 +51,12 @@ def test_cli_create_error(temp_root, monkeypatch):
 
 def test_cli_show_error(temp_root, monkeypatch):
     run_cli_cov(["init", "--project-key", "NIRA"], cwd=temp_root)
-    from nira_app.storage import NiraStore, NiraError
+    from nira_app.storage import NiraError
 
-    def mock_get(*args, **kwargs):
+    def mock_details(*args, **kwargs):
         raise NiraError("Mock show error")
 
-    monkeypatch.setattr(NiraStore, "get_ticket", mock_get)
+    monkeypatch.setattr(TicketService, "ticket_details", mock_details)
     code, out, _ = run_cli_cov(["show", "NIRA-1"], cwd=temp_root)
     assert code == 1
     assert "Mock show error" in out
@@ -62,12 +64,12 @@ def test_cli_show_error(temp_root, monkeypatch):
 
 def test_cli_list_error(temp_root, monkeypatch):
     run_cli_cov(["init", "--project-key", "NIRA"], cwd=temp_root)
-    from nira_app.storage import NiraStore, NiraError
+    from nira_app.storage import NiraError
 
     def mock_list(*args, **kwargs):
         raise NiraError("Mock list error")
 
-    monkeypatch.setattr(NiraStore, "list_tickets", mock_list)
+    monkeypatch.setattr(TicketService, "list_tickets", mock_list)
     code, out, _ = run_cli_cov(["list"], cwd=temp_root)
     assert code == 1
     assert "Mock list error" in out
@@ -76,12 +78,12 @@ def test_cli_list_error(temp_root, monkeypatch):
 def test_cli_update_error(temp_root, monkeypatch):
     run_cli_cov(["init", "--project-key", "NIRA"], cwd=temp_root)
     run_cli_cov(["create", "T1"], cwd=temp_root)
-    from nira_app.storage import NiraStore, NiraError
+    from nira_app.storage import NiraError
 
     def mock_update(*args, **kwargs):
         raise NiraError("Mock update error")
 
-    monkeypatch.setattr(NiraStore, "update_ticket", mock_update)
+    monkeypatch.setattr(TicketService, "update_ticket", mock_update)
     code, out, _ = run_cli_cov(["update", "NIRA-1", "--title", "New"], cwd=temp_root)
     assert code == 1
     assert "Mock update error" in out
@@ -90,12 +92,12 @@ def test_cli_update_error(temp_root, monkeypatch):
 def test_cli_comment_error(temp_root, monkeypatch):
     run_cli_cov(["init", "--project-key", "NIRA"], cwd=temp_root)
     run_cli_cov(["create", "T1"], cwd=temp_root)
-    from nira_app.storage import NiraStore, NiraError
+    from nira_app.storage import NiraError
 
     def mock_comment(*args, **kwargs):
         raise NiraError("Mock comment error")
 
-    monkeypatch.setattr(NiraStore, "add_comment", mock_comment)
+    monkeypatch.setattr(TicketService, "add_comment", mock_comment)
     # Use -m to avoid editor
     code, out, _ = run_cli_cov(["comment", "NIRA-1", "-m", "msg"], cwd=temp_root)
     assert code == 1
@@ -113,12 +115,12 @@ def test_cli_comment_success(temp_root, monkeypatch):
 def test_cli_close_error(temp_root, monkeypatch):
     run_cli_cov(["init", "--project-key", "NIRA"], cwd=temp_root)
     run_cli_cov(["create", "T1"], cwd=temp_root)
-    from nira_app.storage import NiraStore, NiraError
+    from nira_app.storage import NiraError
 
     def mock_close(*args, **kwargs):
         raise NiraError("Mock close error")
 
-    monkeypatch.setattr(NiraStore, "close_ticket", mock_close)
+    monkeypatch.setattr(TicketService, "close_ticket", mock_close)
     code, out, _ = run_cli_cov(["close", "NIRA-1", "-m", "done"], cwd=temp_root)
     assert code == 1
     assert "Mock close error" in out
@@ -128,12 +130,12 @@ def test_cli_reopen_error(temp_root, monkeypatch):
     run_cli_cov(["init", "--project-key", "NIRA"], cwd=temp_root)
     run_cli_cov(["create", "T1"], cwd=temp_root)
     run_cli_cov(["close", "NIRA-1", "-m", "done"], cwd=temp_root)
-    from nira_app.storage import NiraStore, NiraError
+    from nira_app.storage import NiraError
 
     def mock_reopen(*args, **kwargs):
         raise NiraError("Mock reopen error")
 
-    monkeypatch.setattr(NiraStore, "reopen_ticket", mock_reopen)
+    monkeypatch.setattr(TicketService, "reopen_ticket", mock_reopen)
     code, out, _ = run_cli_cov(["reopen", "NIRA-1"], cwd=temp_root)
     assert code == 1
     assert "Mock reopen error" in out
@@ -143,12 +145,12 @@ def test_cli_link_error(temp_root, monkeypatch):
     run_cli_cov(["init", "--project-key", "NIRA"], cwd=temp_root)
     run_cli_cov(["create", "T1"], cwd=temp_root)
     run_cli_cov(["create", "T2"], cwd=temp_root)
-    from nira_app.storage import NiraStore, NiraError
+    from nira_app.storage import NiraError
 
     def mock_link(*args, **kwargs):
         raise NiraError("Mock link error")
 
-    monkeypatch.setattr(NiraStore, "link_tickets", mock_link)
+    monkeypatch.setattr(TicketService, "link_tickets", mock_link)
     code, out, _ = run_cli_cov(["link", "NIRA-1", "NIRA-2"], cwd=temp_root)
     assert code == 1
     assert "Mock link error" in out
@@ -159,12 +161,12 @@ def test_cli_unlink_error(temp_root, monkeypatch):
     run_cli_cov(["create", "T1"], cwd=temp_root)
     run_cli_cov(["create", "T2"], cwd=temp_root)
     run_cli_cov(["link", "NIRA-1", "NIRA-2"], cwd=temp_root)
-    from nira_app.storage import NiraStore, NiraError
+    from nira_app.storage import NiraError
 
     def mock_unlink(*args, **kwargs):
         raise NiraError("Mock unlink error")
 
-    monkeypatch.setattr(NiraStore, "unlink_tickets", mock_unlink)
+    monkeypatch.setattr(TicketService, "unlink_tickets", mock_unlink)
     code, out, _ = run_cli_cov(["unlink", "NIRA-1", "NIRA-2"], cwd=temp_root)
     assert code == 1
     assert "Mock unlink error" in out
@@ -173,12 +175,12 @@ def test_cli_unlink_error(temp_root, monkeypatch):
 def test_cli_links_error(temp_root, monkeypatch):
     run_cli_cov(["init", "--project-key", "NIRA"], cwd=temp_root)
     run_cli_cov(["create", "T1"], cwd=temp_root)
-    from nira_app.storage import NiraStore, NiraError
+    from nira_app.storage import NiraError
 
     def mock_links(*args, **kwargs):
         raise NiraError("Mock links error")
 
-    monkeypatch.setattr(NiraStore, "list_links", mock_links)
+    monkeypatch.setattr(TicketService, "list_links", mock_links)
     code, out, _ = run_cli_cov(["links", "NIRA-1"], cwd=temp_root)
     assert code == 1
     assert "Mock links error" in out
@@ -365,12 +367,72 @@ def test_cli_list_variations(temp_root):
 
     store = NiraStore(temp_root)
     store.initialize("NIRA")
-    tickets = [
-        {"id": "NIRA-1", "status": "open", "priority": "low", "type": "task", "title": "T1"},
-        {"id": "NIRA-2", "status": "in_progress", "priority": "high", "type": "bug", "title": "T2"},
-        {"id": "NIRA-3", "status": "closed", "priority": "critical", "type": "feature", "title": "T3"},
+    tickets: list[TicketData] = [
+        {
+            "id": "NIRA-1",
+            "status": "open",
+            "priority": "low",
+            "type": "task",
+            "title": "T1",
+            "project": "NIRA",
+            "number": 1,
+            "db_id": 1,
+            "source": "",
+            "resolution_reason": "",
+            "labels": "",
+            "due_date": None,
+            "parent_id": None,
+            "parent_number": None,
+            "story_points": None,
+            "body_md": "",
+            "resolution_md": "",
+            "created_at": "",
+            "updated_at": "",
+        },
+        {
+            "id": "NIRA-2",
+            "status": "in_progress",
+            "priority": "high",
+            "type": "bug",
+            "title": "T2",
+            "project": "NIRA",
+            "number": 2,
+            "db_id": 2,
+            "source": "",
+            "resolution_reason": "",
+            "labels": "",
+            "due_date": None,
+            "parent_id": None,
+            "parent_number": None,
+            "story_points": None,
+            "body_md": "",
+            "resolution_md": "",
+            "created_at": "",
+            "updated_at": "",
+        },
+        {
+            "id": "NIRA-3",
+            "status": "closed",
+            "priority": "critical",
+            "type": "feature",
+            "title": "T3",
+            "project": "NIRA",
+            "number": 3,
+            "db_id": 3,
+            "source": "",
+            "resolution_reason": "",
+            "labels": "",
+            "due_date": None,
+            "parent_id": None,
+            "parent_number": None,
+            "story_points": None,
+            "body_md": "",
+            "resolution_md": "",
+            "created_at": "",
+            "updated_at": "",
+        },
     ]
-    print_ticket_list(tickets, store)  # type: ignore
+    print_ticket_list(tickets, store)
 
     # Test CLI command with --status all
     run_cli_cov(["list", "--status", "all"], cwd=temp_root)
@@ -381,8 +443,6 @@ def test_cli_list_json(temp_root):
     run_cli_cov(["create", "T1"], cwd=temp_root)
     code, out, _ = run_cli_cov(["list", "--json"], cwd=temp_root)
     assert code == 0
-    import json
-
     data = json.loads(out)
     assert isinstance(data, list)
     assert data[0]["title"] == "T1"
@@ -393,8 +453,6 @@ def test_cli_show_json(temp_root):
     run_cli_cov(["create", "T1"], cwd=temp_root)
     code, out, _ = run_cli_cov(["show", "NIRA-1", "--json"], cwd=temp_root)
     assert code == 0
-    import json
-
     data = json.loads(out)
     assert "ticket" in data
     assert data["ticket"]["title"] == "T1"
@@ -601,12 +659,12 @@ def test_cli_edit_error_real(temp_root, monkeypatch):
     run_cli_cov(["init", "--project-key", "NIRA"], cwd=temp_root)
     run_cli_cov(["create", "T1"], cwd=temp_root)
 
-    from nira_app.storage import NiraStore, NiraError
+    from nira_app.storage import NiraError
 
     def mock_update(*args, **kwargs):
         raise NiraError("Edit fail")
 
-    monkeypatch.setattr(NiraStore, "update_ticket", mock_update)
+    monkeypatch.setattr(TicketService, "update_ticket", mock_update)
 
     monkeypatch.setattr("nira_app.cli.launch_editor", lambda text: "Edited body")
 
