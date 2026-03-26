@@ -32,6 +32,38 @@ class TicketService:
     def __init__(self, store: NiraStore):
         self.store = store
 
+    def _parse_search_query(self, query: str | None) -> tuple[str, dict[str, Any]]:
+        if not query:
+            return "", {}
+
+        tokens = query.split()
+        remaining_tokens = []
+        filters: dict[str, Any] = {}
+
+        for token in tokens:
+            if ":" in token:
+                parts = token.split(":", 1)
+                if len(parts) == 2:
+                    key, value = parts[0].lower(), parts[1]
+                    if key == "is":
+                        val_low = value.lower()
+                        if val_low in ("open", "closed", "in_progress", "not_closed"):
+                            filters["status"] = val_low
+                    elif key == "priority":
+                        filters["priority"] = value.lower()
+                    elif key == "type":
+                        filters["ticket_type"] = value.lower()
+                    elif key == "label":
+                        filters["label"] = value
+                    else:
+                        remaining_tokens.append(token)
+                else:
+                    remaining_tokens.append(token)
+            else:
+                remaining_tokens.append(token)
+
+        return " ".join(remaining_tokens).strip(), filters
+
     def create_ticket(
         self,
         project: str,
@@ -206,6 +238,15 @@ class TicketService:
         sort_key = normalize_list_sort(sort_by)
         sort_direction = normalize_list_direction(direction).lower()
 
+        # Parse advanced search syntax
+        clean_search, search_filters = self._parse_search_query(search)
+
+        # Merge filters, search bar tokens take precedence
+        final_status = search_filters.get("status", status)
+        final_priority = search_filters.get("priority", priority)
+        final_type = search_filters.get("ticket_type", ticket_type)
+        final_label = search_filters.get("label", label)
+
         with self.store.session() as session:
             current_project = self.store.current_project(session)
             if project and normalize_project(project) != current_project:
@@ -213,8 +254,8 @@ class TicketService:
 
             stmt = select(Ticket)
 
-            if search:
-                search_term = search.strip()
+            if clean_search:
+                search_term = clean_search.strip()
                 search_number = None
                 id_match = TICKET_ID_RE.fullmatch(search_term.upper())
                 if id_match:
@@ -238,8 +279,8 @@ class TicketService:
                         text("tickets.id IN (SELECT rowid FROM tickets_search WHERE tickets_search MATCH :query)")
                     ).params(query=fts_query)
 
-            if label:
-                stmt = stmt.where(Ticket.labels.contains(label.strip()))
+            if final_label:
+                stmt = stmt.where(Ticket.labels.contains(final_label.strip()))
 
             if overdue:
                 today = utc_now()[:10]  # YYYY-MM-DD
@@ -248,18 +289,22 @@ class TicketService:
             if parent_id:
                 stmt = stmt.where(Ticket.parent_id == parent_id)
 
-            if status:
-                if status == "not_closed":
+            if final_status:
+                if final_status == "not_closed":
                     statuses = self.store.get_statuses()
                     closed_status = statuses[-1] if statuses else "closed"
                     stmt = stmt.where(Ticket.status != closed_status)
                 else:
-                    stmt = stmt.where(Ticket.status == self.store.normalize_status(status))
+                    try:
+                        stmt = stmt.where(Ticket.status == self.store.normalize_status(final_status))
+                    except ValidationError:
+                        # Silently ignore invalid status tokens in search
+                        pass
 
-            if priority:
-                stmt = stmt.where(Ticket.priority == priority.strip())
-            if ticket_type:
-                stmt = stmt.where(Ticket.type == ticket_type.strip())
+            if final_priority:
+                stmt = stmt.where(Ticket.priority == final_priority.strip())
+            if final_type:
+                stmt = stmt.where(Ticket.type == final_type.strip())
 
             order_col: Any
             if sort_key == "ticket_id":
@@ -307,6 +352,15 @@ class TicketService:
         overdue: bool = False,
         parent_id: int | None = None,
     ) -> int:
+        # Parse advanced search syntax
+        clean_search, search_filters = self._parse_search_query(search)
+
+        # Merge filters, search bar tokens take precedence
+        final_status = search_filters.get("status", status)
+        final_priority = search_filters.get("priority", priority)
+        final_type = search_filters.get("ticket_type", ticket_type)
+        final_label = search_filters.get("label", label)
+
         with self.store.session() as session:
             current_project = self.store.current_project(session)
             if project and normalize_project(project) != current_project:
@@ -314,8 +368,8 @@ class TicketService:
 
             stmt = select(func.count(Ticket.id))
 
-            if search:
-                search_term = search.strip()
+            if clean_search:
+                search_term = clean_search.strip()
                 search_number = None
                 id_match = TICKET_ID_RE.fullmatch(search_term.upper())
                 if id_match:
@@ -339,8 +393,8 @@ class TicketService:
                         text("tickets.id IN (SELECT rowid FROM tickets_search WHERE tickets_search MATCH :query)")
                     ).params(query=fts_query)
 
-            if label:
-                stmt = stmt.where(Ticket.labels.contains(label.strip()))
+            if final_label:
+                stmt = stmt.where(Ticket.labels.contains(final_label.strip()))
 
             if overdue:
                 today = utc_now()[:10]  # YYYY-MM-DD
@@ -349,18 +403,21 @@ class TicketService:
             if parent_id:
                 stmt = stmt.where(Ticket.parent_id == parent_id)
 
-            if status:
-                if status == "not_closed":
+            if final_status:
+                if final_status == "not_closed":
                     statuses = self.store.get_statuses()
                     closed_status = statuses[-1] if statuses else "closed"
                     stmt = stmt.where(Ticket.status != closed_status)
                 else:
-                    stmt = stmt.where(Ticket.status == self.store.normalize_status(status))
+                    try:
+                        stmt = stmt.where(Ticket.status == self.store.normalize_status(final_status))
+                    except ValidationError:
+                        pass
 
-            if priority:
-                stmt = stmt.where(Ticket.priority == priority.strip())
-            if ticket_type:
-                stmt = stmt.where(Ticket.type == ticket_type.strip())
+            if final_priority:
+                stmt = stmt.where(Ticket.priority == final_priority.strip())
+            if final_type:
+                stmt = stmt.where(Ticket.type == final_type.strip())
 
             return session.execute(stmt).scalar() or 0
 

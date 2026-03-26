@@ -7,6 +7,9 @@
   <div>
     <h1 class="h2 mb-0">{{ _("Tickets") }}</h1>
   </div>
+  {% if search_query or label_filter or selected_status != "not_closed" or overdue_filter %}
+  <a href="/list" class="btn btn-sm btn-outline-secondary" hx-get="/list" hx-target="body" hx-push-url="true">{{ _("Clear Filters") }}</a>
+  {% endif %}
 </div>
 
 <form id="filter-form" class="row g-3 mb-4" method="get" action="/list" hx-get="/list" hx-target="body" hx-push-url="true" hx-include="#global-search-input">
