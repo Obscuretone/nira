@@ -112,9 +112,12 @@ def derive_default_project_key(folder_name: str) -> str:
 
 def normalize_ticket_id(ticket_id: str) -> str:
     ticket_id = (ticket_id or "").strip().upper()
+    if ticket_id.isdigit():
+        # Will be resolved using current project later
+        return f"TEMP-{int(ticket_id)}"
     match = TICKET_ID_RE.fullmatch(ticket_id)
     if not match:
-        raise ValidationError("Ticket IDs must look like NIRA-1.")
+        raise ValidationError("Ticket IDs must look like NIRA-1 or just a number.")
     return f"{match.group(1).upper()}-{int(match.group(2))}"
 
 

@@ -466,6 +466,45 @@ def unlink(
 
 
 @app.command()
+def config(
+    ctx: typer.Context,
+    key: Annotated[Optional[str], typer.Argument(help="Setting key to get or set.")] = None,
+    value: Annotated[Optional[str], typer.Argument(help="New value for the setting.")] = None,
+):
+    """
+    View or update workspace settings.
+    """
+    try:
+        store = resolve_store(ctx.obj["root"], create=False)
+        if not key:
+            # Show all settings
+            settings = store.get_settings()
+            table = Table(title=f"Configuration: {store.root}", box=None)
+            table.add_column("Key", style="cyan")
+            table.add_column("Value")
+            for k, v in settings.items():
+                table.add_row(k, str(v))
+            console.print(table)
+            return
+
+        if value is None:
+            # Get specific setting
+            settings = store.get_settings()
+            if key in settings:
+                console.print(f"{key} = {settings[key]}")
+            else:
+                console.print(f"[red]Error:[/red] Setting '{key}' not found.")
+                raise typer.Exit(1)
+        else:
+            # Set specific setting
+            store.update_settings({key: value})
+            console.print(f"[green]Updated[/green] {key} to {value}")
+    except NiraError as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(1)
+
+
+@app.command()
 def export(
     ctx: typer.Context,
     filename: Annotated[Path, typer.Argument(help="Filename to export to.")],
@@ -591,7 +630,14 @@ def dashboard(ctx: typer.Context):
 
         for status, count in stats["status_counts"].items():
             points = stats["status_points"].get(status, 0)
-            table.add_row(status.replace("_", " ").title(), str(count), str(points))
+            status_color = "white"
+            if status == "open":
+                status_color = "yellow"
+            elif status == "in_progress":
+                status_color = "blue"
+            elif status == "closed":
+                status_color = "green"
+            table.add_row(Text(status.replace("_", " ").title(), style=status_color), str(count), str(points))
 
         table.add_section()
         table.add_row("Total", str(stats["total_tickets"]), str(stats["total_points"]), style="bold")
@@ -698,7 +744,15 @@ def print_ticket(details: TicketDetails, store: NiraStore) -> None:
 
     metadata_table.add_row("Status:", Text(ticket["status"], style=status_color))
     metadata_table.add_row("Type:", ticket["type"])
-    metadata_table.add_row("Priority:", ticket["priority"])
+
+    priority_style = ""
+    if ticket["priority"] == "critical":
+        priority_style = "bold red"
+    elif ticket["priority"] == "high":
+        priority_style = "red"
+    elif ticket["priority"] == "low":
+        priority_style = "dim"
+    metadata_table.add_row("Priority:", Text(ticket["priority"], style=priority_style))
     if ticket.get("labels"):
         metadata_table.add_row("Labels:", ticket["labels"])
     metadata_table.add_row("Source:", ticket["source"] or "[dim]none[/dim]")
