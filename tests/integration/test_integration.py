@@ -327,10 +327,6 @@ class TestCliIntegration:
 
         assert exit_code == 0
         assert "Serving Nira on http://127.0.0.1:8765" in stdout.getvalue()
-        # Allow alembic info in stderr
-        err = stderr.getvalue()
-        if err:
-            assert "alembic" in err or "DDL" in err
 
     def test_serve_with_reload_stops_child_cleanly_on_keyboard_interrupt(self):
         class FakeProcess:

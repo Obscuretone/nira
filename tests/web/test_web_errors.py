@@ -29,13 +29,14 @@ def test_web_errors(temp_root):
 
 
 def test_web_misc(temp_root):
-    from nira_app.web import parse_timestamp, relative_time, QuietRequestHandler
+    from nira_app.web import parse_timestamp, relative_time, LoggingRequestHandler
 
     assert parse_timestamp("bad") is None
     assert relative_time("bad") == "bad"
 
-    h = QuietRequestHandler.__new__(QuietRequestHandler)
-    h.log_message("f", "a")
+    h = LoggingRequestHandler.__new__(LoggingRequestHandler)
+    h.log_message("f %s", "a")
+    h.log_error("e %s", "b")
 
     store = NiraStore(temp_root / "t2")
     store.initialize("TEST")

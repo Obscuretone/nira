@@ -1,18 +1,19 @@
 from __future__ import annotations
 
 import html
+import logging
 import mimetypes
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlencode
-from .router import Router, Response
-from wsgiref.simple_server import WSGIRequestHandler, make_server
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
+from wsgiref.simple_server import WSGIRequestHandler, make_server
 
 from .i18n import get_translator
 from .markdown import render_markdown
+from .router import Response, Router
 from .storage import (
     DashboardStats,
     NiraError,
@@ -25,6 +26,12 @@ from .storage import (
     normalize_list_sort,
     utc_now,
 )
+
+logger = logging.getLogger(__name__)
+
+
+def h(value: str | None) -> str:
+    return html.escape(value or "")
 
 
 BOOTSTRAP_CSS = "https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
@@ -39,10 +46,6 @@ HTMX_JS_INTEGRITY = "sha384-D1Kt99CQMDuVetoL1lrYwg5t+9QdHe7NLX/SoJYkXDFfX37iInKR
 SORTABLE_JS = "https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"
 TEMPLATES_DIR = Path(__file__).with_name("templates")
 ASSETS_DIR = Path(__file__).with_name("assets")
-
-
-def h(value: str | None) -> str:
-    return html.escape(value or "")
 
 
 def parse_timestamp(value: str) -> datetime | None:
@@ -164,9 +167,12 @@ def label_style(label: str) -> str:
     return f"background-color: {bg} !important; color: {fg} !important; border: 1px solid {fg}44 !important;"
 
 
-class QuietRequestHandler(WSGIRequestHandler):
-    def log_message(self, format, *args):
-        return
+class LoggingRequestHandler(WSGIRequestHandler):
+    def log_message(self, format: str, *args: Any) -> None:
+        logger.info(format % args)
+
+    def log_error(self, format: str, *args: Any) -> None:
+        logger.error(format % args)
 
 
 class NiraWebApp:
@@ -674,7 +680,7 @@ class NiraWebApp:
 def serve(store: NiraStore, host: str, port: int) -> None:
     app = NiraWebApp(store)
     try:
-        with make_server(host, port, app, handler_class=QuietRequestHandler) as server:
+        with make_server(host, port, app, handler_class=LoggingRequestHandler) as server:
             print(f"Serving Nira on http://{host}:{port}", flush=True)
             try:
                 server.serve_forever()

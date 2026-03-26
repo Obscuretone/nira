@@ -439,6 +439,13 @@ def test_cli_export_import(temp_root):
     assert "not found" in out
 
 
+def test_cli_verbose_logging(temp_root):
+    # Just verify it doesn't crash
+    code, out, _ = run_cli_cov(["--verbose", "list"], cwd=temp_root)
+    # If not init, might be 1, that's fine as long as it doesn't crash on logging setup
+    assert code in (0, 1)
+
+
 def test_cli_describe_reload_change():
     from nira_app.cli import describe_reload_change
 

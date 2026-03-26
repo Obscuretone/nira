@@ -25,6 +25,8 @@ Nira is a local issue tracker for a single workspace, featuring a shell-first CL
 ### 1. Nira is the Source of Truth
 The `./nira` CLI tool is the primary issue tracker for this project. You MUST use it to manage tasks, bugs, and features.
 - **Consult Tickets:** Use `./nira list` and `./nira show <ID>` to understand current priorities and requirements.
+- **Branching:** You MUST create a new branch for every ticket you work on. Use a descriptive name including the ticket ID (e.g., `feature/NIRA-123-description`).
+- **Pushing:** You MUST push your branch to the remote repository so changes can be reviewed via Pull Requests.
 - **Record Resolutions:** Use `./nira close <ID> --reason <REASON> --notes <NOTES>` when a task is completed.
 - **Consistency:** Always check the status of relevant tickets before assuming a task is complete.
 - **Context:** Remember that Nira is its own issue tracker. Refer to ticket bodies and resolution notes for historical context.

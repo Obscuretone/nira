@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import json
+import logging
 import os
 import shlex
 import subprocess
@@ -28,6 +29,7 @@ from nira_app.storage import (
     find_root,
 )
 from nira_app.web import serve as run_server
+from nira_app.logging import setup_logging
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
 RELOAD_POLL_SECONDS = 0.5
@@ -67,10 +69,12 @@ def resolve_store(root_arg: Optional[Path], *, create: bool) -> NiraStore:
 def main_callback(
     ctx: typer.Context,
     root: Annotated[Optional[Path], typer.Option(help="Project root that contains .nira")] = None,
+    verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Enable verbose logging.")] = False,
 ):
     """
     Nira: A local issue tracker for your project.
     """
+    setup_logging(level=logging.DEBUG if verbose else logging.INFO)
     # We store the root in the context so commands can access it
     ctx.obj = {"root": root}
 
