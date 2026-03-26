@@ -26,27 +26,7 @@
 
 <div class="row g-4">
   <div class="col-xl-8">
-    <div class="card shadow-sm mb-4">
-      <div class="card-body">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <h2 class="h5 mb-0">{{ _("Sub-tasks") }}</h2>
-          <a href="/tickets/new?parent={{ ticket.id }}" class="btn btn-sm btn-outline-primary">Add Sub-task</a>
-        </div>
-        <ul class="list-group list-group-flush">
-          {% for sub in sub_tasks %}
-          <li class="list-group-item d-flex justify-content-between align-items-center gap-3">
-            <div class="d-flex align-items-center gap-2 overflow-hidden">
-              <a class="link-body-emphasis fw-semibold text-nowrap" href="/tickets/{{ sub.id }}">{{ sub.id }}</a>
-              <span class="text-truncate">{{ sub.title }}</span>
-            </div>
-            <div>{{ status_badge(sub.status) | safe }}</div>
-          </li>
-          {% else %}
-          <li class="list-group-item text-body-secondary">{{ _("No sub-tasks yet.") }}</li>
-          {% endfor %}
-        </ul>
-      </div>
-    </div>
+    {% include "partials/sub_tasks.html" %}
 
     <form id="ticket-edit-form" method="post" action="/tickets/{{ ticket.id }}/edit" class="mb-4" hx-post="/tickets/{{ ticket.id }}/edit" hx-target="body">
 
@@ -82,110 +62,9 @@
       </div>
     </form>
 
-    <div class="card shadow-sm mb-4">
-      <div class="card-body">
-        <h2 class="h5 mb-3">{{ _("Related") }}</h2>
-        <form
-          method="post"
-          action="/tickets/{{ ticket.id }}/link"
-          class="mb-3"
-          hx-post="/tickets/{{ ticket.id }}/link"
-          hx-target="body"
-        >
-          <div class="input-group">
-            {{ ticket_typeahead("other_ticket_id", "other_ticket_id", "", placeholder=_("Search for ticket to link..."), exclude_id=ticket.id) }}
-            <button class="btn btn-outline-dark" type="submit">{{ _("Link") }}</button>
-          </div>
-        </form>
-        <ul class="list-group list-group-flush">
-          {% for item in related %}
-          <li class="list-group-item d-flex justify-content-between align-items-center gap-3">
-            <div class="d-flex align-items-center gap-2 overflow-hidden">
-              <a class="link-body-emphasis fw-semibold text-nowrap" href="/tickets/{{ item.id }}">{{ item.id }}</a>
-              <span class="text-truncate">{{ item.title }}</span>
-            </div>
-            <form
-              method="post"
-              action="/tickets/{{ ticket.id }}/unlink"
-              hx-post="/tickets/{{ ticket.id }}/unlink"
-              hx-target="body"
-            >
-              <input type="hidden" name="other_ticket_id" value="{{ item.id }}">
-              <button class="btn btn-link link-danger p-0 border-0" type="submit" title="Remove link">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-x-circle" viewBox="0 0 16 16">
-                  <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/>
-                  <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708"/>
-                </svg>
-              </button>
-            </form>
-          </li>
-          {% else %}
-          <li class="list-group-item text-body-secondary">{{ _("No related tickets yet.") }}</li>
-          {% endfor %}
-        </ul>
-      </div>
-    </div>
+    {% include "partials/related_tickets.html" %}
 
-    <div class="card shadow-sm mb-4">
-      <div class="card-header bg-transparent border-bottom-0">
-        <h2 class="h5 mb-0 mt-2">{{ _("Activity Feed") }}</h2>
-      </div>
-      <div class="card-body">
-        
-        <form
-          method="post"
-          action="/tickets/{{ ticket.id }}/comment"
-          hx-post="/tickets/{{ ticket.id }}/comment"
-          hx-target="body"
-          class="mb-5"
-        >
-          <div class="mb-3">
-            {{ rich_editor("body_md", "", height_px=200, field_id="comment_body_md") }}
-          </div>
-          <div class="d-flex justify-content-end">
-            <button class="btn btn-primary" type="submit">{{ _("Add Comment") }}</button>
-          </div>
-        </form>
-
-        <div class="timeline position-relative ps-4" style="border-left: 2px solid var(--bs-border-color-translucent);">
-          {% for item in timeline %}
-            <div class="position-relative mb-4">
-              <!-- Timeline node dot -->
-              <div class="position-absolute bg-body border border-2 border-secondary rounded-circle" style="width: 14px; height: 14px; left: -1.82rem; top: 0.35rem;"></div>
-              
-              {% if item.type == 'comment' %}
-                <div class="card border-0 bg-body-tertiary shadow-sm">
-                  <div class="card-header border-bottom-0 bg-transparent py-2 d-flex justify-content-between align-items-center">
-                    <span class="fw-semibold text-body">{{ _("Comment") }}</span>
-                    <span class="text-body-secondary small">{{ format_time(item.created_at, relative=True) | safe }}</span>
-                  </div>
-                  <div class="card-body py-2 pt-0 markdown-output">
-                    {{ render_markdown(item.data.body_md) | safe }}
-                  </div>
-                </div>
-              {% elif item.type == 'history' %}
-                <div class="d-flex justify-content-between align-items-start py-1">
-                  <div>
-                    <span class="fw-medium text-body-emphasis">{{ item.data.field | replace('_', ' ') | capitalize }}</span>
-                    <span class="text-body-secondary ms-1">
-                      {% if item.data.old_value %}
-                        changed from <s>{{ item.data.old_value }}</s> to <strong>{{ item.data.new_value }}</strong>
-                      {% else %}
-                        set to <strong>{{ item.data.new_value }}</strong>
-                      {% endif %}
-                    </span>
-                  </div>
-                  <span class="text-body-secondary small ms-3 text-nowrap" style="min-width: fit-content;">{{ format_time(item.created_at, relative=True) | safe }}</span>
-                </div>
-              {% endif %}
-            </div>
-          {% else %}
-            <p class="text-body-secondary">{{ _("No activity recorded yet.") }}</p>
-          {% endfor %}
-        </div>
-
-      </div>
-    </div>
+    {% include "partials/activity_feed.html" %}
   </div>
 
   <div class="col-xl-4">

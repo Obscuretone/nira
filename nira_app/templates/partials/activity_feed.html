@@ -1,0 +1,60 @@
+<div class="card shadow-sm mb-4">
+  <div class="card-header bg-transparent border-bottom-0">
+    <h2 class="h5 mb-0 mt-2">{{ _("Activity Feed") }}</h2>
+  </div>
+  <div class="card-body">
+    
+    <form
+      method="post"
+      action="/tickets/{{ ticket.id }}/comment"
+      hx-post="/tickets/{{ ticket.id }}/comment"
+      hx-target="body"
+      class="mb-5"
+    >
+      <div class="mb-3">
+        {{ rich_editor("body_md", "", height_px=200, field_id="comment_body_md") }}
+      </div>
+      <div class="d-flex justify-content-end">
+        <button class="btn btn-primary" type="submit">{{ _("Add Comment") }}</button>
+      </div>
+    </form>
+
+    <div class="timeline position-relative ps-4" style="border-left: 2px solid var(--bs-border-color-translucent);">
+      {% for item in timeline %}
+        <div class="position-relative mb-4">
+          <!-- Timeline node dot -->
+          <div class="position-absolute bg-body border border-2 border-secondary rounded-circle" style="width: 14px; height: 14px; left: -1.82rem; top: 0.35rem;"></div>
+          
+          {% if item.type == 'comment' %}
+            <div class="card border-0 bg-body-tertiary shadow-sm">
+              <div class="card-header border-bottom-0 bg-transparent py-2 d-flex justify-content-between align-items-center">
+                <span class="fw-semibold text-body">{{ _("Comment") }}</span>
+                <span class="text-body-secondary small">{{ format_time(item.created_at, relative=True) | safe }}</span>
+              </div>
+              <div class="card-body py-2 pt-0 markdown-output">
+                {{ render_markdown(item.data.body_md) | safe }}
+              </div>
+            </div>
+          {% elif item.type == 'history' %}
+            <div class="d-flex justify-content-between align-items-start py-1">
+              <div>
+                <span class="fw-medium text-body-emphasis">{{ item.data.field | replace('_', ' ') | capitalize }}</span>
+                <span class="text-body-secondary ms-1">
+                  {% if item.data.old_value %}
+                    changed from <s>{{ item.data.old_value }}</s> to <strong>{{ item.data.new_value }}</strong>
+                  {% else %}
+                    set to <strong>{{ item.data.new_value }}</strong>
+                  {% endif %}
+                </span>
+              </div>
+              <span class="text-body-secondary small ms-3 text-nowrap" style="min-width: fit-content;">{{ format_time(item.created_at, relative=True) | safe }}</span>
+            </div>
+          {% endif %}
+        </div>
+      {% else %}
+        <p class="text-body-secondary">{{ _("No activity recorded yet.") }}</p>
+      {% endfor %}
+    </div>
+
+  </div>
+</div>
