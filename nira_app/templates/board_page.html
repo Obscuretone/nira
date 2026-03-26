@@ -46,7 +46,7 @@
               <a href="/tickets/{{ ticket.id }}" class="fw-bold link-body-emphasis text-decoration-none">{{ ticket.id }}</a>
               {{ priority_badge(ticket.priority) | safe }}
             </div>
-            <a href="/tickets/{{ ticket.id }}" class="link-body-emphasis text-decoration-none d-block mb-3 fw-medium" style="line-height: 1.3;">{{ ticket.title }}</a>
+            <a href="/tickets/{{ ticket.id }}" class="link-body-emphasis text-decoration-none d-block mb-3 fw-medium" style="line-height: 1.3;">{{ highlight(ticket.title, search_query) | safe }}</a>
             
             {% if ticket.labels %}
             <div class="mb-3 d-flex flex-wrap gap-1">
@@ -54,7 +54,7 @@
               {% set trimmed = label.strip() %}
               {% if trimmed %}
               <a href="/board?label={{ trimmed|urlencode }}" hx-get="/board?label={{ trimmed|urlencode }}" hx-target="body" hx-push-url="true" class="badge text-bg-light border text-secondary text-decoration-none label-pill-link" style="font-size: 0.65rem; transition: background-color 0.2s;">
-                {{ trimmed }}
+                {{ highlight(trimmed, search_query) | safe }}
               </a>
               {% endif %}
               {% endfor %}

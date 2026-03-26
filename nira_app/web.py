@@ -75,6 +75,31 @@ def relative_time(value: str, _=lambda x: x) -> str:
     return _("{count} week(s) ago").replace("{count}", str(weeks))
 
 
+def highlight(text: str, query: str | None) -> str:
+    if not query or not query.strip():
+        return h(text)
+
+    import re
+
+    # Strip some FTS5 operators that might be in the query words
+    words = [re.escape(word.strip('"').rstrip("*")) for word in query.split() if word]
+    words = [w for w in words if w]
+    if not words:
+        return h(text)
+
+    pattern = re.compile(f"({'|'.join(words)})", re.IGNORECASE)
+    parts = pattern.split(text)
+
+    result = []
+    for i, part in enumerate(parts):
+        if i % 2 == 1:  # Match
+            result.append(f'<mark class="p-0">{h(part)}</mark>')
+        else:
+            result.append(h(part))
+
+    return "".join(result)
+
+
 def format_time(value: str, *, relative: bool = False, _=lambda x: x) -> str:
     display = relative_time(value, _) if relative else value
     return f'<time datetime="{h(value)}" title="{h(value)}">{h(display)}</time>'
@@ -152,6 +177,7 @@ class NiraWebApp:
                 "status_select_classes": status_select_classes,
                 "urlencode": urlencode,
                 "sort_header_link": self.sort_header_link,
+                "highlight": highlight,
             }
         )
 

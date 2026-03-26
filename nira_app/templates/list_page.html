@@ -66,14 +66,14 @@
           <tr>
             <td><a class="link-body-emphasis fw-semibold" href="/tickets/{{ ticket.id }}">{{ ticket.id }}</a></td>
             <td>
-              <a class="link-body-emphasis text-decoration-none d-block fw-medium" href="/tickets/{{ ticket.id }}">{{ ticket.title }}</a>
+              <a class="link-body-emphasis text-decoration-none d-block fw-medium" href="/tickets/{{ ticket.id }}">{{ highlight(ticket.title, search_query) | safe }}</a>
               {% if ticket.labels %}
               <div class="mt-1 d-flex flex-wrap gap-1">
                 {% for label in ticket.labels.split(',') %}
                 {% set trimmed = label.strip() %}
                 {% if trimmed %}
                 <a href="/list?label={{ trimmed|urlencode }}" hx-get="/list?label={{ trimmed|urlencode }}" hx-target="body" hx-push-url="true" class="badge text-bg-light border text-secondary text-decoration-none label-pill-link" style="font-size: 0.7rem; transition: background-color 0.2s;">
-                  {{ trimmed }}
+                  {{ highlight(trimmed, search_query) | safe }}
                 </a>
                 {% endif %}
                 {% endfor %}

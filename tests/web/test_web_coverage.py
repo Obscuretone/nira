@@ -4,6 +4,20 @@ from nira_app.storage import NiraStore, TicketNotFoundError, ValidationError
 from datetime import datetime, timedelta, UTC
 
 
+def test_highlight_helper():
+    from nira_app.web import highlight
+
+    assert highlight("Hello World", None) == "Hello World"
+    assert highlight("Hello World", "  ") == "Hello World"
+    assert highlight("Hello World", "hello") == '<mark class="p-0">Hello</mark> World'
+    assert highlight("Hello World", "world") == 'Hello <mark class="p-0">World</mark>'
+    assert highlight("Hello World", "hello world") == '<mark class="p-0">Hello</mark> <mark class="p-0">World</mark>'
+    assert (
+        highlight("<b>Bold</b>", "b")
+        == '&lt;<mark class="p-0">b</mark>&gt;<mark class="p-0">B</mark>old&lt;/<mark class="p-0">b</mark>&gt;'
+    )
+
+
 def test_relative_time_units():
     now = datetime.now(UTC)
 
