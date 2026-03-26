@@ -32,6 +32,16 @@ def test_complex_region_code():
     assert _("Ticket List") == "Liste des tickets"
 
 
+def test_regional_language():
+    _ = get_translator("es-MX")
+    assert _("Title") == "Título"
+
+
+def test_missing_language():
+    _ = get_translator("xyz")
+    assert _("Title") == "Title"
+
+
 def test_translator_exception_fallback(monkeypatch):
     import gettext
 
