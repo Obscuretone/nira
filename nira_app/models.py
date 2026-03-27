@@ -50,6 +50,7 @@ class Ticket(Base):
     attachments: Mapped[list["Attachment"]] = relationship(
         "Attachment", back_populates="ticket", cascade="all, delete-orphan"
     )
+    history: Mapped[list["History"]] = relationship("History", back_populates="ticket", cascade="all, delete-orphan")
     parent: Mapped[Optional["Ticket"]] = relationship("Ticket", remote_side=[id], back_populates="sub_tasks")
     sub_tasks: Mapped[list["Ticket"]] = relationship(
         "Ticket", back_populates="parent", cascade="all, delete-orphan", passive_deletes=True
@@ -101,7 +102,7 @@ class History(Base):
     new_value: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[str] = mapped_column(String, nullable=False)
 
-    ticket: Mapped["Ticket"] = relationship("Ticket", backref="history")
+    ticket: Mapped["Ticket"] = relationship("Ticket", back_populates="history")
     __table_args__ = (Index("history_ticket_id_idx", "ticket_id"),)
 
 

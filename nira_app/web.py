@@ -788,7 +788,11 @@ class NiraWebApp:
                     form_data[f"{name}_content_type"] = str(part.get_content_type())
                 else:
                     raw_payload = part.get_payload(decode=True)
-                    form_data[name] = raw_payload.decode("utf-8", errors="replace") if isinstance(raw_payload, bytes) else str(raw_payload)
+                    form_data[name] = (
+                        raw_payload.decode("utf-8", errors="replace")
+                        if isinstance(raw_payload, bytes)
+                        else str(raw_payload)
+                    )
             return form_data
         else:
             payload = environ["wsgi.input"].read(length).decode("utf-8")

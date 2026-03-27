@@ -692,6 +692,17 @@ class NiraStore:
     def get_statuses(self) -> list[str]:
         return ["open", "in_progress", "closed"]
 
+    def get_all_labels(self) -> list[str]:
+        with self.session() as session:
+            rows = session.execute(select(Ticket.labels)).scalars().all()
+            all_labels = set()
+            for r in rows:
+                if r:
+                    for label in r.split(","):
+                        if label.strip():
+                            all_labels.add(label.strip())
+            return sorted(list(all_labels))
+
     def rename_default_project(self, new_project: str) -> dict[str, object]:
         new_key = normalize_project(new_project)
         with self.session() as session:

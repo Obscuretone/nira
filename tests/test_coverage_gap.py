@@ -726,3 +726,439 @@ def test_parse_search_query_edge_cases(temp_root):
     clean, filters = service._parse_search_query(":")
     assert clean == ":"
     assert filters == {}
+
+
+def test_cli_new_interactive(temp_root, monkeypatch):
+    from nira_app.cli import app
+    from typer.testing import CliRunner
+
+    runner = CliRunner()
+    monkeypatch.chdir(temp_root)
+    runner.invoke(app, ["init", "--project-key", "NIRA"])
+
+    # Mock Prompt.ask and Confirm.ask
+    # 1. Title
+    # 2. Priority
+    # 3. Type
+    # 4. Labels
+    # 5. Due Date
+    # 6. Parent
+    # 7. Source
+    # 8. Add description? (Confirm)
+    # 9. Open Editor? (Confirm)
+    inputs = [
+        "Interactive Title",
+        "high",
+        "bug",
+        "tag1, tag2",
+        "2026-12-31",
+        "",  # no parent
+        "email",
+        "y",  # Add description
+        "n",  # Open editor? No
+    ]
+    # stdin for manual description
+    description = "Manual description via stdin\n"
+
+    # We need to mock sys.stdin.isatty to return True
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+
+    from rich.prompt import Prompt, Confirm
+
+    input_iter = iter(inputs)
+
+    def mock_ask(*args, **kwargs):
+        val = next(input_iter)
+        # print(f"MOCK ASK: {args} -> {val}")
+        return val
+
+    monkeypatch.setattr(Prompt, "ask", mock_ask)
+    monkeypatch.setattr(Confirm, "ask", lambda *args, **kwargs: True if next(input_iter) == "y" else False)
+
+    # Use explicit -i flag to avoid tty issues in tests
+    # Since we are NOT mocking sys.stdin.read anymore (it will read from input argument)
+    result = runner.invoke(app, ["new", "-i"], input=description)
+    assert result.exit_code == 0
+    assert "Created NIRA-1" in result.stdout
+
+    # Verify ticket was created with correct data
+    from nira_app.services import TicketService
+    from nira_app.storage import NiraStore
+
+    store = NiraStore(temp_root)
+    service = TicketService(store)
+    details = service.ticket_details("NIRA-1")
+    t = details["ticket"]
+    assert t["title"] == "Interactive Title"
+    assert t["priority"] == "high"
+    assert t["type"] == "bug"
+    assert t["labels"] == "tag1, tag2"
+    assert t["due_date"] == "2026-12-31"
+    assert t["source"] == "email"
+    assert t["body_md"] == description
+
+
+def test_markdown_checklists(temp_root):
+    from nira_app.markdown import render_markdown
+
+    # Static rendering
+    html = render_markdown("- [ ] task 1\n- [x] task 2")
+    assert '<input type="checkbox"' in html
+    assert "checked" in html
+    assert "disabled" in html
+
+    # Interactive rendering
+    html_int = render_markdown("- [ ] task 1", ticket_id="NIRA-1")
+    assert 'hx-post="/tickets/NIRA-1/task/0/check"' in html_int
+    assert 'hx-target="closest div.activity-body, closest div.card-body"' in html_int
+
+
+def test_service_attachments(temp_root):
+    store = NiraStore(temp_root)
+    store.initialize("NIRA")
+    service = TicketService(store)
+
+    ticket = service.create_ticket("NIRA", "Attach test")
+    tid = ticket["id"]
+
+    # 1. Add attachment
+    content = b"fake file content"
+    service.add_attachment(tid, "test.txt", content, "text/plain")
+
+    # 2. Verify details
+    details = service.ticket_details(tid)
+    assert len(details["attachments"]) == 1
+    assert details["attachments"][0]["filename"] == "test.txt"
+    assert details["attachments"][0]["file_size"] == len(content)
+
+    # 3. Add duplicate filename (should append timestamp)
+    service.add_attachment(tid, "test.txt", b"v2 content")
+    details2 = service.ticket_details(tid)
+    assert len(details2["attachments"]) == 2
+    assert details2["attachments"][1]["filename"].startswith("test_")
+
+    # 4. Get path
+    path = service.get_attachment_path(tid, "test.txt")
+    assert path.exists()
+    assert path.read_bytes() == content
+
+    # 5. Delete ticket cleans up attachments
+    attach_dir = store.state_dir / "attachments" / str(ticket["db_id"])
+    assert attach_dir.exists()
+    service.delete_ticket(tid)
+    assert not attach_dir.exists()
+
+
+def test_web_attachments(temp_root):
+    store = NiraStore(temp_root)
+    store.initialize("NIRA")
+    service = TicketService(store)
+    app = NiraWebApp(store)
+
+    ticket = service.create_ticket("NIRA", "Web attach")
+    tid = ticket["id"]
+
+    # Test Multipart upload
+    boundary = "boundary123"
+    body = (
+        f"--{boundary}\r\n"
+        f'Content-Disposition: form-data; name="file"; filename="web.txt"\r\n'
+        f"Content-Type: text/plain\r\n\r\n"
+        f"web content\r\n"
+        f"--{boundary}--\r\n"
+    ).encode("utf-8")
+
+    environ = {
+        "REQUEST_METHOD": "POST",
+        "PATH_INFO": f"/tickets/{tid}/attachments",
+        "CONTENT_TYPE": f"multipart/form-data; boundary={boundary}",
+        "CONTENT_LENGTH": str(len(body)),
+        "wsgi.input": io.BytesIO(body),
+    }
+
+    def start_response(status, headers):
+        assert status == "200 OK"
+        assert any(h[0] == "HX-Refresh" for h in headers)
+
+    app(environ, start_response)
+
+    # Verify upload
+    details = service.ticket_details(tid)
+    assert len(details["attachments"]) == 1
+    assert details["attachments"][0]["filename"] == "web.txt"
+
+    # Test Serve attachment
+    environ_get = {
+        "REQUEST_METHOD": "GET",
+        "PATH_INFO": f"/tickets/{tid}/attachments/web.txt",
+        "wsgi.input": io.BytesIO(b""),
+    }
+
+    def start_response_get(status, headers):
+        assert status == "200 OK"
+        assert any(h[0] == "Content-Type" and h[1] == "text/plain" for h in headers)
+
+    resp_body = app(environ_get, start_response_get)
+    assert b"web content" in resp_body[0]
+
+
+def test_web_toggle_task(temp_root):
+    store = NiraStore(temp_root)
+    store.initialize("NIRA")
+    service = TicketService(store)
+    app = NiraWebApp(store)
+
+    ticket = service.create_ticket("NIRA", "Task test", body_md="- [ ] incomplete\n- [x] complete")
+    tid = ticket["id"]
+
+    # 1. Check the incomplete one
+    environ = {
+        "REQUEST_METHOD": "POST",
+        "PATH_INFO": f"/tickets/{tid}/task/0/check",
+        "wsgi.input": io.BytesIO(b""),
+    }
+
+    def start_response(status, headers):
+        assert status == "200 OK"
+
+    app(environ, start_response)
+
+    # Verify body updated
+    details = service.ticket_details(tid)
+    assert "- [x] incomplete" in details["ticket"]["body_md"]
+
+    # 2. Uncheck the complete one
+    environ2 = {
+        "REQUEST_METHOD": "POST",
+        "PATH_INFO": f"/tickets/{tid}/task/1/uncheck",
+        "wsgi.input": io.BytesIO(b""),
+    }
+    app(environ2, start_response)
+
+    details2 = service.ticket_details(tid)
+    assert "- [ ] complete" in details2["ticket"]["body_md"]
+
+
+def test_cli_attach_command(temp_root, monkeypatch):
+    from nira_app.cli import app
+    from typer.testing import CliRunner
+
+    runner = CliRunner()
+    monkeypatch.chdir(temp_root)
+    runner.invoke(app, ["init"])
+    runner.invoke(app, ["new", "test"])
+
+    dummy = temp_root / "dummy.png"
+    dummy.write_bytes(b"png data")
+
+    result = runner.invoke(app, ["attach", "NIRA-1", str(dummy)])
+    assert result.exit_code == 0
+    assert "Attached dummy.png" in result.stdout
+
+    # Test error
+    result = runner.invoke(app, ["attach", "NIRA-1", "nonexistent.file"])
+    assert result.exit_code == 1
+
+
+def test_service_attachments_errors(temp_root):
+    store = NiraStore(temp_root)
+    store.initialize("NIRA")
+    service = TicketService(store)
+
+    ticket = service.create_ticket("NIRA", "Error test")
+    tid = ticket["id"]
+
+    # 1. Missing filename
+    with pytest.raises(ValidationError, match="Filename is required"):
+        service.add_attachment(tid, "", b"data")
+
+    # 2. Non-existent attachment path
+    with pytest.raises(ValidationError, match="not found"):
+        service.get_attachment_path(tid, "missing.txt")
+
+
+def test_web_attachments_errors(temp_root):
+    store = NiraStore(temp_root)
+    store.initialize("NIRA")
+    app = NiraWebApp(store)
+
+    # 1. Upload missing file
+    environ = {
+        "REQUEST_METHOD": "POST",
+        "PATH_INFO": "/tickets/NIRA-1/attachments",
+        "CONTENT_TYPE": "multipart/form-data; boundary=b",
+        "CONTENT_LENGTH": "0",
+        "wsgi.input": io.BytesIO(b""),
+    }
+
+    def start_response(status, headers):
+        assert status == "400 Bad Request"
+
+    app(environ, start_response)
+
+    # 2. Serve missing ticket attachment
+    environ_get = {
+        "REQUEST_METHOD": "GET",
+        "PATH_INFO": "/tickets/NIRA-999/attachments/test.txt",
+        "wsgi.input": io.BytesIO(b""),
+    }
+
+    def start_response_404(status, headers):
+        assert status == "404 Not Found"
+
+    app(environ_get, start_response_404)
+
+
+def test_web_toggle_task_errors(temp_root):
+    store = NiraStore(temp_root)
+    store.initialize("NIRA")
+    app = NiraWebApp(store)
+
+    service = TicketService(store)
+    service.create_ticket("NIRA", "Task")
+
+    # Invalid index
+    environ = {
+        "REQUEST_METHOD": "POST",
+        "PATH_INFO": "/tickets/NIRA-1/task/99/check",
+        "wsgi.input": io.BytesIO(b""),
+    }
+
+    def start_response(status, headers):
+        assert status == "400 Bad Request"
+
+    app(environ, start_response)
+
+
+def test_storage_get_all_labels(temp_root):
+    store = NiraStore(temp_root)
+    store.initialize("NIRA")
+    service = TicketService(store)
+
+    service.create_ticket("NIRA", "T1", labels="a,b")
+    service.create_ticket("NIRA", "T2", labels="b,c")
+
+    labels = store.get_all_labels()
+    assert labels == ["a", "b", "c"]
+
+
+def test_cli_new_interactive_no_title(temp_root, monkeypatch):
+    from nira_app.cli import app
+    from typer.testing import CliRunner
+    from rich.prompt import Prompt
+
+    runner = CliRunner()
+    monkeypatch.chdir(temp_root)
+    runner.invoke(app, ["init", "--project-key", "NIRA"])
+
+    # Mock empty title -> should Exit(1)
+    monkeypatch.setattr(Prompt, "ask", lambda *args, **kwargs: "")
+    result = runner.invoke(app, ["new", "-i"])
+    assert result.exit_code == 1
+    assert "Title is required" in result.stdout
+
+
+def test_cli_new_interactive_with_editor(temp_root, monkeypatch):
+    from nira_app.cli import app
+    from typer.testing import CliRunner
+    from rich.prompt import Prompt, Confirm
+
+    runner = CliRunner()
+    monkeypatch.chdir(temp_root)
+    runner.invoke(app, ["init", "--project-key", "NIRA"])
+
+    inputs = ["Title", "medium", "task", "", "", "", "", "y", "y"]
+    input_iter = iter(inputs)
+    monkeypatch.setattr(Prompt, "ask", lambda *args, **kwargs: next(input_iter))
+    monkeypatch.setattr(Confirm, "ask", lambda *args, **kwargs: True if next(input_iter) == "y" else False)
+    monkeypatch.setattr("nira_app.cli.launch_editor", lambda x: "Editor content")
+
+    result = runner.invoke(app, ["new", "-i"])
+    assert result.exit_code == 0
+    from nira_app.services import TicketService
+    from nira_app.storage import NiraStore
+
+    service = TicketService(NiraStore(temp_root))
+    assert service.ticket_details("NIRA-1")["ticket"]["body_md"] == "Editor content"
+
+
+def test_web_multipart_text_field(temp_root):
+    # Test decoding of regular text fields in multipart form
+    app = NiraWebApp(NiraStore(temp_root))
+    boundary = "b"
+    body = (
+        f'--{boundary}\r\nContent-Disposition: form-data; name="title"\r\n\r\nMultipart Title\r\n--{boundary}--\r\n'
+    ).encode("utf-8")
+
+    environ = {
+        "REQUEST_METHOD": "POST",
+        "PATH_INFO": "/tickets",
+        "CONTENT_TYPE": f"multipart/form-data; boundary={boundary}",
+        "CONTENT_LENGTH": str(len(body)),
+        "wsgi.input": io.BytesIO(body),
+    }
+
+    form = app.parse_form(environ)
+    assert form["title"] == "Multipart Title"
+
+
+def test_cli_new_interactive_no_desc(temp_root, monkeypatch):
+    from nira_app.cli import app
+    from typer.testing import CliRunner
+    from rich.prompt import Prompt, Confirm
+
+    runner = CliRunner()
+    monkeypatch.chdir(temp_root)
+    runner.invoke(app, ["init", "--project-key", "NIRA"])
+
+    # inputs: Title, Priority, Type, Labels, Due, Parent, Source, Add description? (No)
+    inputs = ["No Desc", "medium", "task", "", "", "", "", "n"]
+    input_iter = iter(inputs)
+    monkeypatch.setattr(Prompt, "ask", lambda *args, **kwargs: next(input_iter))
+    monkeypatch.setattr(Confirm, "ask", lambda *args, **kwargs: True if next(input_iter) == "y" else False)
+
+    result = runner.invoke(app, ["new", "-i"])
+    assert result.exit_code == 0
+    from nira_app.services import TicketService
+    from nira_app.storage import NiraStore
+
+    service = TicketService(NiraStore(temp_root))
+    assert service.ticket_details("NIRA-1")["ticket"]["body_md"] == ""
+
+
+def test_web_upload_validation_error(temp_root, monkeypatch):
+    from nira_app.web import NiraWebApp
+    from nira_app.storage import NiraStore, ValidationError
+
+    store = NiraStore(temp_root)
+    store.initialize("NIRA")
+    app = NiraWebApp(store)
+
+    # Mock add_attachment to raise ValidationError
+    def mock_add_attachment(*args, **kwargs):
+        raise ValidationError("File too big")
+
+    monkeypatch.setattr(app.service, "add_attachment", mock_add_attachment)
+
+    boundary = "b"
+    body = (
+        f"--{boundary}\r\n"
+        f'Content-Disposition: form-data; name="file"; filename="big.txt"\r\n'
+        f"Content-Type: text/plain\r\n\r\n"
+        f"content\r\n"
+        f"--{boundary}--\r\n"
+    ).encode("utf-8")
+
+    environ = {
+        "REQUEST_METHOD": "POST",
+        "PATH_INFO": "/tickets/NIRA-1/attachments",
+        "CONTENT_TYPE": f"multipart/form-data; boundary={boundary}",
+        "CONTENT_LENGTH": str(len(body)),
+        "wsgi.input": io.BytesIO(body),
+    }
+
+    def start_response(status, headers):
+        assert status == "400 Bad Request"
+
+    resp = app(environ, start_response)
+    assert b"File too big" in resp[0]
