@@ -176,6 +176,28 @@
       #nira-progress.htmx-request {
         opacity: 1;
       }
+      .clickable-rendered-area {
+        cursor: pointer;
+        padding: 0.5rem;
+        margin: -0.5rem;
+        border-radius: 0.5rem;
+        transition: background-color 0.15s ease-in-out;
+      }
+      .clickable-rendered-area:hover {
+        background-color: var(--bs-tertiary-bg);
+      }
+      .edit-mode-section {
+        display: none;
+      }
+      .editing .edit-mode-section {
+        display: block;
+      }
+      .editing .checklist-view {
+        display: none;
+      }
+      .form-check-input {
+        cursor: pointer;
+      }
     </style>
     <script>
       // Load theme early from server-side preference

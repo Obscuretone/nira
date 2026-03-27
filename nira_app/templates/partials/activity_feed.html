@@ -32,7 +32,7 @@
                 <span class="text-body-secondary small">{{ format_time(item.created_at, relative=True) | safe }}</span>
               </div>
               <div class="card-body py-2 pt-0 markdown-output">
-                {{ render_markdown(item.data.body_md) | safe }}
+                {{ render_markdown(item.data.body_md, t_id=ticket.id) | safe }}
               </div>
             </div>
           {% elif item.type == 'history' %}

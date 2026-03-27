@@ -18,6 +18,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.markdown import Markdown
 from rich.text import Text
+from rich.prompt import Prompt, Confirm
 
 from nira_app.models import TicketData, TicketDetails
 from nira_app.storage import (
@@ -118,7 +119,9 @@ def init(
 @app.command(name="new")
 def new_ticket(
     ctx: typer.Context,
-    title_parts: Annotated[list[str], typer.Argument(help="Title of the ticket (can be multiple words).")],
+    title_parts: Annotated[
+        list[str], typer.Argument(help="Title of the ticket (can be multiple words).", show_default=False)
+    ] = [],
     project: Annotated[Optional[str], typer.Option(help="Override default project prefix.")] = None,
     source: Annotated[str, typer.Option(help="Source of the ticket.")] = "",
     type: Annotated[str, typer.Option(help="Type of the ticket (e.g., task, bug).")] = "task",
@@ -128,17 +131,20 @@ def new_ticket(
     parent: Annotated[Optional[str], typer.Option(help="Parent ticket ID (e.g. NIRA-1).")] = None,
     body: Annotated[Optional[str], typer.Option("--body", "-m", help="Initial body content (Markdown).")] = None,
     edit: Annotated[bool, typer.Option(help="Open $EDITOR to write the body.")] = False,
+    interactive: Annotated[bool, typer.Option("--interactive", "-i", help="Run interactive wizard.")] = False,
 ):
     """
     Create a new ticket.
     """
-    create_ticket_logic(ctx, title_parts, project, source, type, priority, labels, due, parent, body, edit)
+    create_ticket_logic(
+        ctx, title_parts, project, source, type, priority, labels, due, parent, body, edit, interactive=interactive
+    )
 
 
 @app.command(name="create", hidden=True)
 def create_ticket_alias(
     ctx: typer.Context,
-    title_parts: Annotated[list[str], typer.Argument(help="Title of the ticket.")],
+    title_parts: Annotated[list[str], typer.Argument(help="Title of the ticket.")] = [],
     project: Annotated[Optional[str], typer.Option()] = None,
     source: Annotated[str, typer.Option()] = "",
     type: Annotated[str, typer.Option()] = "task",
@@ -148,21 +154,34 @@ def create_ticket_alias(
     parent: Annotated[Optional[str], typer.Option()] = None,
     body: Annotated[Optional[str], typer.Option("--body", "-m")] = None,
     edit: Annotated[bool, typer.Option()] = False,
+    interactive: Annotated[bool, typer.Option("--interactive", "-i")] = False,
 ):
-    create_ticket_logic(ctx, title_parts, project, source, type, priority, labels, due, parent, body, edit)
+    create_ticket_logic(
+        ctx, title_parts, project, source, type, priority, labels, due, parent, body, edit, interactive=interactive
+    )
 
 
-def create_ticket_logic(ctx, title_parts, project, source, type, priority, labels, due, parent, body, edit):
+def create_ticket_logic(
+    ctx, title_parts, project, source, type, priority, labels, due, parent, body, edit, interactive=False
+):
     try:
         store = resolve_store(ctx.obj["root"], create=False)
         service = TicketService(store)
+
+        title = " ".join(title_parts).strip()
+
+        # Trigger interactive if explicitly requested OR if no title is provided and it's a TTY
+        if interactive or (not title and sys.stdin.isatty()):
+            title, source, type, priority, labels, due, parent, body_md = run_interactive_wizard(
+                store, title, source, type, priority, labels, due, parent, body
+            )
+        else:
+            body_md = read_markdown_input(body=body, edit=edit)
+
         parent_db_id = None
         if parent:
             parent_ticket = store.get_ticket(parent)
             parent_db_id = parent_ticket["db_id"]
-
-        title = " ".join(title_parts).strip()
-        body_md = read_markdown_input(body=body, edit=edit)
 
         ticket = service.create_ticket(
             project or "",
@@ -179,6 +198,58 @@ def create_ticket_logic(ctx, title_parts, project, source, type, priority, label
     except NiraError as exc:
         console.print(f"[red]Error:[/red] {exc}")
         raise typer.Exit(1)
+
+
+def run_interactive_wizard(store, title, source, type, priority, labels, due, parent, body):
+    console.print(Panel.fit("[bold blue]Nira Ticket Wizard[/bold blue]", border_style="blue"))
+
+    if not title:
+        title = Prompt.ask("[bold]Title[/bold]")
+        if not title:
+            console.print("[red]Error: Title is required.[/red]")
+            raise typer.Exit(1)
+
+    priority = Prompt.ask(
+        "[bold]Priority[/bold]",
+        choices=["low", "medium", "high", "urgent"],
+        default=priority,
+    )
+
+    type = Prompt.ask(
+        "[bold]Type[/bold]",
+        choices=["task", "bug", "feature", "enhancement"],
+        default=type,
+    )
+
+    # Autocomplete labels
+    existing_labels = store.get_all_labels()
+    label_msg = "[bold]Labels[/bold] (comma-separated)"
+    if existing_labels:
+        label_msg += f" [dim]Common: {', '.join(existing_labels[:5])}[/dim]"
+    labels = Prompt.ask(label_msg, default=labels)
+
+    due = Prompt.ask("[bold]Due Date[/bold] (YYYY-MM-DD or empty)", default=due or "")
+    if not due:
+        due = None
+
+    parent = Prompt.ask("[bold]Parent Ticket ID[/bold] (e.g. NIRA-1 or empty)", default=parent or "")
+    if not parent:
+        parent = None
+
+    source = Prompt.ask("[bold]Source[/bold] (optional)", default=source)
+
+    body_md = ""
+    if body:
+        body_md = body
+    else:
+        if Confirm.ask("[bold]Add a description?[/bold]"):
+            if Confirm.ask("Open $EDITOR?"):
+                body_md = launch_editor("")
+            else:
+                console.print("Enter description (Ctrl-D to finish):")
+                body_md = sys.stdin.read()
+
+    return title, source, type, priority, labels, due, parent, body_md
 
 
 @app.command(name="show")

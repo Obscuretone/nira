@@ -37,7 +37,7 @@ def render_inline(text: str) -> str:
     return escaped
 
 
-def render_markdown(markdown: str) -> str:
+def render_markdown(markdown: str, *, ticket_id: str | None = None) -> str:
     lines = markdown.splitlines()
     parts: list[str] = []
     paragraph: list[str] = []
@@ -58,7 +58,7 @@ def render_markdown(markdown: str) -> str:
             parts.append("</ul>")
             in_list = False
 
-    for line in lines:
+    for i, line in enumerate(lines):
         stripped = line.rstrip()
 
         if in_code_block:
@@ -102,9 +102,35 @@ def render_markdown(markdown: str) -> str:
         if stripped.startswith("- "):
             flush_paragraph()
             if not in_list:
-                parts.append("<ul>")
+                parts.append('<ul class="list-unstyled">')
                 in_list = True
-            parts.append(f"<li>{render_inline(stripped[2:])}</li>")
+
+            content = stripped[2:].strip()
+            # Task list support
+            if content.startswith("[ ] ") or content.startswith("[x] "):
+                checked = content.startswith("[x] ")
+                task_text = content[4:]
+                checkbox_html = ""
+                if ticket_id:
+                    # Interactive checkbox via HTMX
+                    action = "uncheck" if checked else "check"
+                    checkbox_html = (
+                        f'<input type="checkbox" class="form-check-input me-2" '
+                        f"{'checked' if checked else ''} "
+                        f'hx-post="/tickets/{ticket_id}/task/{i}/{action}" '
+                        f'hx-target="closest div.activity-body, closest div.card-body" '
+                        f'hx-swap="outerHTML">'
+                    )
+                else:
+                    # Static checkbox
+                    checkbox_html = (
+                        f'<input type="checkbox" class="form-check-input me-2" {"checked" if checked else ""} disabled>'
+                    )
+                parts.append(
+                    f'<li class="d-flex align-items-start">{checkbox_html}<span>{render_inline(task_text)}</span></li>'
+                )
+            else:
+                parts.append(f"<li>{render_inline(content)}</li>")
             continue
 
         flush_list()

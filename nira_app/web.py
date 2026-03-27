@@ -225,7 +225,7 @@ class NiraWebApp:
             "current_theme": settings.get("theme", "auto"),
             "_": translator,
             "format_time": format_time_wrapper,
-            "render_markdown": render_markdown,
+            "render_markdown": lambda md, t_id=None: render_markdown(md, ticket_id=t_id),
             "highlight": highlight,
             "h": h,
             **context,
@@ -256,6 +256,11 @@ class NiraWebApp:
         self.router.add("POST", "/tickets/{ticket_id}/comment", self.add_comment_action)
         self.router.add("POST", "/tickets/{ticket_id}/link", self.link_ticket_action)
         self.router.add("POST", "/tickets/{ticket_id}/unlink", self.unlink_ticket_action)
+        self.router.add(
+            "POST",
+            r"/tickets/(?P<ticket_id>[^/]+)/task/(?P<line_index>\d+)/(?P<action>check|uncheck)",
+            self.toggle_task_action,
+        )
 
     def __call__(self, environ, start_response):
         method = environ["REQUEST_METHOD"].upper()
@@ -493,8 +498,38 @@ class NiraWebApp:
     def preview_markdown_action(self, query: dict[str, str], form: dict[str, str]) -> Response:
         return Response(
             "200 OK",
-            render_markdown(form.get("markdown", "")),
+            render_markdown(form.get("markdown", ""), ticket_id=query.get("ticket_id")),
         )
+
+    def toggle_task_action(
+        self, query: dict[str, str], form: dict[str, str], ticket_id: str, line_index: str, action: str
+    ) -> Response:
+        details = self.service.ticket_details(ticket_id)
+        ticket = details["ticket"]
+        lines = ticket["body_md"].splitlines()
+        idx = int(line_index)
+
+        if 0 <= idx < len(lines):
+            line = lines[idx]
+            if action == "check":
+                lines[idx] = line.replace("[ ]", "[x]", 1)
+            else:
+                lines[idx] = line.replace("[x]", "[ ]", 1)
+
+            self.service.update_ticket(ticket_id, body_md="\n".join(lines))
+
+            # Re-render the body content
+            # The renderer needs to know the ticket_id for the checkboxes to stay interactive
+            updated_body_html = render_markdown("\n".join(lines), ticket_id=ticket_id)
+            # Wrap in a div that matches what the template expects if needed,
+            # but usually closest div.activity-body or card-body is targeted.
+            # We return just the inner HTML because hx-target is 'closest ...' and hx-swap is 'outerHTML'?
+            # Wait, if swap is 'outerHTML' we must return the container.
+
+            # Let's check how activity_feed.html and ticket_detail_page.html render the body.
+            return Response("200 OK", f'<div class="card-body">{updated_body_html}</div>')
+
+        return Response("400 Bad Request", "Invalid task index")
 
     def ticket_detail_page(self, query: dict[str, str], form: dict[str, str], ticket_id: str) -> Response:
         details: TicketDetails = self.service.ticket_details(ticket_id)

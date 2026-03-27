@@ -34,7 +34,7 @@
 
     <form id="ticket-edit-form" method="post" action="/tickets/{{ ticket.id }}/edit" class="mb-4" hx-post="/tickets/{{ ticket.id }}/edit" hx-target="body">
 
-      <div class="card shadow-sm mb-4">
+      <div class="card shadow-sm mb-4 toggle-edit-container" id="body-section">
         <div class="card-body">
           <label class="form-label" for="title">{{ _("Title") }}</label>
           <input
@@ -47,20 +47,54 @@
             hx-trigger="change"
             hx-target="body"
           >
-          <h2 class="h5 mb-3">{{ _("Body") }}</h2>
-          {{ rich_editor("body_md", ticket.body_md, height_px=420) }}
-          <div class="d-flex justify-content-end mt-3">
-            <button class="btn btn-primary" type="submit">{{ _("Save") }}</button>
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 class="h5 mb-0">{{ _("Body") }}</h2>
+            <button type="button" class="btn btn-sm btn-outline-secondary checklist-view" onclick="this.closest('.toggle-edit-container').classList.add('editing')">
+              <i class="bi bi-pencil small"></i> {{ _("Edit") }}
+            </button>
+          </div>
+
+          <div class="checklist-view clickable-rendered-area" onclick="if(event.target.tagName !== 'INPUT' && event.target.tagName !== 'A') this.closest('.toggle-edit-container').classList.add('editing')">
+            {% if ticket.body_md %}
+              {{ render_markdown(ticket.body_md, t_id=ticket.id) | safe }}
+            {% else %}
+              <p class="text-body-secondary italic">No description provided. Click to add one.</p>
+            {% endif %}
+          </div>
+
+          <div class="edit-mode-section">
+            {{ rich_editor("body_md", ticket.body_md, height_px=420) }}
+            <div class="d-flex justify-content-end gap-2 mt-3">
+              <button type="button" class="btn btn-outline-secondary" onclick="this.closest('.toggle-edit-container').classList.remove('editing')">{{ _("Cancel") }}</button>
+              <button class="btn btn-primary" type="submit">{{ _("Save") }}</button>
+            </div>
           </div>
         </div>
       </div>
 
-      <div class="card shadow-sm mb-4">
+      <div class="card shadow-sm mb-4 toggle-edit-container" id="resolution-section">
         <div class="card-body">
-          <h2 class="h5 mb-3">{{ _("Resolution Notes") }}</h2>
-          {{ rich_editor("resolution_md", ticket.resolution_md, height_px=280) }}
-          <div class="d-flex justify-content-end mt-3">
-            <button class="btn btn-primary" type="submit">{{ _("Save") }}</button>
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 class="h5 mb-0">{{ _("Resolution Notes") }}</h2>
+            <button type="button" class="btn btn-sm btn-outline-secondary checklist-view" onclick="this.closest('.toggle-edit-container').classList.add('editing')">
+              <i class="bi bi-pencil small"></i> {{ _("Edit") }}
+            </button>
+          </div>
+
+          <div class="checklist-view clickable-rendered-area" onclick="if(event.target.tagName !== 'INPUT' && event.target.tagName !== 'A') this.closest('.toggle-edit-container').classList.add('editing')">
+            {% if ticket.resolution_md %}
+              {{ render_markdown(ticket.resolution_md, t_id=ticket.id) | safe }}
+            {% else %}
+              <p class="text-body-secondary italic">No resolution notes. Click to add.</p>
+            {% endif %}
+          </div>
+
+          <div class="edit-mode-section">
+            {{ rich_editor("resolution_md", ticket.resolution_md, height_px=280) }}
+            <div class="d-flex justify-content-end gap-2 mt-3">
+              <button type="button" class="btn btn-outline-secondary" onclick="this.closest('.toggle-edit-container').classList.remove('editing')">{{ _("Cancel") }}</button>
+              <button class="btn btn-primary" type="submit">{{ _("Save") }}</button>
+            </div>
           </div>
         </div>
       </div>
@@ -74,144 +108,140 @@
   <div class="col-xl-4">
     <div class="card shadow-sm mb-4">
       <div class="card-body">
-        <h2 class="h5 mb-3">{{ _("Status") }}</h2>
-        <div class="row g-3 align-items-end">
-          <div class="col-12">
-            <label class="form-label" for="status">{{ _("Status") }}</label>
-            <select
-              class="{{ status_select_classes(ticket.status) }}"
-              id="status"
-              name="status"
-              form="ticket-edit-form"
-              data-status-select
-              hx-post="/tickets/{{ ticket.id }}/edit"
-              hx-trigger="change"
-              hx-target="body"
-            >
-              {% for value, label in ticket_status_options -%}
-              <option value="{{ value }}"{% if value == ticket.status %} selected{% endif %}>{{ _(label) }}</option>
-              {% endfor -%}
-            </select>
-          </div>
-          <div class="col-12">
-            <label class="form-label" for="priority">{{ _("Priority") }}</label>
-            <select
-              class="form-select"
-              id="priority"
-              name="priority"
-              form="ticket-edit-form"
-              hx-post="/tickets/{{ ticket.id }}/edit"
-              hx-trigger="change"
-              hx-target="body"
-            >
-              {% for value, label in priority_options -%}
-              <option value="{{ value }}"{% if value == ticket.priority %} selected{% endif %}>{{ _(label) }}</option>
-              {% endfor -%}
-            </select>
-          </div>
-          <div class="col-12 d-none">
-            <button class="btn btn-primary w-100" type="submit" form="ticket-edit-form">{{ _("Save") }}</button>
-          </div>
+        <h2 class="h5 mb-3">{{ _("Status & Priority") }}</h2>
+        <div class="mb-3">
+          <label class="form-label" for="status">{{ _("Status") }}</label>
+          <select
+            class="{{ status_select_classes(ticket.status) }}"
+            id="status"
+            name="status"
+            form="ticket-edit-form"
+            data-status-select
+            hx-post="/tickets/{{ ticket.id }}/edit"
+            hx-trigger="change"
+            hx-target="body"
+          >
+            {% for value, label in ticket_status_options -%}
+            <option value="{{ value }}"{% if value == ticket.status %} selected{% endif %}>{{ _(label) }}</option>
+            {% endfor -%}
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="priority">{{ _("Priority") }}</label>
+          <select
+            class="form-select"
+            id="priority"
+            name="priority"
+            form="ticket-edit-form"
+            hx-post="/tickets/{{ ticket.id }}/edit"
+            hx-trigger="change"
+            hx-target="body"
+          >
+            {% for value, label in priority_options -%}
+            <option value="{{ value }}"{% if value == ticket.priority %} selected{% endif %}>{{ _(label) }}</option>
+            {% endfor -%}
+          </select>
+        </div>
+        <div class="mb-0">
+          <label class="form-label" for="type">{{ _("Type") }}</label>
+          <select
+            class="form-select"
+            id="type"
+            name="type"
+            form="ticket-edit-form"
+            hx-post="/tickets/{{ ticket.id }}/edit"
+            hx-trigger="change"
+            hx-target="body"
+          >
+            {% for value, label in ticket_type_options -%}
+            <option value="{{ value }}"{% if value == ticket.type %} selected{% endif %}>{{ _(label) }}</option>
+            {% endfor -%}
+          </select>
         </div>
       </div>
     </div>
 
     <div class="card shadow-sm mb-4">
       <div class="card-body">
-        <h2 class="h5 mb-3">Details</h2>
-        <div class="row g-3">
-          <div class="col-12 position-relative">
-            <label class="form-label" for="parent">{{ _("Parent Ticket") }}</label>
-            {{ ticket_typeahead("parent", "parent", ticket.parent_number and (ticket.project ~ '-' ~ ticket.parent_number) or '', exclude_id=ticket.id, form="ticket-edit-form", hx_post="/tickets/" ~ ticket.id ~ "/edit", hx_trigger="change", hx_target="body") }}
-          </div>
-          <div class="col-12">
-            <label class="form-label" for="labels">{{ _("Labels") }}</label>
-            <div class="label-input-container">
-              <input type="text" class="label-hidden-input" placeholder="Add label...">
-              <input
-                type="hidden"
-                class="label-real-input"
-                id="labels"
-                name="labels"
-                value="{{ ticket.labels }}"
-                form="ticket-edit-form"
-                hx-post="/tickets/{{ ticket.id }}/edit"
-                hx-trigger="change"
-                hx-target="body"
-              >
-            </div>
-          </div>
-          <div class="col-12">
-            <label class="form-label" for="due_date">{{ _("Due Date") }}</label>
+        <h2 class="h5 mb-3">{{ _("Details") }}</h2>
+        <div class="mb-3 position-relative">
+          <label class="form-label" for="parent">{{ _("Parent Ticket") }}</label>
+          {{ ticket_typeahead("parent", "parent", ticket.parent_number and (ticket.project ~ '-' ~ ticket.parent_number) or '', exclude_id=ticket.id, form="ticket-edit-form", hx_post="/tickets/" ~ ticket.id ~ "/edit", hx_trigger="change", hx_target="body") }}
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="labels">{{ _("Labels") }}</label>
+          <div class="label-input-container">
+            <input type="text" class="label-hidden-input" placeholder="{{ _("Add label...") }}">
             <input
-              type="date"
-              class="form-control"
-              id="due_date"
-              name="due_date"
-              value="{{ ticket.due_date or '' }}"
+              type="hidden"
+              class="label-real-input"
+              id="labels"
+              name="labels"
+              value="{{ ticket.labels }}"
               form="ticket-edit-form"
               hx-post="/tickets/{{ ticket.id }}/edit"
               hx-trigger="change"
               hx-target="body"
             >
           </div>
-          <div class="col-12">
-            <label class="form-label" for="story_points">{{ _("Story Points") }}</label>
-            <input
-              type="number"
-              class="form-control"
-              id="story_points"
-              name="story_points"
-              value="{{ ticket.story_points or '' }}"
-              form="ticket-edit-form"
-              hx-post="/tickets/{{ ticket.id }}/edit"
-              hx-trigger="change"
-              hx-target="body"
-            >
-          </div>
-          <div class="col-12">
-            <label class="form-label" for="source">Source</label>
-            <input
-              class="form-control"
-              id="source"
-              name="source"
-              value="{{ ticket.source }}"
-              form="ticket-edit-form"
-              hx-post="/tickets/{{ ticket.id }}/edit"
-              hx-trigger="change"
-              hx-target="body"
-            >
-          </div>
-          <div class="col-12">
-            <label class="form-label" for="type">{{ _("Type") }}</label>
-            <select
-              class="form-select"
-              id="type"
-              name="type"
-              form="ticket-edit-form"
-              hx-post="/tickets/{{ ticket.id }}/edit"
-              hx-trigger="change"
-              hx-target="body"
-            >
-              {% for value, label in ticket_type_options -%}
-              <option value="{{ value }}"{% if value == ticket.type %} selected{% endif %}>{{ _(label) }}</option>
-              {% endfor -%}
-            </select>
-          </div>
-          <div class="col-12 d-none">
-            <button class="btn btn-primary w-100" type="submit" form="ticket-edit-form">{{ _("Save") }}</button>
-          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="due_date">{{ _("Due Date") }}</label>
+          <input
+            type="date"
+            class="form-control"
+            id="due_date"
+            name="due_date"
+            value="{{ ticket.due_date or '' }}"
+            form="ticket-edit-form"
+            hx-post="/tickets/{{ ticket.id }}/edit"
+            hx-trigger="change"
+            hx-target="body"
+          >
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="story_points">{{ _("Story Points") }}</label>
+          <input
+            type="number"
+            class="form-control"
+            id="story_points"
+            name="story_points"
+            value="{{ ticket.story_points or '' }}"
+            form="ticket-edit-form"
+            hx-post="/tickets/{{ ticket.id }}/edit"
+            hx-trigger="change"
+            hx-target="body"
+          >
+        </div>
+        <div class="mb-0">
+          <label class="form-label" for="source">{{ _("Source") }}</label>
+          <input
+            class="form-control"
+            id="source"
+            name="source"
+            value="{{ ticket.source }}"
+            form="ticket-edit-form"
+            hx-post="/tickets/{{ ticket.id }}/edit"
+            hx-trigger="change"
+            hx-target="body"
+          >
         </div>
       </div>
     </div>
 
     <div class="card shadow-sm mb-4">
       <div class="card-body">
-        <h2 class="h5 mb-3">Metadata</h2>
-        <dl class="row mb-0">
-          <dt class="col-sm-4">Created</dt><dd class="col-sm-8">{{ format_time(ticket.created_at) | safe }}</dd>
-          <dt class="col-sm-4">Updated</dt><dd class="col-sm-8">{{ format_time(ticket.updated_at, relative=True) | safe }}</dd>
-        </dl>
+        <h2 class="h5 mb-3">{{ _("Metadata") }}</h2>
+        <div class="small">
+          <div class="d-flex justify-content-between mb-1">
+            <span class="text-body-secondary">{{ _("Created") }}</span>
+            <span class="text-end">{{ format_time(ticket.created_at) | safe }}</span>
+          </div>
+          <div class="d-flex justify-content-between">
+            <span class="text-body-secondary">{{ _("Updated") }}</span>
+            <span class="text-end">{{ format_time(ticket.updated_at, relative=True) | safe }}</span>
+          </div>
+        </div>
       </div>
     </div>
   </div>

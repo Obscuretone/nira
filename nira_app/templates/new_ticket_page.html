@@ -25,11 +25,34 @@
     </div>
   </div>
   <div class="col-lg-4">
-    <div class="card shadow-sm h-100">
+    <div class="card shadow-sm mb-4">
       <div class="card-body">
+        <h2 class="h5 mb-3">{{ _("Status & Priority") }}</h2>
         <div class="mb-3">
-          <label class="form-label" for="project_display">Ticket Prefix</label>
-          <input class="form-control" id="project_display" value="{{ default_project }}-" readonly>
+          <label class="form-label" for="priority">{{ _("Priority") }}</label>
+          <select class="form-select" id="priority" name="priority">
+            {% for value, label in priority_options -%}
+            <option value="{{ value }}"{% if value == "medium" %} selected{% endif %}>{{ _(label) }}</option>
+            {% endfor -%}
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="type">{{ _("Type") }}</label>
+          <select class="form-select" id="type" name="type">
+            {% for value, label in ticket_type_options -%}
+            <option value="{{ value }}"{% if value == "task" %} selected{% endif %}>{{ _(label) }}</option>
+            {% endfor -%}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+      <div class="card-body">
+        <h2 class="h5 mb-3">{{ _("Details") }}</h2>
+        <div class="mb-3">
+          <label class="form-label" for="project_display">{{ _("Ticket Prefix") }}</label>
+          <input class="form-control" id="project_display" value="{{ default_project }}-" readonly disabled>
           <input type="hidden" name="project" value="{{ default_project }}">
         </div>
         <div class="mb-3">
@@ -53,32 +76,19 @@
           <input type="number" class="form-control" id="story_points" name="story_points" placeholder="e.g. 5">
         </div>
         <div class="mb-3 position-relative">
-          <label class="form-label" for="parent">{{ _("Parent Ticket") }} ({{ _("optional") }})</label>
+          <label class="form-label" for="parent">{{ _("Parent Ticket") }}</label>
           {{ ticket_typeahead("parent", "parent", parent_id or '', placeholder=_("Search or enter ticket ID...")) }}
         </div>
         <div class="mb-3">
           <label class="form-label" for="source">{{ _("Source") }}</label>
           <input class="form-control" id="source" name="source" placeholder="{{ _("why this ticket exists") }}">
         </div>
-        <div class="mb-3">
-          <label class="form-label" for="type">{{ _("Type") }}</label>
-          <select class="form-select" id="type" name="type">
-            {% for value, label in ticket_type_options -%}
-            <option value="{{ value }}"{% if value == "task" %} selected{% endif %}>{{ _(label) }}</option>
-            {% endfor -%}
-          </select>
-        </div>
-        <div class="mb-3">
-          <label class="form-label" for="priority">{{ _("Priority") }}</label>
-          <select class="form-select" id="priority" name="priority">
-            {% for value, label in priority_options -%}
-            <option value="{{ value }}"{% if value == "medium" %} selected{% endif %}>{{ _(label) }}</option>
-            {% endfor -%}
-          </select>
-        </div>
-        <button class="btn btn-primary w-100" type="submit">{{ _("Create Ticket") }}</button>
       </div>
     </div>
+
+    <button class="btn btn-primary w-100 py-2 shadow-sm" type="submit">
+      <i class="bi bi-plus-circle me-1"></i> {{ _("Create Ticket") }}
+    </button>
   </div>
 </form>
 {% endblock %}
