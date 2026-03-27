@@ -160,6 +160,8 @@ class DashboardStats(TypedDict):
     status_points: Dict[str, int]
     total_tickets: int
     total_points: int
+    velocity: float
+    common_labels: List[tuple[str, int]]
     recent_history: List[HistoryData]
     recent_tickets: List[TicketData]
 

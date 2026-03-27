@@ -23,7 +23,7 @@
     </div>
   </div>
   <div class="d-flex gap-2">
-    <a class="btn btn-outline-secondary" href="/list">{{ _("Back to Tickets") }}</a>
+    <button class="btn btn-outline-secondary" onclick="if(document.referrer.includes('/list') || document.referrer.includes('/board')) { history.back(); } else { window.location.href='/list'; }">{{ _("Back") }}</button>
     <a class="btn btn-primary" href="/tickets/new">{{ _("New Ticket") }}</a>
   </div>
 </div>

@@ -1220,9 +1220,9 @@ def test_web_get_template(temp_root, monkeypatch):
 
     store = NiraStore(temp_root)
     store.initialize("NIRA")
-    app = NiraWebApp(store)
+    app_inst = NiraWebApp(store)
 
-    environ = {
+    env = {
         "REQUEST_METHOD": "GET",
         "PATH_INFO": "/templates/bug",
         "wsgi.input": io.BytesIO(b""),
@@ -1231,5 +1231,58 @@ def test_web_get_template(temp_root, monkeypatch):
     def start_response(status, headers):
         assert status == "200 OK"
 
-    resp = app(environ, start_response)
+    resp = app_inst(env, start_response)
     assert b"Bug Template Web" in resp[0]
+
+
+def test_web_get_template_fallback(temp_root, monkeypatch):
+    (temp_root / ".nira" / "templates").mkdir(parents=True, exist_ok=True)
+    (temp_root / ".nira" / "templates" / "default.md").write_text("Default Template Web")
+
+    from nira_app.web import NiraWebApp
+    from nira_app.storage import NiraStore
+
+    store = NiraStore(temp_root)
+    store.initialize("NIRA")
+    app_inst = NiraWebApp(store)
+
+    def start_response(status, headers):
+        assert status == "200 OK"
+
+    # Test missing type, should fallback to default
+    env = {
+        "REQUEST_METHOD": "GET",
+        "PATH_INFO": "/templates/missing_type",
+        "QUERY_STRING": "",
+        "wsgi.input": None,
+    }
+    resp = app_inst(env, start_response)
+    assert b"Default Template Web" in resp[0]
+
+
+def test_get_dashboard_stats_velocity_and_labels(temp_root):
+    from nira_app.services import TicketService
+    from nira_app.storage import NiraStore
+
+    store = NiraStore(temp_root)
+    store.initialize("NIRA")
+    service = TicketService(store)
+
+    # Create some tickets with labels
+    service.create_ticket("NIRA", "T1", labels="bug, ui")
+    service.create_ticket("NIRA", "T2", labels="bug, backend")
+    service.create_ticket("NIRA", "T3", labels="ui")
+
+    # Close one ticket to test velocity
+    with store.session() as session:
+        from nira_app.storage import Ticket
+
+        t1 = session.query(Ticket).filter(Ticket.number == 1).one()
+        t1.status = "closed"
+        session.commit()
+
+    stats = service.get_dashboard_stats()
+    assert stats["velocity"] >= 0
+    assert ("bug", 2) in stats["common_labels"]
+    assert ("ui", 2) in stats["common_labels"]
+    assert ("backend", 1) in stats["common_labels"]

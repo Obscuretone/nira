@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import time
+from datetime import datetime, timedelta, UTC
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, cast, Counter
 
 from nira_app.models import (
     DashboardStats,
@@ -265,7 +266,7 @@ class TicketService:
                     search_number = int(search_term)
 
                 fts_query = search_term.replace('"', '""')
-                if any(c in fts_query for c in "()+-*:"):
+                if any(c in fts_query for c in "()+-*:."):
                     fts_query = f'"{fts_query}"'
 
                 if search_number is not None:
@@ -379,7 +380,7 @@ class TicketService:
                     search_number = int(search_term)
 
                 fts_query = search_term.replace('"', '""')
-                if any(c in fts_query for c in "()+-*:"):
+                if any(c in fts_query for c in "()+-*:."):
                     fts_query = f'"{fts_query}"'
 
                 if search_number is not None:
@@ -818,6 +819,27 @@ class TicketService:
                 for item in recent_history
             ]
 
+            # Velocity (tickets closed in last 7 days)
+            seven_days_ago = (datetime.now(UTC) - timedelta(days=7)).isoformat()[:19] + "Z"
+            closed_status = statuses[-1] if statuses else "closed"
+            recently_closed = (
+                session.query(func.count(Ticket.id))
+                .filter(Ticket.status == closed_status)
+                .filter(Ticket.updated_at >= seven_days_ago)
+                .scalar()
+                or 0
+            )
+            velocity = round(recently_closed / 7.0, 2)
+
+            # Common labels
+            all_labels_str = session.query(Ticket.labels).filter(Ticket.labels != "").all()
+            label_counts: Counter[str] = Counter()
+            for (ls,) in all_labels_str:
+                for label in ls.split(","):
+                    if label.strip():
+                        label_counts[label.strip()] += 1
+            common_labels = label_counts.most_common(5)
+
             return cast(
                 DashboardStats,
                 {
@@ -825,6 +847,8 @@ class TicketService:
                     "status_points": status_points,
                     "total_tickets": total_tickets,
                     "total_points": total_points,
+                    "velocity": velocity,
+                    "common_labels": common_labels,
                     "recent_history": history_list,
                     "recent_tickets": self.list_tickets(sort_by="updated", direction="desc", limit=5),
                 },
