@@ -409,6 +409,30 @@ def reopen(
 
 
 @app.command()
+def delete(
+    ctx: typer.Context,
+    ticket_id: Annotated[str, typer.Argument(help="ID of the ticket to delete.")],
+    force: Annotated[bool, typer.Option("--force", "-f", help="Skip confirmation.")] = False,
+):
+    """
+    Permanently delete a ticket.
+    """
+    try:
+        store = resolve_store(ctx.obj["root"], create=False)
+        if not force:
+            if not typer.confirm(f"Are you sure you want to permanently delete {ticket_id}?"):
+                console.print("Aborted.")
+                return
+
+        service = TicketService(store)
+        service.delete_ticket(ticket_id)
+        console.print(f"Deleted [bold blue]{ticket_id}[/bold blue]")
+    except NiraError as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(1)
+
+
+@app.command()
 def link(
     ctx: typer.Context,
     ticket_id: Annotated[str, typer.Argument(help="First ticket ID.")],
@@ -534,12 +558,17 @@ def export(
             console.print("[yellow]No tickets found to export.[/yellow]")
             return
 
+        # Filter out internal/database fields for a cleaner export
+        exclude = {"db_id", "parent_id", "parent_number"}
+        fieldnames = [k for k in tickets[0].keys() if k not in exclude]
+
         with open(filename, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=tickets[0].keys())
+            writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
             writer.writeheader()
             writer.writerows(tickets)
 
         console.print(f"[green]Exported {len(tickets)} tickets to {filename}[/green]")
+
     except (NiraError, OSError) as exc:
         console.print(f"[red]Error:[/red] {exc}")
         raise typer.Exit(1)

@@ -43,20 +43,17 @@ class TicketService:
         for token in tokens:
             if ":" in token:
                 parts = token.split(":", 1)
-                if len(parts) == 2:
-                    key, value = parts[0].lower(), parts[1]
-                    if key == "is":
-                        val_low = value.lower()
-                        if val_low in ("open", "closed", "in_progress", "not_closed"):
-                            filters["status"] = val_low
-                    elif key == "priority":
-                        filters["priority"] = value.lower()
-                    elif key == "type":
-                        filters["ticket_type"] = value.lower()
-                    elif key == "label":
-                        filters["label"] = value
-                    else:
-                        remaining_tokens.append(token)
+                key, value = parts[0].lower(), parts[1]
+                if key == "is":
+                    val_low = value.lower()
+                    if val_low in ("open", "closed", "in_progress", "not_closed"):
+                        filters["status"] = val_low
+                elif key == "priority":
+                    filters["priority"] = value.lower()
+                elif key == "type":
+                    filters["ticket_type"] = value.lower()
+                elif key == "label":
+                    filters["label"] = value
                 else:
                     remaining_tokens.append(token)
             else:
@@ -435,6 +432,12 @@ class TicketService:
         statuses = self.store.get_statuses()
         open_status = statuses[0] if statuses else "open"
         return self.update_ticket(ticket_id, status=open_status, resolution_reason="")
+
+    def delete_ticket(self, ticket_id: str) -> None:
+        with self.store.session() as session:
+            current_project = self.store.current_project(session)
+            ticket = self.store.resolve_ticket(session, ticket_id, project_key=current_project)
+            session.delete(ticket)
 
     def add_comment(self, ticket_id: str, body_md: str) -> CommentData:
         body_md = body_md.strip()
