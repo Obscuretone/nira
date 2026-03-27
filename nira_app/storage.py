@@ -717,6 +717,23 @@ class NiraStore:
             "renamed_ticket_count": ticket_count if current_key != new_key else 0,
         }
 
+    def get_ticket_template(self, ticket_type: str) -> str:
+        """Fetch the markdown template for a specific ticket type, falling back to default.md."""
+        templates_dir = self.state_dir / "templates"
+
+        if not templates_dir.exists():
+            return ""
+
+        type_file = templates_dir / f"{ticket_type.lower()}.md"
+        if type_file.exists() and type_file.is_file():
+            return type_file.read_text(encoding="utf-8")
+
+        default_file = templates_dir / "default.md"
+        if default_file.exists() and default_file.is_file():
+            return default_file.read_text(encoding="utf-8")
+
+        return ""
+
     def touch_tickets(
         self,
         session: Session,

@@ -176,6 +176,11 @@ def create_ticket_logic(
                 store, title, source, type, priority, labels, due, parent, body
             )
         else:
+            # If no body is provided but we are editing or just creating, pre-fill with template
+            if not body and type:
+                template = store.get_ticket_template(type)
+                if template:
+                    body = template
             body_md = read_markdown_input(body=body, edit=edit)
 
         parent_db_id = None
@@ -242,12 +247,23 @@ def run_interactive_wizard(store, title, source, type, priority, labels, due, pa
     if body:
         body_md = body
     else:
-        if Confirm.ask("[bold]Add a description?[/bold]"):
+        template = store.get_ticket_template(type)
+        prompt_msg = "[bold]Add a description?[/bold]"
+        if template:
+            prompt_msg = "[bold]Add a description (template found)?[/bold]"
+
+        if Confirm.ask(prompt_msg):
             if Confirm.ask("Open $EDITOR?"):
-                body_md = launch_editor("")
+                body_md = launch_editor(template)
             else:
+                if template:
+                    console.print(f"[dim]Template loaded for '{type}':[/dim]")
+                    console.print(template)
+                    console.print("---")
                 console.print("Enter description (Ctrl-D to finish):")
-                body_md = sys.stdin.read()
+                user_input = sys.stdin.read()
+                # If they just hit Ctrl-D immediately, use template, otherwise use what they typed
+                body_md = user_input if user_input.strip() else template
 
     return title, source, type, priority, labels, due, parent, body_md
 

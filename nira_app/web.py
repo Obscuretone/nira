@@ -244,6 +244,7 @@ class NiraWebApp:
         self.router.add("GET", "/tickets/search_dropdown", self.ticket_search_dropdown)
         self.router.add("GET", "/tickets/editor_autocomplete", self.editor_autocomplete)
         self.router.add("GET", "/settings", self.settings_page)
+        self.router.add("GET", "/templates/{ticket_type}", self.get_template_action)
         self.router.add("POST", "/tickets", self.create_ticket_action)
         self.router.add("POST", "/settings", self.save_settings_action)
         self.router.add("POST", "/preview", self.preview_markdown_action)
@@ -496,6 +497,10 @@ class NiraWebApp:
             return Response("204 No Content", "")
 
         return self.redirect("/settings?saved=1")
+
+    def get_template_action(self, query: dict[str, str], form: dict[str, str], ticket_type: str) -> Response:
+        template = self.store.get_ticket_template(ticket_type)
+        return Response("200 OK", template, content_type="text/plain")
 
     def preview_markdown_action(self, query: dict[str, str], form: dict[str, str]) -> Response:
         return Response(

@@ -91,4 +91,46 @@
     </button>
   </div>
 </form>
+
+<script>
+  async function fetchTemplate(type) {
+    const editorShell = document.querySelector('.rich-editor-shell');
+    if (!editorShell || !editorShell._editorInstance) return;
+
+    const editor = editorShell._editorInstance;
+    const currentContent = editor.getMarkdown().trim();
+    
+    // Only fetch and replace if the editor is empty (or just whitespaces)
+    if (currentContent !== "") {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/templates/${type}`);
+      if (res.ok) {
+        const text = await res.text();
+        if (text) {
+          editor.setMarkdown(text);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch template:", err);
+    }
+  }
+
+  // Bind change event
+  document.getElementById('type').addEventListener('change', (e) => {
+    fetchTemplate(e.target.value);
+  });
+
+  // Fetch initial template if empty on load
+  document.addEventListener("DOMContentLoaded", () => {
+    setTimeout(() => {
+      const typeSelect = document.getElementById("type");
+      if (typeSelect) {
+        fetchTemplate(typeSelect.value);
+      }
+    }, 100); // Small delay to let ToastUI init
+  });
+</script>
 {% endblock %}

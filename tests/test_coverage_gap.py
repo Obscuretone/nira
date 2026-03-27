@@ -1162,3 +1162,74 @@ def test_web_upload_validation_error(temp_root, monkeypatch):
 
     resp = app(environ, start_response)
     assert b"File too big" in resp[0]
+
+
+def test_storage_get_ticket_template(temp_root):
+    from nira_app.storage import NiraStore
+
+    store = NiraStore(temp_root)
+
+    # Missing dir
+    assert store.get_ticket_template("bug") == ""
+
+    # Create templates dir
+    templates_dir = temp_root / ".nira" / "templates"
+    templates_dir.mkdir(parents=True)
+
+    # Missing file, no default
+    assert store.get_ticket_template("bug") == ""
+
+    # Default file
+    (templates_dir / "default.md").write_text("Default template")
+    assert store.get_ticket_template("bug") == "Default template"
+
+    # Specific file overrides default
+    (templates_dir / "bug.md").write_text("Bug template")
+    assert store.get_ticket_template("bug") == "Bug template"
+
+
+def test_cli_new_template_fallback(temp_root, monkeypatch):
+    from nira_app.cli import app
+    from typer.testing import CliRunner
+
+    (temp_root / ".nira" / "templates").mkdir(parents=True, exist_ok=True)
+    (temp_root / ".nira" / "templates" / "task.md").write_text("Task Template Content")
+
+    runner = CliRunner()
+    monkeypatch.chdir(temp_root)
+    runner.invoke(app, ["init", "--project-key", "NIRA"])
+
+    # Create without interactive, no body, should use template
+    result = runner.invoke(app, ["new", "Test Template", "--type", "task"])
+    assert result.exit_code == 0
+
+    # Verify body
+    from nira_app.services import TicketService
+    from nira_app.storage import NiraStore
+
+    service = TicketService(NiraStore(temp_root))
+    assert service.ticket_details("NIRA-1")["ticket"]["body_md"] == "Task Template Content"
+
+
+def test_web_get_template(temp_root, monkeypatch):
+    from nira_app.web import NiraWebApp
+    from nira_app.storage import NiraStore
+
+    (temp_root / ".nira" / "templates").mkdir(parents=True, exist_ok=True)
+    (temp_root / ".nira" / "templates" / "bug.md").write_text("Bug Template Web")
+
+    store = NiraStore(temp_root)
+    store.initialize("NIRA")
+    app = NiraWebApp(store)
+
+    environ = {
+        "REQUEST_METHOD": "GET",
+        "PATH_INFO": "/templates/bug",
+        "wsgi.input": io.BytesIO(b""),
+    }
+
+    def start_response(status, headers):
+        assert status == "200 OK"
+
+    resp = app(environ, start_response)
+    assert b"Bug Template Web" in resp[0]
