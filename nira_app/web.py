@@ -256,6 +256,8 @@ class NiraWebApp:
         self.router.add("POST", "/tickets/{ticket_id}/comment", self.add_comment_action)
         self.router.add("POST", "/tickets/{ticket_id}/link", self.link_ticket_action)
         self.router.add("POST", "/tickets/{ticket_id}/unlink", self.unlink_ticket_action)
+        self.router.add("POST", "/tickets/{ticket_id}/attachments", self.upload_attachment_action)
+        self.router.add("GET", "/tickets/{ticket_id}/attachments/{filename}", self.serve_attachment_action)
         self.router.add(
             "POST",
             r"/tickets/(?P<ticket_id>[^/]+)/task/(?P<line_index>\d+)/(?P<action>check|uncheck)",
@@ -501,6 +503,45 @@ class NiraWebApp:
             render_markdown(form.get("markdown", ""), ticket_id=query.get("ticket_id")),
         )
 
+    def upload_attachment_action(self, query: dict[str, str], form: dict[str, Any], ticket_id: str) -> Response:
+        import json
+
+        file_content = form.get("file")
+        filename = form.get("file_filename")
+        content_type = form.get("file_content_type", "application/octet-stream")
+
+        if not file_content or not filename:
+            return Response("400 Bad Request", "No file uploaded")
+
+        try:
+            self.service.add_attachment(ticket_id, filename, file_content, content_type)
+            # Use hx-refresh to reload the page so the new attachment shows up
+            trigger = {"nira:toast": {"message": f"Attached {filename}", "type": "success"}}
+            return Response("200 OK", "", headers=[("HX-Trigger", json.dumps(trigger)), ("HX-Refresh", "true")])
+        except ValidationError as e:
+            return Response("400 Bad Request", str(e))
+
+    def serve_attachment_action(
+        self, query: dict[str, str], form: dict[str, Any], ticket_id: str, filename: str
+    ) -> Response:
+        import urllib.parse
+        from nira_app.storage import ValidationError
+
+        safe_filename = urllib.parse.unquote(filename)
+
+        try:
+            file_path = self.service.get_attachment_path(ticket_id, safe_filename)
+            import mimetypes
+
+            content_type, _ = mimetypes.guess_type(str(file_path))
+            return Response(
+                "200 OK",
+                file_path.read_bytes(),
+                content_type=content_type or "application/octet-stream",
+            )
+        except ValidationError:
+            return Response("404 Not Found", "Attachment not found")
+
     def toggle_task_action(
         self, query: dict[str, str], form: dict[str, str], ticket_id: str, line_index: str, action: str
     ) -> Response:
@@ -721,12 +762,38 @@ class NiraWebApp:
             content_type=content_type or "application/octet-stream",
         )
 
-    def parse_form(self, environ) -> dict[str, str]:
+    def parse_form(self, environ) -> dict[str, Any]:
         content_length = environ.get("CONTENT_LENGTH", "") or "0"
         length = int(content_length)
-        payload = environ["wsgi.input"].read(length).decode("utf-8")
-        parsed = parse_qs(payload, keep_blank_values=True)
-        return {key: values[-1] for key, values in parsed.items()}
+        content_type = environ.get("CONTENT_TYPE", "")
+
+        if content_type.startswith("multipart/form-data"):
+            import email
+
+            payload = environ["wsgi.input"].read(length)
+            msg = email.message_from_bytes(b"Content-Type: " + content_type.encode() + b"\r\n\r\n" + payload)
+
+            form_data = {}
+            for part in msg.walk():
+                if part.get_content_maintype() == "multipart":
+                    continue
+                name = str(part.get_param("name", header="content-disposition"))
+                if not name:
+                    continue
+
+                filename = part.get_param("filename", header="content-disposition")
+                if filename:
+                    form_data[name] = part.get_payload(decode=True)
+                    form_data[f"{name}_filename"] = str(filename)
+                    form_data[f"{name}_content_type"] = str(part.get_content_type())
+                else:
+                    raw_payload = part.get_payload(decode=True)
+                    form_data[name] = raw_payload.decode("utf-8", errors="replace") if isinstance(raw_payload, bytes) else str(raw_payload)
+            return form_data
+        else:
+            payload = environ["wsgi.input"].read(length).decode("utf-8")
+            parsed = parse_qs(payload, keep_blank_values=True)
+            return {key: values[-1] for key, values in parsed.items()}
 
     def parse_query(self, query_string: str) -> dict[str, str]:
         parsed = parse_qs(query_string, keep_blank_values=True)

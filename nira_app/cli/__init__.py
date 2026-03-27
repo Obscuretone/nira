@@ -504,6 +504,40 @@ def delete(
 
 
 @app.command()
+def attach(
+    ctx: typer.Context,
+    ticket_id: Annotated[str, typer.Argument(help="ID of the ticket.")],
+    file_path: Annotated[Path, typer.Argument(help="Path to the file to attach.")],
+):
+    """
+    Attach a file to a ticket.
+    """
+    try:
+        store = resolve_store(ctx.obj["root"], create=False)
+        service = TicketService(store)
+
+        if not file_path.exists() or not file_path.is_file():
+            console.print(f"[red]Error:[/red] File {file_path} does not exist or is not a file.")
+            raise typer.Exit(1)
+
+        import mimetypes
+
+        content_type, _ = mimetypes.guess_type(str(file_path))
+        if not content_type:
+            content_type = "application/octet-stream"
+
+        content = file_path.read_bytes()
+        attachment = service.add_attachment(ticket_id, file_path.name, content, content_type)
+
+        console.print(
+            f"Attached [bold blue]{attachment['filename']}[/bold blue] to {ticket_id} ({attachment['file_size']} bytes)"
+        )
+    except NiraError as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(1)
+
+
+@app.command()
 def link(
     ctx: typer.Context,
     ticket_id: Annotated[str, typer.Argument(help="First ticket ID.")],

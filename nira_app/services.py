@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+from pathlib import Path
 from typing import Any, cast
 
 from nira_app.models import (
@@ -12,6 +14,8 @@ from nira_app.models import (
     Comment,
     CommentData,
     Link,
+    Attachment,
+    AttachmentData,
 )
 from nira_app.storage import (
     NiraStore,
@@ -437,7 +441,98 @@ class TicketService:
         with self.store.session() as session:
             current_project = self.store.current_project(session)
             ticket = self.store.resolve_ticket(session, ticket_id, project_key=current_project)
+
+            # Also clean up physical attachments if we delete the ticket
+            import shutil
+
+            attach_dir = self.store.state_dir / "attachments" / str(ticket.id)
+            if attach_dir.exists():
+                shutil.rmtree(attach_dir, ignore_errors=True)
+
             session.delete(ticket)
+
+    def add_attachment(
+        self, ticket_id: str, filename: str, content: bytes, content_type: str = "application/octet-stream"
+    ) -> AttachmentData:
+        """Add a new attachment to a ticket."""
+        import os
+
+        if not filename:
+            raise ValidationError("Filename is required.")
+
+        with self.store.session() as session:
+            project_key = self.store.current_project(session)
+            ticket = self.store.resolve_ticket(session, ticket_id, project_key=project_key)
+            ticket_db_id = int(ticket.id)
+
+            # Create attachments directory for this ticket
+            attach_dir = self.store.state_dir / "attachments" / str(ticket_db_id)
+            attach_dir.mkdir(parents=True, exist_ok=True)
+
+            # Prevent directory traversal and handle duplicates
+            safe_filename = os.path.basename(filename)
+            file_path = attach_dir / safe_filename
+
+            # If file exists, append a timestamp
+            if file_path.exists():
+                name, ext = os.path.splitext(safe_filename)
+                safe_filename = f"{name}_{int(time.time())}{ext}"
+                file_path = attach_dir / safe_filename
+
+            # Write physical file
+            file_path.write_bytes(content)
+
+            # Insert metadata
+            now = utc_now()
+            attachment = Attachment(
+                ticket_id=ticket_db_id,
+                filename=safe_filename,
+                content_type=content_type,
+                file_size=len(content),
+                created_at=now,
+            )
+            session.add(attachment)
+
+            # Add history entry for the attachment
+            history = History(
+                ticket_id=ticket_db_id,
+                field="attachment",
+                old_value="",
+                new_value=f"Added {safe_filename}",
+                created_at=now,
+            )
+            session.add(history)
+
+            ticket.updated_at = now
+            session.commit()
+
+            return cast(
+                AttachmentData,
+                {
+                    "id": int(attachment.id),
+                    "ticket_id": ticket_db_id,
+                    "filename": safe_filename,
+                    "content_type": content_type,
+                    "file_size": len(content),
+                    "created_at": now,
+                },
+            )
+
+    def get_attachment_path(self, ticket_id: str, filename: str) -> Path:
+        """Get the physical path to an attachment."""
+        import os
+
+        with self.store.session() as session:
+            project_key = self.store.current_project(session)
+            ticket = self.store.resolve_ticket(session, ticket_id, project_key=project_key)
+
+            safe_filename = os.path.basename(filename)
+            file_path = self.store.state_dir / "attachments" / str(ticket.id) / safe_filename
+
+            if not file_path.exists():
+                raise ValidationError(f"Attachment {safe_filename} not found.")
+
+            return file_path
 
     def add_comment(self, ticket_id: str, body_md: str) -> CommentData:
         body_md = body_md.strip()
@@ -652,6 +747,26 @@ class TicketService:
             sub_models = session.execute(stmt_sub).scalars().all()
             sub_tasks_data = [cast(TicketData, self.store.ticket_from_model(sm, project_key)) for sm in sub_models]
 
+            # Attachments
+            stmt_attachments = (
+                select(Attachment).where(Attachment.ticket_id == ticket_model.id).order_by(Attachment.created_at.asc())
+            )
+            attachments = session.execute(stmt_attachments).scalars().all()
+            attachments_data = [
+                cast(
+                    AttachmentData,
+                    {
+                        "id": int(a.id),
+                        "ticket_id": int(a.ticket_id),
+                        "filename": a.filename,
+                        "content_type": a.content_type,
+                        "file_size": int(a.file_size),
+                        "created_at": a.created_at,
+                    },
+                )
+                for a in attachments
+            ]
+
             return cast(
                 TicketDetails,
                 {
@@ -661,6 +776,7 @@ class TicketService:
                     "history": history_data,
                     "related": related_data,
                     "sub_tasks": sub_tasks_data,
+                    "attachments": attachments_data,
                 },
             )
 

@@ -348,6 +348,7 @@ def test_cli_print_ticket_variations(temp_root):
         },
         "comments": [{"id": 1, "created_at": "...", "body_md": "c1", "ticket_id": "NIRA-1"}],
         "history": [],
+        "attachments": [],
     }
     print_ticket(details, store)
 

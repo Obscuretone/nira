@@ -47,6 +47,9 @@ class Ticket(Base):
     updated_at: Mapped[str] = mapped_column(String, nullable=False)
 
     comments: Mapped[list["Comment"]] = relationship("Comment", back_populates="ticket", cascade="all, delete-orphan")
+    attachments: Mapped[list["Attachment"]] = relationship(
+        "Attachment", back_populates="ticket", cascade="all, delete-orphan"
+    )
     parent: Mapped[Optional["Ticket"]] = relationship("Ticket", remote_side=[id], back_populates="sub_tasks")
     sub_tasks: Mapped[list["Ticket"]] = relationship(
         "Ticket", back_populates="parent", cascade="all, delete-orphan", passive_deletes=True
@@ -62,6 +65,19 @@ class Comment(Base):
 
     ticket: Mapped["Ticket"] = relationship("Ticket", back_populates="comments")
     __table_args__ = (Index("comments_ticket_id_idx", "ticket_id"),)
+
+
+class Attachment(Base):
+    __tablename__ = "attachments"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    ticket_id: Mapped[int] = mapped_column(Integer, ForeignKey("tickets.id", ondelete="CASCADE"), nullable=False)
+    filename: Mapped[str] = mapped_column(String, nullable=False)
+    content_type: Mapped[str] = mapped_column(String, nullable=False)
+    file_size: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[str] = mapped_column(String, nullable=False)
+
+    ticket: Mapped["Ticket"] = relationship("Ticket", back_populates="attachments")
+    __table_args__ = (Index("attachments_ticket_id_idx", "ticket_id"),)
 
 
 class Link(Base):
@@ -129,6 +145,15 @@ class CommentData(TypedDict):
     created_at: str
 
 
+class AttachmentData(TypedDict):
+    id: int
+    ticket_id: int
+    filename: str
+    content_type: str
+    file_size: int
+    created_at: str
+
+
 class DashboardStats(TypedDict):
     status_counts: Dict[str, int]
     status_points: Dict[str, int]
@@ -145,3 +170,4 @@ class TicketDetails(TypedDict):
     sub_tasks: List[TicketData]
     comments: List[CommentData]
     history: List[HistoryData]
+    attachments: List[AttachmentData]

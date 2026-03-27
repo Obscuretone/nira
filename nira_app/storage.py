@@ -210,6 +210,7 @@ class NiraStore:
                         "6523e01bb988": 3,
                         "b5778a9f2a33": 4,
                         "c0d1284dadf6": 5,
+                        "ce2d68f894f0": 6,
                     }
 
                     max_ver = db_ver
@@ -229,6 +230,9 @@ class NiraStore:
                         max_order = version_order[max_ver]
                     if "story_points" in cols and version_order["c0d1284dadf6"] > max_order:
                         max_ver = "c0d1284dadf6"
+                        max_order = version_order[max_ver]
+                    if self.table_exists(connection, "attachments") and version_order["ce2d68f894f0"] > max_order:
+                        max_ver = "ce2d68f894f0"
                         max_order = version_order[max_ver]
 
                     # Final check: if we are at head but missing parent_id, manually add it
