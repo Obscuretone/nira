@@ -1,0 +1,65 @@
+.progress-track {
+  appearance: none;
+  display: block;
+  margin: 0;
+  border: 0;
+  background: #eeeaf5;
+  color: #8b6dc9;
+}
+.progress-track::-webkit-progress-bar { background: #eeeaf5; }
+.progress-track::-webkit-progress-value { background: #8b6dc9; }
+.progress-track::-moz-progress-bar { background: #8b6dc9; }
+.project-nav button { min-width: 0; }
+.project-nav button .project-dot { flex-shrink: 0; }
+.project-nav .project-shortcut { display: none; }
+.main, .page { min-width: 0; }
+.record-passkey-link { text-align: center; color: #6041b7; text-underline-offset: .2em; }
+
+@media (max-width: 800px) {
+  .sidebar { overflow: hidden; }
+  .sidebar .brand { min-height: 44px; flex-shrink: 0; margin-bottom: 10px; }
+  .sidebar .brand > span, .sidebar .workspace-switch { display: none; }
+  .sidebar nav { grid-template-columns: minmax(0, 1fr); min-width: 0; gap: 4px; }
+  .sidebar nav button, .sidebar-footer > button, .project-nav button {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    padding: 0;
+    gap: 0;
+    justify-content: center;
+  }
+  .sidebar nav button > span, .project-nav .project-full-name, .project-nav button > small { display: none; }
+  .sidebar-label { flex-shrink: 0; justify-content: center; padding: 4px 0; }
+  .sidebar-label .iconbtn { width: 44px; height: 44px; }
+  .project-nav { flex: 1; overflow: hidden auto; scrollbar-width: none; padding: 0; }
+  .project-nav button { gap: 4px; }
+  .project-nav button .project-dot { width: 6px; height: 6px; }
+  .project-nav button .project-shortcut {
+    display: inline;
+    font-size: .68rem;
+    font-weight: 650;
+    letter-spacing: 0;
+    line-height: 1;
+  }
+  .sidebar-footer { flex-shrink: 0; padding-top: 4px; }
+}
+
+@media (max-width: 640px) {
+  .page { padding: 20px 12px; }
+  .topbar { height: auto; min-height: 58px; padding: 10px 12px; gap: 8px; flex-wrap: wrap; }
+  .search { min-width: 0; max-width: 100%; }
+  .search input { width: min(28vw, 110px); }
+  .page-heading, .portfolio-toolbar, .issue-toolbar { flex-wrap: wrap; }
+  .project-table-head, .project-table-row { grid-template-columns: minmax(0, 1fr) max-content 14px; padding-inline: 9px; gap: 7px; }
+  .project-name { min-width: 0; }
+  .project-name strong, .issues-table-row strong { overflow-wrap: anywhere; }
+  .project-name .project-icon { display: none; }
+  .project-name small { overflow-wrap: anywhere; }
+  .issues-table-head, .issues-table-row { grid-template-columns: minmax(0, 1fr) max-content; padding-inline: 9px; gap: 7px; }
+  .issues-table-row > div { min-width: 0; }
+  .drawer { width: 100%; max-width: 100%; }
+  .overlay { padding: 12px; }
+  .issue-controls, .issue-meta, .tabs { flex-wrap: wrap; }
+  .drawer-body { padding: 16px; }
+  .board { grid-template-columns: repeat(5, minmax(156px, 1fr)); }
+}

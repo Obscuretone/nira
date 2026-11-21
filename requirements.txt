@@ -1,0 +1,10 @@
+fastapi>=0.120,<1
+uvicorn>=0.38,<1
+SQLAlchemy>=2.0.40,<3
+PyMySQL>=1.1.1,<2
+mcp>=2.0,<3
+httpx>=0.28,<1
+pytest>=8,<10
+Authlib==1.9.9
+itsdangerous==2.2.0
+joserfc==1.8.0
