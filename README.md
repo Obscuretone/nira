@@ -1,6 +1,6 @@
-# Nira HQ
+# Nira
 
-Nira HQ is a hosted single-owner portfolio and issue tracker derived from [standalone Nira](https://github.com/Obscuretone/nira). The app shell is editable in `frontend/dist/assets/workspace-app.js` and uses the components from the recovered frontend bundle.
+Nira is a self-hosted, single-owner project and issue tracker with a browser workspace and MCP tools. It grew out of [Nira Legacy](https://github.com/Obscuretone/nira-legacy), the standalone CLI experiment. The app shell is editable in `frontend/dist/assets/workspace-app.js` and uses the components from the recovered frontend bundle.
 
 ## Run locally
 

@@ -15,7 +15,7 @@ A local stdio bridge is included for clients that launch a process:
   "mcpServers": {
     "nira": {
       "command": "python3",
-      "args": ["/absolute/path/to/nira-hq/scripts/mcp_stdio.py"],
+      "args": ["/absolute/path/to/nira/scripts/mcp_stdio.py"],
       "env": {"NIRA_MCP_CONFIG": "/absolute/path/to/private/mcp.json"}
     }
   }
