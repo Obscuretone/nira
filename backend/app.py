@@ -3,6 +3,7 @@ import os,json,time,secrets,hashlib,hmac,asyncio
 from pathlib import Path
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
+from html import escape
 from urllib.parse import urlsplit
 from fastapi import FastAPI,Request
 from fastapi.responses import JSONResponse,FileResponse,HTMLResponse,Response
@@ -48,25 +49,38 @@ def create_app(config):
     read_annotation=ToolAnnotations(readOnlyHint=True,destructiveHint=False,openWorldHint=False)
     write_annotation=ToolAnnotations(readOnlyHint=False,destructiveHint=False,openWorldHint=False)
     @mcp.tool(annotations=read_annotation)
-    def list_projects()->list[dict]:
-        """List every tracked project with status, source evidence, issue counts and next action."""
-        return store.list_projects()
+    def list_workspaces()->list[dict]:
+        """List workspace keys and display names."""
+        return store.list_workspaces()
+    @mcp.tool(annotations=write_annotation)
+    def create_workspace(name:str)->dict:
+        """Create a workspace for grouping projects."""
+        writable();return store.create_workspace({'name':name})
+    @mcp.tool(annotations=read_annotation)
+    def list_projects(workspace:str|None=None)->list[dict]:
+        """List tracked projects across all workspaces, or filter by workspace key."""
+        return store.list_projects(workspace)
     @mcp.tool(annotations=read_annotation)
     def get_project(project:str)->dict:
         """Read a project by key or stable ID, with its brief, issue counts, epics and next open issue."""
         return project_detail(project)
     @mcp.tool(annotations=read_annotation)
-    def search_issues(project:str|None=None,status:str|None=None,query:str='',limit:int=100,offset:int=0)->dict:
+    def search_issues(project:str|None=None,status:str|None=None,query:str='',limit:int=100,offset:int=0,workspace:str|None=None)->dict:
         """Search project issues; page through results using limit and offset."""
-        return store.list_issues(project,status,query,limit,offset)
+        return store.list_issues(project,status,query,limit,offset,workspace)
     @mcp.tool(annotations=read_annotation)
     def get_issue(issue:str)->dict:
         """Read an issue by key (EMH-1) or ID, including subtasks, comments and activity."""
         return issue_detail(issue)
     @mcp.tool(annotations=write_annotation)
-    def create_project(key:str,name:str,description:str='',category:str='Product',status:str='active',request_key:str|None=None)->dict:
+    def create_project(key:str,name:str,description:str='',category:str='Product',status:str='active',request_key:str|None=None,workspace_key:str|None=None)->dict:
         """Create a portfolio project. Reuse request_key to avoid duplicate creations."""
-        writable();return store.create_project(dict(key=key,name=name,description=description,category=category,status=status,source_key='mcp:'+request_key if request_key else None),actor='MCP')
+        writable()
+        data = dict(key=key, name=name, description=description, category=category, status=status,
+                    source_key='mcp:'+request_key if request_key else None)
+        if workspace_key is not None:
+            data['workspace_key'] = workspace_key
+        return store.create_project(data, actor='MCP')
     @mcp.tool(annotations=write_annotation)
     def create_issue(project:str,title:str,description:str='',priority:str='medium',type:str='task',status:str='backlog',parent_id:str|None=None,due_date:str|None=None,request_key:str|None=None)->dict:
         """Create an issue or child task. request_key makes retries idempotent."""
@@ -77,7 +91,7 @@ def create_app(config):
         writable();return store.update_issue(issue,changes,expected_version,actor='MCP')
     @mcp.tool(annotations=write_annotation)
     def update_project(project:str,expected_version:int,changes:dict)->dict:
-        """Update project state or description with optimistic version protection."""
+        """Update project state, description or workspace_key with optimistic version protection."""
         writable();return store.update_project(project,changes,expected_version,actor='MCP')
     @mcp.tool(annotations=write_annotation)
     def add_comment(issue:str,body:str)->dict:
@@ -202,8 +216,12 @@ def create_app(config):
         if request.state.session:
             with store.tx() as s:s.execute(delete(LoginSession).where(LoginSession.digest==request.state.session.digest))
         r=JSONResponse({'ok':True});r.delete_cookie('nira_session',path=path_prefix+'/');return r
+    @app.get('/api/workspaces')
+    def workspaces():return store.list_workspaces()
+    @app.post('/api/workspaces',status_code=201)
+    async def new_workspace(request:Request):return store.create_workspace(await request.json())
     @app.get('/api/projects')
-    def projects():return store.list_projects()
+    def projects(workspace:str|None=None):return store.list_projects(workspace)
     @app.get('/api/projects/{project}')
     def project(project:str):return project_detail(project)
     @app.post('/api/projects',status_code=201)
@@ -212,7 +230,7 @@ def create_app(config):
     async def project_update(project:str,request:Request):
         d=await request.json();version=d.pop('expected_version',None);return store.update_project(project,d,version)
     @app.get('/api/issues')
-    def issues(project:str|None=None,status:str|None=None,q:str='',limit:int=200,offset:int=0):return store.list_issues(project,status,q,limit,offset)
+    def issues(project:str|None=None,status:str|None=None,q:str='',limit:int=200,offset:int=0,workspace:str|None=None):return store.list_issues(project,status,q,limit,offset,workspace)
     @app.post('/api/projects/{project}/issues',status_code=201)
     async def new_issue(project:str,request:Request):return store.create_issue(project,await request.json())
     @app.get('/api/issues/{issue}')
@@ -255,17 +273,39 @@ def create_app(config):
     def browse_styles():
         return FileResponse(Path(__file__).with_name('nira.css'), media_type='text/css')
     @app.get('/browse/project/{project}',response_class=HTMLResponse)
-    def project_page(project:str):return browse_project(project_detail(project),path_prefix)
+    def project_page(project:str, request:Request):
+        if request.state.session:
+            with store.Session() as database:
+                store.project(database, project)
+            return frontend_page()
+        return browse_project(project_detail(project), path_prefix)
     @app.get('/browse/issue/{issue}',response_class=HTMLResponse)
-    def issue_page(issue:str):return browse_issue(issue_detail(issue),path_prefix)
+    def issue_page(issue:str, request:Request):
+        if request.state.session:
+            with store.Session() as database:
+                store.issue(database, issue)
+            return frontend_page()
+        return browse_issue(issue_detail(issue), path_prefix)
     dist=Path(__file__).resolve().parents[1]/'frontend/dist'
     if dist.exists():app.mount('/assets',StaticFiles(directory=dist/'assets'),name='assets')
+
+    def frontend_page():
+        index_file = dist / 'index.html'
+        if not index_file.is_file():
+            return JSONResponse({'error':'Build frontend first'}, status_code=503)
+        prefix = escape(path_prefix, quote=True)
+        html = index_file.read_text(encoding='utf-8')
+        if prefix:
+            html = html.replace('content="" name="nira-base"', f'content="{prefix}" name="nira-base"')
+            html = html.replace('src="/assets/', f'src="{prefix}/assets/')
+            html = html.replace('href="/assets/', f'href="{prefix}/assets/')
+        return HTMLResponse(html)
+
     @app.get('/')
     @app.get('/{route:path}')
     def index(route:str=''):
         if route.startswith(('api/','mcp/','assets/')):raise DomainError('Not found',404)
-        if not (dist/'index.html').exists():return JSONResponse({'error':'Build frontend first'},status_code=503)
-        return FileResponse(dist/'index.html')
+        return frontend_page()
     return app
 
 def from_environment():

@@ -18,6 +18,8 @@ STATUSES = ('backlog','ready','in_progress','blocked','done')
 PROJECT_STATUSES = ('active','paused','idea','completed','needs_review')
 PRIORITIES = ('critical','high','medium','low')
 TYPES = ('epic','task','bug','research')
+PERSONAL_WORKSPACE = 'personal'
+PLUGIN_WORKSPACE = 'plugin-company'
 def uid(): return str(uuid.uuid4())
 def now(): return dt.datetime.now(dt.timezone.utc).isoformat(timespec='seconds')
 class DomainError(Exception):
@@ -38,6 +40,20 @@ class Project(Base):
     next_number=Column(Integer,nullable=False,default=1)
     created_at=Column(String(40),nullable=False,default=now)
     updated_at=Column(String(40),nullable=False,default=now)
+
+
+class Workspace(Base):
+    __tablename__ = 'workspaces'
+    key = Column(String(48), primary_key=True)
+    name = Column(String(80), nullable=False)
+
+
+class ProjectWorkspace(Base):
+    __tablename__ = 'project_workspaces'
+    project_id = Column(String(36), ForeignKey('projects.id'), primary_key=True)
+    workspace_key = Column(String(48), ForeignKey('workspaces.key'), nullable=False, index=True)
+
+
 class Issue(Base):
     __tablename__='issues'
     id=Column(String(36),primary_key=True,default=uid)
@@ -128,6 +144,26 @@ class Store:
         except DomainError as error:
             if error.status != 409:
                 raise
+        try:
+            self.initialize_workspaces()
+        except DomainError as error:
+            if error.status != 409:
+                raise
+            self.initialize_workspaces()
+
+    def initialize_workspaces(self):
+        with self.tx() as s:
+            for key, name in ((PERSONAL_WORKSPACE, 'Personal'), (PLUGIN_WORKSPACE, 'Plugin company')):
+                if s.get(Workspace, key) is None:
+                    s.add(Workspace(key=key, name=name))
+            s.flush()
+            # Assign existing plugin-company projects once. Explicit moves always take precedence.
+            s.get(Workspace, PLUGIN_WORKSPACE, with_for_update=True)
+            legacy = select(Project.id).outerjoin(ProjectWorkspace).where(
+                Project.category == 'Plugin business', ProjectWorkspace.project_id.is_(None),
+            )
+            for project_id in s.scalars(legacy):
+                s.add(ProjectWorkspace(project_id=project_id, workspace_key=PLUGIN_WORKSPACE))
     @contextmanager
     def tx(self):
         with self.Session() as s:
@@ -148,12 +184,46 @@ class Store:
         i=s.scalar(statement)
         if not i: raise DomainError('Issue not found',404)
         return i
-    def issue_dict(self,s,i):
+    def issue_dict(self,s,i,workspace_key=None):
         d=serialize(i);p=s.get(Project,i.project_id);d['key']=f'{p.key}-{i.number}';d['project_key']=p.key;d['project_name']=p.name
+        d['workspace_key'] = workspace_key or self.workspace_key(s, p.id)
         return d
+
+    def list_workspaces(self):
+        with self.Session() as s:
+            workspaces = s.scalars(select(Workspace).order_by(Workspace.name, Workspace.key))
+            return [serialize(workspace) for workspace in workspaces]
+
+    def create_workspace(self, data):
+        if set(data) != {'name'}:
+            raise DomainError('Workspace name required')
+        name = clean_text(data['name'], 80, 'workspace name', True)
+        key = re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-')[:48].rstrip('-')
+        if not key:
+            key = str(uuid.uuid5(uuid.NAMESPACE_OID, name.casefold()))
+        with self.tx() as s:
+            workspace = Workspace(key=key, name=name)
+            s.add(workspace)
+            s.flush()
+            return serialize(workspace)
+
+    def workspace(self, s, key):
+        key = clean_text(key, 48, 'workspace key', True)
+        workspace = s.get(Workspace, key)
+        if workspace is None:
+            raise DomainError('Workspace not found', 404)
+        return workspace
+
+    def workspace_key(self, s, project_id):
+        membership = s.get(ProjectWorkspace, project_id)
+        return membership.workspace_key if membership else PERSONAL_WORKSPACE
+
+    def project_dict(self, s, project):
+        return {**serialize(project), 'workspace_key': self.workspace_key(s, project.id)}
+
     def log(self,s,entity,action,detail='',actor='Evan'): s.add(Activity(entity_id=entity,action=action,detail=detail,actor=actor))
     def create_project(self,data,actor='Evan'):
-        allowed={'key','name','description','status','category','owner','source','source_key'}
+        allowed={'key','name','description','status','category','owner','source','source_key','workspace_key'}
         if set(data)-allowed: raise DomainError('Unknown project fields')
         key=clean_text(data.get('key',''),16,'key',True).upper()
         if data.get('source_key') is not None:clean_text(data['source_key'],180,'source_key',True)
@@ -162,13 +232,27 @@ class Store:
         with self.tx() as s:
             if values['source_key']:
                 existing=s.scalar(select(Project).where(Project.source_key==values['source_key']))
-                if existing:return serialize(existing)
-            p=Project(**values);s.add(p);s.flush();self.log(s,p.id,'project_created',p.name,actor);return serialize(p)
-    def list_projects(self):
+                if existing:return self.project_dict(s, existing)
+            default_workspace = PLUGIN_WORKSPACE if values['category'] == 'Plugin business' else PERSONAL_WORKSPACE
+            workspace = self.workspace(s, data.get('workspace_key', default_workspace))
+            p = Project(**values)
+            s.add(p)
+            s.flush()
+            s.add(ProjectWorkspace(project_id=p.id, workspace_key=workspace.key))
+            self.log(s, p.id, 'project_created', p.name, actor)
+            return {**serialize(p), 'workspace_key': workspace.key}
+
+    def list_projects(self, workspace=None):
         with self.Session() as s:
             result=[]
-            for p in s.scalars(select(Project).order_by(Project.name)):
-                d=serialize(p);rows=s.execute(select(Issue.status,func.count()).where(Issue.project_id==p.id).group_by(Issue.status)).all();d['counts']=dict(rows);d['total']=sum(d['counts'].values());d['done']=d['counts'].get('done',0)
+            key = func.coalesce(ProjectWorkspace.workspace_key, PERSONAL_WORKSPACE)
+            projects = select(Project, key).select_from(Project).outerjoin(
+                ProjectWorkspace, ProjectWorkspace.project_id == Project.id,
+            ).order_by(Project.name)
+            if workspace is not None:
+                projects = projects.where(key == self.workspace(s, workspace).key)
+            for p, workspace_key in s.execute(projects):
+                d={**serialize(p), 'workspace_key': workspace_key};rows=s.execute(select(Issue.status,func.count()).where(Issue.project_id==p.id).group_by(Issue.status)).all();d['counts']=dict(rows);d['total']=sum(d['counts'].values());d['done']=d['counts'].get('done',0)
                 d['next_action']=s.scalar(select(Issue.title).where(Issue.project_id==p.id,Issue.status!='done').order_by(Issue.updated_at.desc()).limit(1))
                 result.append(d)
             return result
@@ -185,18 +269,27 @@ class Store:
             def summary(issue):
                 record = self.issue_dict(s, issue)
                 return {field: record[field] for field in fields}
-            return {**serialize(project), 'counts': counts, 'total': sum(counts.values()),
+            return {**self.project_dict(s, project), 'counts': counts, 'total': sum(counts.values()),
                     'epics': [summary(epic) for epic in epics],
                     'next_issue': summary(next_issue) if next_issue else None}
     def update_project(self,ref,data,version,actor='Evan'):
         if not isinstance(version,int): raise DomainError('expected_version required')
-        if set(data)-{'name','description','status','category','owner','source'}:raise DomainError('Unknown project fields')
+        if set(data)-{'name','description','status','category','owner','source','workspace_key'}:raise DomainError('Unknown project fields')
         with self.tx() as s:
             p=self.project(s,ref,True)
             if p.version!=version:raise DomainError('Project changed; reload before saving',409)
             limits={'name':160,'description':40000,'source':20000,'category':40,'owner':80}
-            for k,v in data.items():setattr(p,k,choice(v,PROJECT_STATUSES,k) if k=='status' else clean_text(v,limits[k],k,k=='name'))
-            p.version+=1;p.updated_at=now();self.log(s,p.id,'project_updated',json.dumps(data),actor);s.flush();return serialize(p)
+            for k,v in data.items():
+                if k == 'workspace_key':
+                    workspace = self.workspace(s, v)
+                    membership = s.get(ProjectWorkspace, p.id)
+                    if membership:
+                        membership.workspace_key = workspace.key
+                    else:
+                        s.add(ProjectWorkspace(project_id=p.id, workspace_key=workspace.key))
+                else:
+                    setattr(p,k,choice(v,PROJECT_STATUSES,k) if k=='status' else clean_text(v,limits[k],k,k=='name'))
+            p.version+=1;p.updated_at=now();self.log(s,p.id,'project_updated',json.dumps(data),actor);s.flush();return self.project_dict(s, p)
     def _new_issue(self,s,project,data,actor):
         allowed={'title','description','status','priority','type','owner','due_date','labels','parent_id','source','source_key','resolution'}
         if set(data)-allowed:raise DomainError('Unknown issue fields')
@@ -231,11 +324,18 @@ class Store:
                 if not isinstance(task,dict) or set(task)-{'title','description','source_key'}:raise DomainError('Invalid subtask')
                 i=self._new_issue(s,p,{**task,'parent_id':parent.id},actor);result.append(self.issue_dict(s,i))
             return result
-    def list_issues(self,project=None,status=None,q='',limit=200,offset=0):
+    def list_issues(self,project=None,status=None,q='',limit=200,offset=0,workspace=None):
         if not 1<=limit<=500 or offset<0:raise DomainError('Invalid pagination')
         if len(q)>200:raise DomainError('Search is too long')
         with self.Session() as s:
-            st=select(Issue).join(Project)
+            workspace_key = func.coalesce(ProjectWorkspace.workspace_key, PERSONAL_WORKSPACE)
+            st = select(Issue, workspace_key).select_from(Issue).join(
+                Project, Issue.project_id == Project.id,
+            ).outerjoin(
+                ProjectWorkspace, ProjectWorkspace.project_id == Project.id,
+            )
+            if workspace is not None:
+                st = st.where(workspace_key == self.workspace(s, workspace).key)
             if project:st=st.where(Issue.project_id==self.project(s,project).id)
             if status:st=st.where(Issue.status==choice(status,STATUSES,'status'))
             if q:
@@ -245,8 +345,8 @@ class Store:
                 if match:criteria=or_(criteria,and_(Project.key==match.group(1).upper(),Issue.number==int(match.group(2))))
                 st=st.where(criteria)
             total=s.scalar(select(func.count()).select_from(st.subquery()))
-            rows=s.scalars(st.order_by(Issue.updated_at.desc(),Issue.id).offset(offset).limit(limit))
-            return {'items':[self.issue_dict(s,i) for i in rows],'total':total,'limit':limit,'offset':offset}
+            rows=s.execute(st.order_by(Issue.updated_at.desc(),Issue.id).offset(offset).limit(limit))
+            return {'items':[self.issue_dict(s,i,key) for i,key in rows],'total':total,'limit':limit,'offset':offset}
     def get_issue(self,ref):
         with self.Session() as s:
             i=self.issue(s,ref);d=self.issue_dict(s,i);d['comments']=[serialize(c) for c in s.scalars(select(Comment).where(Comment.issue_id==i.id).order_by(Comment.created_at,Comment.id))];d['subtasks']=[self.issue_dict(s,c) for c in s.scalars(select(Issue).where(Issue.parent_id==i.id).order_by(Issue.number))];d['links']=[{**serialize(link),'other':self.issue_dict(s,s.get(Issue,link.issue_b if link.issue_a==i.id else link.issue_a))} for link in s.scalars(select(Link).where(or_(Link.issue_a==i.id,Link.issue_b==i.id)))];d['activity']=[serialize(a) for a in s.scalars(select(Activity).where(Activity.entity_id==i.id).order_by(Activity.id.desc()).limit(100))];return d
@@ -277,7 +377,7 @@ class Store:
         with self.tx() as s:
             i=self.issue(s,ref);c=Comment(issue_id=i.id,body=body,author=actor);s.add(c);self.log(s,i.id,'comment_added','',actor);s.flush();return serialize(c)
     def export(self):
-        with self.Session() as s:return {table.__tablename__:[serialize(r) for r in s.scalars(select(table))] for table in (Project,Issue,Comment,Activity,Link)}
+        with self.Session() as s:return {table.__tablename__:[serialize(r) for r in s.scalars(select(table))] for table in (Workspace,ProjectWorkspace,Project,Issue,Comment,Activity,Link)}
 
     def link_issues(self,source,target,kind='related',actor='Evan'):
         choice(kind,('related','blocks'),'link kind')
