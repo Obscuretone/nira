@@ -2,6 +2,10 @@
 
 Nira is a self-hosted, single-owner project and issue tracker with a browser workspace and MCP tools. It grew out of [Nira Legacy](https://github.com/Obscuretone/nira-legacy), the standalone CLI experiment. The app shell is editable in `frontend/dist/assets/workspace-app.js` and uses the components from the recovered frontend bundle.
 
+![Nira issue view with a project sidebar, release checklist, and issue controls](docs/images/issue-workspace.png)
+
+The screenshot shows a direct issue link in a local demo with fictional data. See how Nira fits into the [self-hosted stack](https://obscuretone.com/posts/en/self_hosted_tools).
+
 ## Run locally
 
 Install the locked requirements, create a private local configuration, then run the preview:
