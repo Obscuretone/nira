@@ -111,6 +111,13 @@ class Token(Base):
     scope=Column(String(16),nullable=False,default='read')
     revoked=Column(Integer,nullable=False,default=0)
     created_at=Column(String(40),nullable=False,default=now)
+class BrowserOwner(Base):
+    __tablename__ = "browser_owner"
+    id = Column(Integer, primary_key=True)
+    email = Column(String(254), nullable=False)
+    password_hash = Column(String(192), nullable=False)
+
+
 class LoginSession(Base):
     __tablename__='sessions'
     digest=Column(String(64),primary_key=True)
@@ -324,9 +331,9 @@ class Store:
                 if not isinstance(task,dict) or set(task)-{'title','description','source_key'}:raise DomainError('Invalid subtask')
                 i=self._new_issue(s,p,{**task,'parent_id':parent.id},actor);result.append(self.issue_dict(s,i))
             return result
-    def list_issues(self,project=None,status=None,q='',limit=200,offset=0,workspace=None):
+    def list_issues(self,project=None,status=None,q='',limit=200,offset=0,workspace=None,*,exact_key=None,summary=None):
         if not 1<=limit<=500 or offset<0:raise DomainError('Invalid pagination')
-        if len(q)>200:raise DomainError('Search is too long')
+        if len(q)>200 or summary is not None and len(summary)>200:raise DomainError('Search is too long')
         with self.Session() as s:
             workspace_key = func.coalesce(ProjectWorkspace.workspace_key, PERSONAL_WORKSPACE)
             st = select(Issue, workspace_key).select_from(Issue).join(
@@ -338,6 +345,13 @@ class Store:
                 st = st.where(workspace_key == self.workspace(s, workspace).key)
             if project:st=st.where(Issue.project_id==self.project(s,project).id)
             if status:st=st.where(Issue.status==choice(status,STATUSES,'status'))
+            if exact_key is not None:
+                match = re.fullmatch(r'([A-Za-z][A-Za-z0-9_]{1,15})-([0-9]{1,18})', exact_key)
+                if not match:
+                    raise DomainError("Invalid issue key")
+                st = st.where(Project.key == match[1].upper(), Issue.number == int(match[2]))
+            if summary is not None:
+                st = st.where(Issue.title.contains(summary, autoescape=True))
             if q:
                 pattern='%'+q.replace('\\','\\\\').replace('%','\\%').replace('_','\\_')+'%'
                 criteria=or_(Issue.title.like(pattern,escape='\\'),Issue.description.like(pattern,escape='\\'),Project.name.like(pattern,escape='\\'))

@@ -1,5 +1,5 @@
 from __future__ import annotations
-import os,json,time,secrets,hashlib,hmac,asyncio
+import os,json,time,secrets,hashlib,hmac,asyncio,re,base64
 from pathlib import Path
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
@@ -9,12 +9,14 @@ from fastapi import FastAPI,Request
 from fastapi.responses import JSONResponse,FileResponse,HTMLResponse,RedirectResponse,Response
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select,delete
+from sqlalchemy.exc import IntegrityError
 from mcp.server import MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import ToolAnnotations
-from .store import Store,DomainError,Token,LoginSession,serialize
+from .store import Store,DomainError,Token,LoginSession,BrowserOwner,serialize
+from .jira import BASE as JIRA_PATH, register_jira
 from .markdown import render_markdown
-from .browse import browse_login, browse_project, browse_issue, login_script, passkey_sign_in_url, safe_destination
+from .browse import browse_login, browse_signup, browse_project, browse_issue, login_script, passkey_sign_in_url, safe_destination
 
 scope_context=ContextVar('nira_scope',default='read')
 def digest(value):return hashlib.sha256(value.encode()).hexdigest()
@@ -114,6 +116,24 @@ def create_app(config):
     attempts={}
     login_slots=asyncio.Semaphore(2)
     identity = config.get("oidc")
+    jira_email = config.get("jira_api_email", "")
+    if not isinstance(jira_email, str) or jira_email and not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", jira_email):
+        raise ValueError("jira_api_email must be an email address.")
+    register_jira(app, store, origin, path_prefix)
+    setup_token = config.get("owner_signup_token")
+    if setup_token is not None and (
+        not isinstance(setup_token, str) or not re.fullmatch(r"[A-Za-z0-9_-]{32,128}", setup_token)
+        or identity or config.get("password_hash")
+    ):
+        raise ValueError("Owner signup needs a random token and a standalone configuration.")
+
+    def browser_owner():
+        with store.Session() as database:
+            return database.get(BrowserOwner, 1)
+
+    def browser_username():
+        owner = browser_owner()
+        return owner.email if owner else config.get("username", "evan")
 
     def get_browser_session(database, request):
         cookie = request.cookies.get("nira_session", "")
@@ -132,7 +152,7 @@ def create_app(config):
                 database.execute(delete(LoginSession).where(LoginSession.digest == digest(former)))
             database.add(LoginSession(digest=digest(raw), csrf=csrf, expires=now + 43200))
         if response is None:
-            response = JSONResponse({"username": config.get("username", "evan"), "csrf": csrf})
+            response = JSONResponse({"username": browser_username(), "csrf": csrf})
         response.set_cookie("nira_session", raw, httponly=True, secure=config.get("secure_cookie", True),
                             samesite="strict", max_age=43200, path=path_prefix + "/")
         return response
@@ -146,10 +166,16 @@ def create_app(config):
         target = safe_destination(path_prefix, path_prefix + path + ("?" + query if query else ""))
         if identity and request.method == "GET":
             return RedirectResponse(passkey_sign_in_url(path_prefix, target), status_code=303)
-        return browse_login(path_prefix, target, bool(identity), status=401)
+        owner = browser_owner()
+        if setup_token and not owner:
+            return RedirectResponse(path_prefix + "/auth/signup", status_code=303)
+        return browse_login(path_prefix, target, bool(identity), status=401, email=bool(owner))
 
     @app.exception_handler(DomainError)
-    async def domain_error(request,exc):return JSONResponse({'error':exc.message},status_code=exc.status)
+    async def domain_error(request, exc):
+        if JIRA_PATH + "/" in request.url.path:
+            return JSONResponse({"errorMessages": [exc.message], "errors": {}}, status_code=exc.status)
+        return JSONResponse({"error": exc.message}, status_code=exc.status)
     @app.middleware('http')
     async def protect(request,call_next):
         p=request.scope['path']
@@ -166,22 +192,32 @@ def create_app(config):
                 if not isinstance(await request.json(),dict):raise ValueError()
             except (ValueError,TypeError):return JSONResponse({'error':'A JSON object is required'},status_code=400,headers=headers)
         browser_record=p.startswith(('/browse/issue/','/browse/project/'))
-        if identity and p == "/" and request.method == "GET":
+        if (identity or setup_token or not config.get("password_hash")) and p == "/" and request.method == "GET":
             with store.Session() as database:
                 if not get_browser_session(database, request):
                     response = browser_sign_in(request, p)
                     response.headers.update(headers)
                     return response
-        protected=p.startswith('/api/') and p not in ('/api/login','/api/health') or p.startswith('/mcp') or browser_record
+        jira_request = p.startswith(JIRA_PATH + '/')
+        protected=jira_request or p.startswith('/api/') and p not in ('/api/login','/api/signup','/api/health') or p.startswith('/mcp') or browser_record
         reset=None
         if protected:
             authorization=request.headers.get('authorization','')
             token=authorization[7:] if authorization.startswith('Bearer ') else None
+            if jira_request and authorization.lower().startswith("basic "):
+                try:
+                    username, candidate = base64.b64decode(authorization[6:], validate=True).decode().split(":", 1)
+                    owner = browser_owner()
+                    expected = jira_email or (owner.email if owner else "")
+                    if expected and hmac.compare_digest(username.lower().encode(), expected.lower().encode()):
+                        token = candidate
+                except (ValueError, UnicodeError):
+                    pass
             auth_scope=None;session=None
             with store.Session() as s:
                 if token and len(token)<512:
                     record=s.scalar(select(Token).where(Token.digest==digest(token),Token.revoked==0));auth_scope=record.scope if record else None
-                elif not p.startswith('/mcp'):
+                elif not jira_request and not p.startswith('/mcp'):
                     session = get_browser_session(s, request)
                     if session:auth_scope='write'
             if not auth_scope:
@@ -189,8 +225,15 @@ def create_app(config):
                     response = browser_sign_in(request, p)
                     response.headers.update(headers)
                     return response
+                if jira_request:
+                    return JSONResponse({"errorMessages": ["Authentication required."], "errors": {}},
+                                        status_code=401, headers={**headers, "WWW-Authenticate": 'Basic realm="Nira"'})
                 return JSONResponse({'error':'Sign in or provide a valid bearer token'},status_code=401,headers={**headers,'WWW-Authenticate':'Bearer realm="Nira HQ"'})
-            if request.method not in ('GET','HEAD','OPTIONS') and auth_scope!='write' and not p.startswith('/mcp'):return JSONResponse({'error':'Write access required'},status_code=403,headers=headers)
+            read_only_search = jira_request and p == JIRA_PATH + "/search/jql"
+            if request.method not in ('GET','HEAD','OPTIONS') and auth_scope!='write' and not p.startswith('/mcp') and not read_only_search:
+                if jira_request:
+                    return JSONResponse({"errorMessages": ["Write access required."], "errors": {}}, 403, headers)
+                return JSONResponse({'error':'Write access required'},status_code=403,headers=headers)
             if (p == '/api/tokens' or p.startswith('/api/tokens/')) and not session:
                 return JSONResponse({'error':'An owner browser session is required'},status_code=403,headers=headers)
             if session and request.method not in ('GET','HEAD','OPTIONS') and not hmac.compare_digest(request.headers.get('x-csrf-token',''),session.csrf):return JSONResponse({'error':'CSRF token required'},status_code=403,headers=headers)
@@ -210,13 +253,50 @@ def create_app(config):
         recent.append(now);attempts[ip]=recent;data=await request.json()
         password=data.get('password','');username=data.get('username','')
         valid=False
-        if isinstance(password,str) and len(password)<=1024 and username==config.get('username','evan'):
-            async with login_slots:valid=await asyncio.to_thread(password_matches,password,config['password_hash'])
+        owner = browser_owner()
+        expected = owner.email if owner else config.get("username", "evan")
+        encoded = owner.password_hash if owner else config.get("password_hash")
+        if owner and isinstance(username, str):
+            username = username.strip().lower()
+        if encoded and isinstance(password, str) and len(password) <= 1024 and username == expected:
+            async with login_slots:
+                valid = await asyncio.to_thread(password_matches, password, encoded)
         if not valid:return JSONResponse({'error':'Invalid username or password'},status_code=401)
         attempts.pop(ip,None)
         return issue_browser_session(request)
+    @app.post("/api/signup")
+    async def signup(request: Request):
+        if not setup_token or browser_owner():
+            raise DomainError("Owner setup is unavailable.", 404)
+        if request.headers.get("origin") not in allowed_origins:
+            raise DomainError("Origin rejected.", 403)
+        data = await request.json()
+        supplied = data.get("token")
+        if (not isinstance(supplied, str) or not supplied.isascii()
+                or not secrets.compare_digest(supplied, setup_token)):
+            raise DomainError("The setup token did not match.", 403)
+        email, password = data.get("email"), data.get("password")
+        email = email.strip().lower() if isinstance(email, str) else ""
+        if (len(email) > 254 or not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", email)
+                or not isinstance(password, str) or not 15 <= len(password) <= 128):
+            raise DomainError("Enter an email and a password of at least 15 characters.")
+        async with login_slots:
+            encoded = await asyncio.to_thread(password_hash, password)
+        try:
+            with store.tx() as database:
+                database.add(BrowserOwner(id=1, email=email, password_hash=encoded))
+        except IntegrityError:
+            raise DomainError("Owner setup is unavailable.", 409) from None
+        return issue_browser_session(request)
+
+    @app.get("/auth/signup")
+    def browser_signup():
+        if not setup_token or browser_owner():
+            raise DomainError("Owner setup is unavailable.", 404)
+        return browse_signup(path_prefix)
+
     @app.get('/api/me')
-    def me(request:Request):return {'username':config.get('username','evan'),'scope':request.state.auth_scope,'csrf':request.state.session.csrf if request.state.session else None}
+    def me(request:Request):return {'username':browser_username(),'scope':request.state.auth_scope,'csrf':request.state.session.csrf if request.state.session else None}
     @app.post('/api/logout')
     def logout(request:Request):
         if request.state.session:
@@ -316,7 +396,7 @@ def create_app(config):
     @app.get('/')
     @app.get('/{route:path}')
     def index(route:str=''):
-        if route.startswith(('api/','mcp/','assets/')):raise DomainError('Not found',404)
+        if route.startswith(('api/','mcp/','assets/','rest/api/')):raise DomainError('Not found',404)
         return frontend_page()
     return app
 

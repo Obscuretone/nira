@@ -35,22 +35,38 @@ def document(title, body, prefix, *, script=False):
 <body class="{mode}">{nav}<main>{body}</main></body></html>'''
 
 
-def browse_login(prefix, next_url, passkeys, message="", status=200):
+def browse_login(prefix, next_url, passkeys, message="", status=200, *, email=False):
     primary = ""
     if passkeys:
         sign_in = passkey_sign_in_url(prefix, next_url)
         primary = f'<a class="signin-primary" href="{escape(sign_in)}">Sign in with a passkey</a>'
-    recovery = f'''<form id="login" action="{escape(prefix)}/api/login" method="post"
+    username_label = "Email" if email else "Username"
+    username_type = "email" if email else "text"
+    recovery = f"""<form id="login" action="{escape(prefix)}/api/login" method="post"
         data-next="{escape(next_url)}">
-    <label>Username <input name="username" autocomplete="username" required></label>
+    <label>{username_label} <input type="{username_type}" name="username" autocomplete="username" required></label>
     <label>Password <input type="password" name="password" autocomplete="current-password" required></label>
-    <button type="submit" class="signin-secondary">Sign in</button><p id="error" role="alert"></p></form>'''
+    <button type="submit" class="signin-secondary">Sign in</button><p id="error" role="alert"></p></form>"""
     if passkeys:
         recovery = f'<details><summary>Use a password</summary>{recovery}</details>'
     error = f'<p class="signin-error" role="alert">{escape(message)}</p>' if message else ""
     body = f'''<span class="nira-mark" aria-hidden="true">n</span>
     <h1>Sign in to Nira HQ</h1>{error}{primary}{recovery}'''
     return HTMLResponse(document("Sign in", body, prefix, script=True), status_code=status)
+
+
+def browse_signup(prefix):
+    root = escape(prefix, quote=True)
+    body = f"""<span class="nira-mark" aria-hidden="true">n</span>
+    <h1>Create the owner account</h1>
+    <form id="login" action="{root}/api/signup" method="post" data-next="{root}/">
+      <label>Email <input name="email" type="email" maxlength="254" autocomplete="username" required></label>
+      <label>Password <input name="password" type="password" minlength="15" maxlength="128"
+        autocomplete="new-password" required></label>
+      <label>Setup token <input name="token" type="password" maxlength="128" autocomplete="off" required></label>
+      <button type="submit" class="signin-secondary">Create account</button><p id="error" role="alert"></p>
+    </form>"""
+    return HTMLResponse(document("Create the owner account", body, prefix, script=True))
 
 
 login_script = '''document.querySelector('#login').addEventListener('submit', async (event) => {
@@ -67,7 +83,10 @@ login_script = '''document.querySelector('#login').addEventListener('submit', as
       body: JSON.stringify(Object.fromEntries(new FormData(form)))
     });
     if (response.ok) window.location.assign(form.dataset.next);
-    else error.textContent = response.status === 429 ? 'Try again in 15 minutes.' : 'Sign-in failed.';
+    else {
+      const result = await response.json();
+      error.textContent = result.error || 'Sign-in failed.';
+    }
   } catch {
     error.textContent = 'Could not reach Nira. Try again.';
   } finally {
