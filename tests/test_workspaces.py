@@ -74,7 +74,7 @@ class WorkspaceTests(unittest.TestCase):
                                 json={'title': 'Agency pilot'}).json()
             direct = client.get(path)
             self.assertEqual(direct.status_code, 200)
-            self.assertIn('src="/nira/assets/workspace-app.js"', direct.text)
+            self.assertIn('src="/nira/assets/workspace-app.js?v=2"', direct.text)
             self.assertIn('content="/nira" name="nira-base"', direct.text)
             self.assertIn("script-src 'self'", direct.headers['content-security-policy'])
             self.assertEqual(client.get('/assets/workspace-app.js').status_code, 200)

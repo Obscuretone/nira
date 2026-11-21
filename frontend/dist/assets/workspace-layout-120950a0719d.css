@@ -13,6 +13,12 @@
 .project-nav button .project-dot { flex-shrink: 0; }
 .project-nav .project-shortcut { display: none; }
 .main, .page { min-width: 0; }
+.breadcrumbs a { color: inherit; text-decoration: none; }
+.breadcrumbs a:hover { text-decoration: underline; }
+.breadcrumb-project { font-weight: 680; }
+.topbar-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; min-width: 0; }
+.topbar-actions .create-issue-button, .topbar-actions .ghost { flex: none; }
+.copy-result { color: #5f526f; font-size: .8rem; }
 .record-passkey-link { text-align: center; color: #6041b7; text-underline-offset: .2em; }
 .sidebar .workspace-picker {
   display: grid;
@@ -79,6 +85,9 @@
 @media (max-width: 640px) {
   .page { padding: 20px 12px; }
   .topbar { height: auto; min-height: 58px; padding: 10px 12px; gap: 8px; flex-wrap: wrap; }
+  .topbar-actions { width: 100%; }
+  .topbar-actions .search { flex: 1 1 100%; }
+  .topbar-actions .search input { flex: 1; width: 0; min-width: 0; }
   .search { min-width: 0; max-width: 100%; }
   .search input { width: min(28vw, 110px); }
   .page-heading, .portfolio-toolbar, .issue-toolbar { flex-wrap: wrap; }

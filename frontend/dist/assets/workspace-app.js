@@ -93,10 +93,13 @@ function WorkspaceApp() {
   const [issueStatus, setIssueStatus] = React.useState("all");
   const [projectStatus, setProjectStatus] = React.useState("all");
   const [modal, setModal] = React.useState(null);
+  const [createProjectId, setCreateProjectId] = React.useState(null);
   const [issueId, setIssueId] = React.useState(null);
+  const [copyResult, setCopyResult] = React.useState(null);
   const [error, setError] = React.useState("");
   const [loadingIssues, setLoadingIssues] = React.useState(false);
   const [movingProject, setMovingProject] = React.useState(false);
+  const projectNavigation = React.useRef(null);
   const routeLoading = route !== resolvedRoute;
   const issueScope = JSON.stringify([
     workspaceKey,
@@ -112,20 +115,32 @@ function WorkspaceApp() {
     setRoute(next);
   }
 
-  function navigate(
+  function navigationPath(
     nextProject = null,
     nextView = "list",
     workspace = workspaceKey,
+    query = "",
   ) {
     const params = new URLSearchParams();
     if (!nextProject && workspace !== personalWorkspace)
       params.set("workspace", workspace);
     if (nextView !== (nextProject ? "list" : "portfolio"))
       params.set("view", nextView);
+    if (query) params.set("q", query);
     const path = nextProject
       ? `/browse/project/${encodeURIComponent(nextProject)}`
       : "/";
-    changeLocation(basePath + path + (params.size ? `?${params}` : ""));
+    return basePath + path + (params.size ? `?${params}` : "");
+  }
+
+  function navigate(...destination) {
+    changeLocation(navigationPath(...destination));
+  }
+
+  function followBreadcrumb(event) {
+    if (event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    changeLocation(event.currentTarget.getAttribute("href"));
   }
 
   function openIssue(ref) {
@@ -134,6 +149,20 @@ function WorkspaceApp() {
 
   function closeIssue() {
     navigate(projectId);
+  }
+
+  function startIssue() {
+    setCreateProjectId(projectId);
+    setModal("issue");
+  }
+
+  async function copyIssueLink() {
+    try {
+      await navigator.clipboard.writeText(location.origin + route.split("?")[0]);
+      setCopyResult({ route, message: "Link copied" });
+    } catch {
+      setCopyResult({ route, message: "Copy the URL from the address bar" });
+    }
   }
 
   async function loadWorkspaces(signal) {
@@ -236,7 +265,7 @@ function WorkspaceApp() {
         setProjectId(record ? (record.project_id ?? record.id) : null);
         setIssueId(match?.[1] === "issue" ? record.id : null);
         setView(nextView);
-        setSearch("");
+        setSearch(match?.[1] === "issue" ? "" : link.searchParams.get("q") ?? "");
         setIssueStatus("all");
       } catch (failure) {
         if (controller.signal.aborted) return;
@@ -261,6 +290,16 @@ function WorkspaceApp() {
     });
     return () => controller.abort();
   }, [session, workspaceKey, routeLoading]);
+
+  React.useEffect(() => {
+    const navigation = projectNavigation.current;
+    const current = navigation?.querySelector('[aria-current="page"]');
+    if (!current) return;
+    const frame = navigation.getBoundingClientRect();
+    const item = current.getBoundingClientRect();
+    if (item.top < frame.top) navigation.scrollTop += item.top - frame.top;
+    else if (item.bottom > frame.bottom) navigation.scrollTop += item.bottom - frame.bottom;
+  }, [projectId, projects, routeLoading]);
 
   React.useEffect(() => {
     if (!session || routeLoading || issueId) return;
@@ -469,6 +508,7 @@ function WorkspaceApp() {
                 }),
                 elements.jsx(`div`, {
                   className: `project-nav`,
+                  ref: projectNavigation,
                   children: visibleProjects.map((e, t) =>
                     elements.jsxs(
                       `button`,
@@ -558,24 +598,30 @@ function WorkspaceApp() {
                 elements.jsxs(`header`, {
                   className: `topbar`,
                   children: [
-                    elements.jsxs(`div`, {
+                    elements.jsxs(`nav`, {
                       className: `breadcrumbs`,
+                      "aria-label": "Current location",
                       children: [
-                        workspace?.name ?? "Workspace",
+                        elements.jsx("a", {
+                          href: navigationPath(null, "portfolio"),
+                          onClick: followBreadcrumb,
+                          children: workspace?.name ?? "Workspace",
+                        }),
                         elements.jsx(Icon, {
                           name: `chevron`,
                           size: 13,
                         }),
                         ` `,
-                        elements.jsx(`strong`, {
-                          children:
-                            project?.name ||
-                            (view === `portfolio`
-                              ? `Overview`
-                              : view === `board`
-                                ? `Board`
-                                : `All issues`),
-                        }),
+                        project
+                          ? elements.jsx("a", {
+                              className: "breadcrumb-project",
+                              href: navigationPath(projectId),
+                              onClick: followBreadcrumb,
+                              children: project.name,
+                            })
+                          : elements.jsx("strong", {
+                              children: { portfolio: "Overview", board: "Board", list: "All issues" }[view],
+                            }),
                         project &&
                           elements.jsx(`span`, {
                             className: `crumb-project`,
@@ -583,23 +629,45 @@ function WorkspaceApp() {
                           }),
                       ],
                     }),
-                    elements.jsxs(`label`, {
-                      className: `search`,
+                    elements.jsxs("div", {
+                      className: "topbar-actions",
                       children: [
-                        elements.jsx(Icon, {
-                          name: `search`,
-                          size: 17,
+                        elements.jsxs("form", {
+                          className: "search",
+                          role: "search",
+                          onSubmit: (event) => {
+                            event.preventDefault();
+                            if (issueId && search.trim()) navigate(null, "list", workspaceKey, search.trim());
+                          },
+                          children: [
+                            elements.jsx(Icon, { name: "search", size: 17 }),
+                            elements.jsx("input", {
+                              id: "search",
+                              type: "search",
+                              "aria-label": issueId ? "Search issues in this workspace" : "Search projects and issues",
+                              placeholder: issueId ? "Search issues…" : "Search your work…",
+                              value: search,
+                              onChange: (event) => setSearch(event.target.value),
+                            }),
+                            elements.jsx("kbd", { children: "⌘ K" }),
+                          ],
                         }),
-                        elements.jsx(`input`, {
-                          id: `search`,
-                          "aria-label": `Search projects and issues`,
-                          placeholder: `Search your work…`,
-                          value: search,
-                          onChange: (e) => setSearch(e.target.value),
-                          disabled: Boolean(issueId),
+                        elements.jsxs("button", {
+                          className: "primary create-issue-button",
+                          onClick: startIssue,
+                          disabled: routeLoading || !visibleProjects.length,
+                          children: [elements.jsx(Icon, { name: "plus" }), " Create issue"],
                         }),
-                        elements.jsx(`kbd`, {
-                          children: `⌘ K`,
+                        issueId && elements.jsxs(elements.Fragment, {
+                          children: [
+                            elements.jsx("button", {
+                              type: "button", className: "ghost", onClick: copyIssueLink,
+                              children: "Copy link",
+                            }),
+                            copyResult?.route === route && elements.jsx("span", {
+                              className: "copy-result", role: "status", children: copyResult.message,
+                            }),
+                          ],
                         }),
                       ],
                     }),
@@ -658,11 +726,9 @@ function WorkspaceApp() {
                                   }),
                                 ],
                               }),
-                              elements.jsx(`div`, {
+                              view === `portfolio` && elements.jsx(`div`, {
                                 className: `heading-actions`,
-                                children:
-                                  view === `portfolio`
-                                    ? elements.jsxs(`button`, {
+                                children: elements.jsxs(`button`, {
                                         className: `primary`,
                                         onClick: () => setModal(`project`),
                                         children: [
@@ -670,16 +736,6 @@ function WorkspaceApp() {
                                             name: `plus`,
                                           }),
                                           ` New project`,
-                                        ],
-                                      })
-                                    : elements.jsxs(`button`, {
-                                        className: `primary`,
-                                        onClick: () => setModal(`issue`),
-                                        children: [
-                                          elements.jsx(Icon, {
-                                            name: `plus`,
-                                          }),
-                                          ` Create issue`,
                                         ],
                                       }),
                               }),
@@ -1369,9 +1425,9 @@ function WorkspaceApp() {
               elements.jsx(Modal, {
                 title: `Create an issue`,
                 close: () => setModal(null),
-                children: projectId
+                children: createProjectId
                   ? elements.jsx(IssueForm, {
-                      project: projectId,
+                      project: createProjectId,
                       onCreated: async (e) => {
                         (setModal(null), await refresh(), openIssue(e.id));
                       },
@@ -1384,9 +1440,7 @@ function WorkspaceApp() {
                           elements.jsxs(`select`, {
                             autoFocus: !0,
                             defaultValue: ``,
-                            onChange: (e) => {
-                              navigate(e.target.value);
-                            },
+                            onChange: (e) => setCreateProjectId(e.target.value),
                             children: [
                               elements.jsx(`option`, {
                                 value: ``,
