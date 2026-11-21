@@ -6,7 +6,7 @@ from contextvars import ContextVar
 from html import escape
 from urllib.parse import urlsplit
 from fastapi import FastAPI,Request
-from fastapi.responses import JSONResponse,FileResponse,HTMLResponse,Response
+from fastapi.responses import JSONResponse,FileResponse,HTMLResponse,RedirectResponse,Response
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select,delete
 from mcp.server import MCPServer
@@ -14,7 +14,7 @@ from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import ToolAnnotations
 from .store import Store,DomainError,Token,LoginSession,serialize
 from .markdown import render_markdown
-from .browse import browse_login, browse_project, browse_issue, login_script
+from .browse import browse_login, browse_project, browse_issue, login_script, passkey_sign_in_url, safe_destination
 
 scope_context=ContextVar('nira_scope',default='read')
 def digest(value):return hashlib.sha256(value.encode()).hexdigest()
@@ -141,6 +141,13 @@ def create_app(config):
         from .passkeys import register_passkeys
         register_passkeys(app, identity, origin, path_prefix, issue_browser_session)
 
+    def browser_sign_in(request, path):
+        query = request.url.query
+        target = safe_destination(path_prefix, path_prefix + path + ("?" + query if query else ""))
+        if identity and request.method == "GET":
+            return RedirectResponse(passkey_sign_in_url(path_prefix, target), status_code=303)
+        return browse_login(path_prefix, target, bool(identity), status=401)
+
     @app.exception_handler(DomainError)
     async def domain_error(request,exc):return JSONResponse({'error':exc.message},status_code=exc.status)
     @app.middleware('http')
@@ -162,7 +169,7 @@ def create_app(config):
         if identity and p == "/" and request.method == "GET":
             with store.Session() as database:
                 if not get_browser_session(database, request):
-                    response = browse_login(path_prefix, path_prefix + "/", True)
+                    response = browser_sign_in(request, p)
                     response.headers.update(headers)
                     return response
         protected=p.startswith('/api/') and p not in ('/api/login','/api/health') or p.startswith('/mcp') or browser_record
@@ -179,8 +186,7 @@ def create_app(config):
                     if session:auth_scope='write'
             if not auth_scope:
                 if browser_record:
-                    target = path_prefix + p if all(c.isalnum() or c in "/-_" for c in p) else path_prefix + "/"
-                    response = browse_login(path_prefix, target, bool(identity), status=401)
+                    response = browser_sign_in(request, p)
                     response.headers.update(headers)
                     return response
                 return JSONResponse({'error':'Sign in or provide a valid bearer token'},status_code=401,headers={**headers,'WWW-Authenticate':'Bearer realm="Nira HQ"'})
@@ -267,6 +273,12 @@ def create_app(config):
             t.revoked=1
         return {'ok':True}
     app.mount('/mcp',transport)
+    @app.get('/auth/recovery')
+    def browser_recovery(next: str = ""):
+        if not identity:
+            return RedirectResponse(path_prefix + "/", status_code=303)
+        return browse_login(path_prefix, safe_destination(path_prefix, next), True)
+
     @app.get('/browse/login.js')
     def browse_login_script():return Response(login_script,media_type='text/javascript')
     @app.get('/browse/nira.css')

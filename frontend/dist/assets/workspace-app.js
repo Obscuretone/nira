@@ -560,7 +560,7 @@ function WorkspaceApp() {
                         (await request(`/logout`, {
                           method: `POST`,
                         }),
-                          window.location.assign(basePath + "/"));
+                          window.location.assign(basePath + "/auth/recovery"));
                       },
                       children: [
                         elements.jsx(Icon, {

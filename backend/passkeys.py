@@ -1,6 +1,5 @@
 """Owner sign-in with Nira's configured OpenID Connect provider."""
 
-import re
 import time
 from urllib.parse import urlsplit
 
@@ -12,20 +11,10 @@ from httpx2 import HTTPError
 from joserfc.errors import JoseError
 from starlette.middleware.sessions import SessionMiddleware
 
-from .browse import browse_login
-from .store import DomainError
+from .browse import browse_login, safe_destination
 
 
 MAX_AGE = 300
-RECORD_PATH = re.compile(r"/browse/(?:project|issue)/[A-Za-z0-9_-]{1,80}")
-
-
-def safe_destination(prefix, target):
-    if isinstance(target, str) and target.startswith(prefix):
-        path = target[len(prefix):]
-        if RECORD_PATH.fullmatch(path):
-            return target
-    return prefix + "/"
 
 
 def register_passkeys(app, config, origin, prefix, issue_session):
