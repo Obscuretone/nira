@@ -1,10 +1,26 @@
 """Private, stable links to Nira projects and issues."""
 
+import re
 from html import escape
 from urllib.parse import urlencode
 
 from fastapi.responses import HTMLResponse
 from .markdown import render_markdown
+
+
+RECORD_PATH = re.compile(r"/browse/(?:project|issue)/[A-Za-z0-9_-]{1,80}")
+
+
+def safe_destination(prefix, target):
+    if isinstance(target, str) and target.startswith(prefix):
+        path = target[len(prefix):].partition("?")[0]
+        if (path == "/" or RECORD_PATH.fullmatch(path)) and not re.search(r"[\x00-\x20\x7f#]", target):
+            return target
+    return prefix + "/"
+
+
+def passkey_sign_in_url(prefix, target):
+    return prefix + "/auth/sign-in?" + urlencode({"next": target})
 
 
 def document(title, body, prefix, *, script=False):
@@ -22,7 +38,7 @@ def document(title, body, prefix, *, script=False):
 def browse_login(prefix, next_url, passkeys, message="", status=200):
     primary = ""
     if passkeys:
-        sign_in = prefix + "/auth/sign-in?" + urlencode({"next": next_url})
+        sign_in = passkey_sign_in_url(prefix, next_url)
         primary = f'<a class="signin-primary" href="{escape(sign_in)}">Sign in with a passkey</a>'
     recovery = f'''<form id="login" action="{escape(prefix)}/api/login" method="post"
         data-next="{escape(next_url)}">
