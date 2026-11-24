@@ -1,6 +1,6 @@
 # Nira
 
-Nira is a self-hosted, single-owner project and issue tracker with a browser workspace and MCP tools. It grew out of [Nira Legacy](https://github.com/Obscuretone/nira-legacy), the standalone CLI experiment. The app shell is editable in `frontend/dist/assets/workspace-app.js` and uses the components from the recovered frontend bundle.
+Nira is a self-hosted, single-owner project and issue tracker with a browser workspace and MCP tools. It grew out of [Nira Legacy](https://github.com/Obscuretone/nira-legacy), the standalone CLI experiment. The browser source lives in `frontend/`. The workspace shell uses the recovered React components in `frontend/components.jsx`.
 
 ![Nira issue view with a project sidebar, release checklist, and issue controls](docs/images/issue-workspace.png)
 
@@ -19,6 +19,16 @@ NIRA_CONFIG=.private/local-config.json python scripts/preview.py
 ```
 
 Open http://localhost:8865. Local credentials are generated under `.private/`.
+
+## Rebuild the browser workspace
+
+Use Node.js 22.12 or later in the 22.x series, or a supported newer Node.js release. The backend serves the build from `frontend/dist/`.
+
+```sh
+cd frontend
+npm ci --ignore-scripts
+npm run build
+```
 
 ## Run the tests
 
