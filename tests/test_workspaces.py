@@ -1,3 +1,4 @@
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -74,10 +75,14 @@ class WorkspaceTests(unittest.TestCase):
                                 json={'title': 'Agency pilot'}).json()
             direct = client.get(path)
             self.assertEqual(direct.status_code, 200)
-            self.assertRegex(direct.text, r'src="/nira/assets/workspace-app\.js\?v=\d+"')
+            script = re.search(r'<script\b[^>]*\bsrc="/nira(/assets/[^"?\s]+\.js(?:\?[^"\s]*)?)"',
+                               direct.text)
+            self.assertIsNotNone(script, 'The workspace must load a script under the configured prefix')
             self.assertIn('content="/nira" name="nira-base"', direct.text)
             self.assertIn("script-src 'self'", direct.headers['content-security-policy'])
-            self.assertEqual(client.get('/assets/workspace-app.js').status_code, 200)
+            bundle = client.get(script.group(1))
+            self.assertEqual(bundle.status_code, 200)
+            self.assertIn('javascript', bundle.headers['content-type'])
             self.assertEqual(client.get('/api/issues/FIELD-1').json()['workspace_key'], 'agency')
             self.assertEqual(client.get(f'/browse/issue/{issue["id"]}').status_code, 200)
             self.assertEqual(client.get('/browse/issue/FIELD-999').status_code, 404)
