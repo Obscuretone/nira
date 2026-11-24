@@ -8,6 +8,8 @@ The screenshot shows a direct issue link in a local demo with fictional data. Se
 
 ## Run locally
 
+The checkout includes a ready-to-serve browser build.
+
 Install the locked requirements, create a private local configuration, then run the preview:
 
 ```sh
@@ -29,6 +31,8 @@ cd frontend
 npm ci --ignore-scripts
 npm run build
 ```
+
+When changing browser source, commit the regenerated `frontend/dist/` files with it.
 
 ## Run the tests
 
